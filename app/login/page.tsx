@@ -51,4 +51,12 @@ export default function LoginPage() {
         {notice && <p className="text-sm text-green-600">{notice}</p>}
         <button
           type="submit"
-
+          disabled={busy}
+          className="w-full rounded border px-3 py-2 disabled:opacity-50"
+        >
+          {busy ? 'Sending...' : 'Send magic link'}
+        </button>
+      </form>
+    </div>
+  );
+}
