@@ -68,9 +68,7 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-4 text-xs text-neutral-500">
-                Test users:
-                <div>client@test.local / qwerty123</div>
-                <div>provider@test.local / qwerty123</div>
+              
             </div>
 
             <div className="mt-4">
