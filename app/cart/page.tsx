@@ -1,4 +1,4 @@
-﻿import { supabase } from '@/lib/supabaseClient';
+﻿import { supabase } from "@/lib/supabaseClient";
 
 type DbCartRow = {
   id: number;
@@ -20,13 +20,13 @@ type CartRow = {
 
 export default async function CartPage() {
   const { data, error } = await supabase
-    .from('cart_items')
-    .select(\
+    .from("cart_items")
+    .select(`
       id, vendor_id, peptide_id, quantity_vials,
       vendors ( name ),
       peptides ( canonical_name )
-    \)
-    .order('id');
+    `)
+    .order("id");
 
   if (error) {
     console.error(error);
@@ -39,8 +39,9 @@ export default async function CartPage() {
     vendor_id: r.vendor_id,
     peptide_id: r.peptide_id,
     quantity_vials: r.quantity_vials,
-    vendor_name: r.vendors?.[0]?.name ?? '',
-    peptide_name: r.peptides?.[0]?.can
+    vendor_name: r.vendors?.[0]?.name ?? "",
+    peptide_name: r.peptides?.[0]?.canonical_name ?? "",
+ 
 
 
 
@@ -52,16 +53,16 @@ export default async function CartPage() {
 
 
 
-onical_name ?? '',
-  }));
+
+ }));
 
   return (
-    <div>
-      <h1>Cart</h1>
-      <ul>
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-4">Cart</h1>
+      <ul className="space-y-2">
         {base.map((line) => (
-          <li key={line.id}>
-            {line.vendor_name} - {line.peptide_name} - Qty: {line.quantity_vials}
+          <li key={line.id} className="text-sm">
+            {line.vendor_name} — {line.peptide_name} — Qty: {line.quantity_vials}
           </li>
         ))}
       </ul>
