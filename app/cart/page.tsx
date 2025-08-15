@@ -1,4 +1,5 @@
 ﻿"use client";
+export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
@@ -52,6 +53,7 @@ export default function CartPage() {
 
 
 
+
        setRows([]);
       } else {
         const base: CartRow[] = (data ?? []).map((r: DbCartRow) => ({
@@ -69,7 +71,7 @@ export default function CartPage() {
   }, []);
 
   if (loading) return <div className="p-6">Loading cart…</div>;
-  i
+ 
 
 
 
@@ -86,7 +88,7 @@ export default function CartPage() {
 
 
 
-f (errorMsg) return <div className="p-6 text-red-600">{errorMsg}</div>;
+ if (errorMsg) return <div className="p-6 text-red-600">{errorMsg}</div>;
 
   return (
     <div className="p-6">
@@ -97,7 +99,7 @@ f (errorMsg) return <div className="p-6 text-red-600">{errorMsg}</div>;
         <ul className="space-y-2">
           {rows.map((line) => (
             <li key={line.id} className="text-sm">
-          
+ 
 
 
 
@@ -108,7 +110,7 @@ f (errorMsg) return <div className="p-6 text-red-600">{errorMsg}</div>;
 
 
 
-    {line.vendor_name} — {line.peptide_name} — Qty: {line.quantity_vials}
+             {line.vendor_name} — {line.peptide_name} — Qty: {line.quantity_vials}
             </li>
           ))}
         </ul>
