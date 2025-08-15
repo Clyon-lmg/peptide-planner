@@ -24,8 +24,8 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-      },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+      }
     });
 
     setBusy(false);
@@ -51,3 +51,4 @@ export default function LoginPage() {
         {notice && <p className="text-sm text-green-600">{notice}</p>}
         <button
           type="submit"
+
