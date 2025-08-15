@@ -23,7 +23,9 @@ export default function LoginPage() {
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      },
     });
 
     setBusy(false);
@@ -49,12 +51,3 @@ export default function LoginPage() {
         {notice && <p className="text-sm text-green-600">{notice}</p>}
         <button
           type="submit"
-          disabled={busy}
-          className="rounded border px-3 py-2"
-        >
-          {busy ? 'Sending…' : 'Send magic link'}
-        </button>
-      </form>
-    </div>
-  );
-}
