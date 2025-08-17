@@ -1,6 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root { color-scheme: light dark; }
-body { @apply bg-white text-gray-900 dark:bg-neutral-900 dark:text-neutral-100; }
+:root { --bg:255 255 255; --fg:15 23 42; --card:255 255 255; --border:226 232 240; --ring:99 102 241; --muted:100 116 139; }
+.dark :root { --bg:3 7 18; --fg:226 232 240; --card:15 23 42; --border:51 65 85; --ring:129 140 248; --muted:148 163 184; }
+
+body { background-color: rgb(var(--bg)); color: rgb(var(--fg)); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+a { color: rgb(var(--ring)); }
+
+.pp-card { @apply bg-white dark:bg-slate-900 border rounded-2xl p-4 shadow-sm border-slate-200 dark:border-slate-700; }
+.pp-h1 { @apply text-2xl font-bold; }
+.pp-h2 { @apply text-lg font-semibold; }
+.pp-subtle { @apply text-sm text-slate-500 dark:text-slate-400; }
+.input { @apply w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900; }
+.btn { @apply rounded-xl border px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800; }
+.grid-cards { @apply grid gap-4 md:grid-cols-2 xl:grid-cols-3; }

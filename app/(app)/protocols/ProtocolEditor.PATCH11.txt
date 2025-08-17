@@ -1,0 +1,2 @@
+// NOTE: Make sure your ProtocolEditor.tsx still imports from "@/lib/protocolEngine".
+// The engine now uses the auth-helpers client internally so all mutations carry the JWT.

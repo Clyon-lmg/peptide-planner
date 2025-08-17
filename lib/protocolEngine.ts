@@ -1,0 +1,106 @@
+
+"use client";
+
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+
+export type Schedule = "EVERYDAY" | "WEEKDAYS" | "CUSTOM";
+
+type ProtocolItem = {
+  id: number;
+  protocol_id: number;
+  peptide_id: number;
+  dose_mg_per_administration: number;
+  schedule: Schedule;
+  custom_days: number[] | null;
+  cycle_on_weeks: number;
+  cycle_off_weeks: number;
+};
+
+function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+const DAY_MS = 24 * 60 * 60 * 1000;
+function addDays(d: Date, n: number) { return new Date(d.getTime() + n * DAY_MS); }
+function isWeekend(d: Date) { const x = d.getDay(); return x===0 || x===6; }
+function* dateRangeDays(start: Date, days: number) { for (let i=0;i<days;i++) yield addDays(start,i); }
+function isCustomDay(d: Date, custom: number[]) { return custom.includes(d.getDay()); }
+
+export async function onProtocolUpdated(protocolId: number, _userId: string) {
+  const supabase = createClientComponentClient();
+  const todayStr = localDateStr();
+  const { error: delErr } = await supabase
+    .from("doses")
+    .delete()
+    .gte("date_for", todayStr) // include today
+    .eq("protocol_id", protocolId);
+  if (delErr) throw delErr;
+}
+
+export async function setActiveProtocolAndRegenerate(protocolId: number, _userId: string) {
+  const supabase = createClientComponentClient();
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess?.session?.user?.id;
+  if (!uid) throw new Error("No session");
+
+  // Deactivate others; activate this protocol
+  let r = await supabase.from("protocols").update({ is_active: false }).neq("id", protocolId); if (r.error) throw r.error;
+  r = await supabase.from("protocols").update({ is_active: true }).eq("id", protocolId); if (r.error) throw r.error;
+
+  // Fetch items
+  const itemsRes = await supabase
+    .from("protocol_items")
+    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks")
+    .eq("protocol_id", protocolId);
+  if (itemsRes.error) throw itemsRes.error;
+  const items = itemsRes.data || [];
+
+  // Clear ALL user future doses including today
+  const todayStr = localDateStr();
+  const del = await supabase.from("doses").delete().gte("date_for", todayStr).eq("user_id", uid);
+  if (del.error) throw del.error;
+
+  // Generate 12 months
+  const start = new Date();
+  const days = 365;
+  const inserts: any[] = [];
+
+  items.forEach((it: any) => {
+    const onWeeks = Number(it.cycle_on_weeks || 0);
+    const offWeeks = Number(it.cycle_off_weeks || 0);
+    const cycleLenDays = (onWeeks + offWeeks) * 7;
+    let idx = 0;
+    for (const d of dateRangeDays(start, days)) {
+      if (cycleLenDays > 0) {
+        const inOn = idx % cycleLenDays < onWeeks * 7;
+        if (!inOn) { idx++; continue; }
+      }
+      if (it.schedule === "WEEKDAYS" && isWeekend(d)) { idx++; continue; }
+      if (it.schedule === "CUSTOM") {
+        const arr = (it.custom_days || []) as number[];
+        if (!isCustomDay(d, arr)) { idx++; continue; }
+      }
+      const ds = localDateStr(d);
+      inserts.push({
+        protocol_id: protocolId,
+        peptide_id: it.peptide_id,
+        dose_mg: it.dose_mg_per_administration,
+        date: ds,
+        date_for: ds,
+        status: "PENDING",
+        user_id: null, // trigger will set auth.uid()
+      });
+      idx++;
+    }
+  });
+
+  for (let i=0;i<inserts.length;i+=1000) {
+    const chunk = inserts.slice(i, i+1000);
+    const ins = await supabase.from("doses").insert(chunk);
+    if (ins.error) throw ins.error;
+  }
+
+  return true;
+}
