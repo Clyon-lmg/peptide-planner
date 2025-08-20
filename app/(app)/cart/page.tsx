@@ -180,6 +180,24 @@ export default async function CartPage() {
     return an.localeCompare(bn);
   });
 
+  // ---- Inline server action wrappers (discard return values) ----
+  // These satisfy Next's type requirement: (fd) => void | Promise<void>
+  const updateQty = async (formData: FormData) => {
+    "use server";
+    await updateCartQtyAction(formData);
+  };
+
+  const deleteLine = async (formData: FormData) => {
+    "use server";
+    await deleteCartLineAction(formData);
+  };
+
+  const saveCoupon = async (formData: FormData) => {
+    "use server";
+    await setCartVendorCouponAction(formData);
+  };
+  // ---------------------------------------------------------------
+
   return (
     <div className="mx-auto max-w-5xl p-6 space-y-8">
       <header className="flex items-center justify-between">
@@ -247,7 +265,7 @@ export default async function CartPage() {
                     </div>
                     <div className="text-sm">${l.price.toFixed(2)}/unit</div>
 
-                    <form action={updateCartQtyAction} className="flex items-center gap-2">
+                    <form action={updateQty} className="flex items-center gap-2">
                       <input type="hidden" name="id" value={l.id} />
                       <input type="hidden" name="kind" value={l.kind} />
                       <label className="text-xs">
@@ -271,7 +289,7 @@ export default async function CartPage() {
 
                     <div className="text-sm">${l.lineTotal.toFixed(2)}</div>
 
-                    <form action={deleteCartLineAction}>
+                    <form action={deleteLine}>
                       <input type="hidden" name="id" value={l.id} />
                       <button
                         type="submit"
@@ -287,7 +305,7 @@ export default async function CartPage() {
 
               {/* Coupon selection + totals */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                <form action={setCartVendorCouponAction} className="flex items-center gap-3">
+                <form action={saveCoupon} className="flex items-center gap-3">
                   <input type="hidden" name="vendor_id" value={vid} />
                   <label className="text-sm">
                     Coupon
