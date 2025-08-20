@@ -6,8 +6,9 @@ import { Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
+// Ensure this route is not prerendered and never cached.
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = false;
 
 function CallbackInner() {
   const supabase = createClientComponentClient();
@@ -19,28 +20,26 @@ function CallbackInner() {
 
     async function run() {
       try {
-        // Supabase sends `code` for PKCE / email link, older flows may use `token_hash`
-        const code =
-          searchParams.get("code") ??
-          searchParams.get("token_hash") ??
-          "";
-
-        // Some providers append an error; handle gracefully
+        // Handle possible error from provider
         const err = searchParams.get("error") ?? searchParams.get("error_description");
         if (err) {
-          // Nothing else to do; bounce to sign-in with error message
           const msg = encodeURIComponent(err);
           if (mounted) router.replace(`/sign-in?error=${msg}`);
           return;
         }
 
+        // Supabase PKCE/email link param names differ by version/provider
+        const code =
+          searchParams.get("code") ??
+          searchParams.get("token_hash") ??
+          "";
+
         if (code) {
-          // Your installed version expects ONE argument; pass the code explicitly.
-          // Cast to any to be compatible across helper/auth-js minor version diffs.
+          // Your installed helpers expect ONE argument; pass the code explicitly.
           await (supabase.auth as any).exchangeCodeForSession(code);
         }
       } catch {
-        // ignore; we'll proceed to redirect regardless
+        // ignore – we'll redirect regardless
       } finally {
         if (mounted) {
           const next = searchParams.get("next");
@@ -60,9 +59,7 @@ function CallbackInner() {
     <div className="mx-auto max-w-md p-6">
       <div className="rounded-xl border p-6 space-y-3">
         <h1 className="text-2xl font-semibold">Signing you in…</h1>
-        <p className="text-sm text-gray-600">
-          Please wait while we complete authentication.
-        </p>
+        <p className="text-sm text-gray-600">Please wait while we complete authentication.</p>
       </div>
     </div>
   );
