@@ -6,9 +6,8 @@ import { Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-// Ensure this route is not prerendered and never cached.
+// Keep this route fully dynamic (no prerender/caching)
 export const dynamic = "force-dynamic";
-export const revalidate = false;
 
 function CallbackInner() {
   const supabase = createClientComponentClient();
@@ -20,7 +19,7 @@ function CallbackInner() {
 
     async function run() {
       try {
-        // Handle possible error from provider
+        // Handle auth provider errors in the URL gracefully
         const err = searchParams.get("error") ?? searchParams.get("error_description");
         if (err) {
           const msg = encodeURIComponent(err);
@@ -28,18 +27,18 @@ function CallbackInner() {
           return;
         }
 
-        // Supabase PKCE/email link param names differ by version/provider
+        // Supabase email link / PKCE: "code" (older variants: "token_hash")
         const code =
           searchParams.get("code") ??
           searchParams.get("token_hash") ??
           "";
 
         if (code) {
-          // Your installed helpers expect ONE argument; pass the code explicitly.
+          // Your helpers expect one argument in this project version.
           await (supabase.auth as any).exchangeCodeForSession(code);
         }
       } catch {
-        // ignore – we'll redirect regardless
+        // ignore; we'll redirect either way
       } finally {
         if (mounted) {
           const next = searchParams.get("next");
@@ -66,7 +65,7 @@ function CallbackInner() {
 }
 
 export default function CallbackPage() {
-  // Wrap useSearchParams() in Suspense per Next.js guidance
+  // Next.js requires Suspense around useSearchParams in client pages
   return (
     <Suspense
       fallback={
