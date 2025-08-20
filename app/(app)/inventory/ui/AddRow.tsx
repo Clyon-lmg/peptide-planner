@@ -1,172 +1,127 @@
-﻿'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { mutate as swrMutate } from 'swr';
+﻿// app/(app)/inventory/ui/AddRow.tsx
 import {
-  addInventoryVial,
-  addInventoryCapsule,
-  addInventoryCustom,
-  getKnownPeptides,
-  getKnownCapsules,
-} from '../actions';
+  getKnownListsFiltered,
+  addPeptideByIdAction,
+  addCapsuleByIdAction,
+  addCustomAction,
+} from "../actions";
 
-type Option = { peptide_id: number; canonical_name: string };
+/**
+ * Server component rendering the "Add Peptide / Add Capsule / Add Custom" row.
+ * - Uses inline server action wrappers that return Promise<void> for strict TS.
+ * - Peptide/Capsule dropdowns are filtered to the correct known lists.
+ * - "Add Custom" includes radio choice (peptide or capsule).
+ */
+export default async function AddRow() {
+  const { peptidesForVials, peptidesForCapsules } = await getKnownListsFiltered();
 
-export function AddRow() {
-  const router = useRouter();
+  // ---- Inline server action wrappers (must return Promise<void>) ----
+  const addPeptide = async (formData: FormData) => {
+    "use server";
+    await addPeptideByIdAction(formData);
+  };
 
-  const [peptides, setPeptides] = useState<Option[]>([]);
-  const [capsules, setCapsules] = useState<Option[]>([]);
+  const addCapsule = async (formData: FormData) => {
+    "use server";
+    await addCapsuleByIdAction(formData);
+  };
 
-  const [selPep, setSelPep] = useState<number | ''>('');
-  const [selCap, setSelCap] = useState<number | ''>('');
-
-  const [customName, setCustomName] = useState('');
-  const [customKind, setCustomKind] = useState<'vial' | 'capsule'>('vial');
-
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const [p, c] = await Promise.all([getKnownPeptides(), getKnownCapsules()]);
-        if (!active) return;
-        setPeptides(p ?? []);
-        setCapsules(c ?? []);
-      } catch {
-        // ignore load errors (empty dropdowns)
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function refreshLists() {
-    // Revalidate SWR cache without a full page refresh
-    await swrMutate('/inventory/all');
-    // Optional: router.refresh() helps if any RSC parts rely on cache tags
-    router.refresh();
-  }
+  const addCustom = async (formData: FormData) => {
+    "use server";
+    await addCustomAction(formData);
+  };
+  // -------------------------------------------------------------------
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* Add Peptide */}
-      <div className="rounded-2xl border p-4 bg-card shadow-sm">
-        <div className="font-medium mb-2">Add Peptide</div>
-        <select
-          className="w-full border rounded-lg p-2"
-          value={selPep}
-          onChange={(e) => setSelPep(e.target.value ? Number(e.target.value) : '')}
-        >
-          <option value="">Select a known peptide…</option>
-          {peptides.map((p) => (
-            <option key={p.peptide_id} value={p.peptide_id}>
-              {p.canonical_name}
+    <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Add Peptide (filtered to vial-capable items) */}
+      <div className="rounded-xl border p-4">
+        <h2 className="font-medium mb-3">Add Peptide</h2>
+        <form action={addPeptide} className="grid grid-cols-[1fr_auto] gap-3">
+          <select
+            name="peptide_id"
+            className="rounded border px-2 py-2 w-full max-w-full"
+            defaultValue=""
+            required
+          >
+            <option value="" disabled>
+              Select peptide…
             </option>
-          ))}
-        </select>
-        <button
-          className="mt-3 w-full rounded-lg border px-3 py-2 hover:bg-accent"
-          disabled={!selPep || loading}
-          onClick={async () => {
-            if (!selPep) return;
-            setLoading(true);
-            try {
-              await addInventoryVial(Number(selPep));
-              setSelPep('');
-              await refreshLists();
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          Add
-        </button>
+            {peptidesForVials.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.canonical_name}
+              </option>
+            ))}
+          </select>
+          <button
+            className="rounded-lg px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+            type="submit"
+          >
+            Add
+          </button>
+        </form>
       </div>
 
-      {/* Add Capsule */}
-      <div className="rounded-2xl border p-4 bg-card shadow-sm">
-        <div className="font-medium mb-2">Add Capsule</div>
-        <select
-          className="w-full border rounded-lg p-2"
-          value={selCap}
-          onChange={(e) => setSelCap(e.target.value ? Number(e.target.value) : '')}
-        >
-          <option value="">Select a known capsule…</option>
-          {capsules.map((c) => (
-            <option key={c.peptide_id} value={c.peptide_id}>
-              {c.canonical_name}
+      {/* Add Capsule (filtered to capsule-capable items) */}
+      <div className="rounded-xl border p-4">
+        <h2 className="font-medium mb-3">Add Capsule</h2>
+        <form action={addCapsule} className="grid grid-cols-[1fr_auto] gap-3">
+          <select
+            name="peptide_id"
+            className="rounded border px-2 py-2 w-full max-w-full"
+            defaultValue=""
+            required
+          >
+            <option value="" disabled>
+              Select capsule…
             </option>
-          ))}
-        </select>
-        <button
-          className="mt-3 w-full rounded-lg border px-3 py-2 hover:bg-accent"
-          disabled={!selCap || loading}
-          onClick={async () => {
-            if (!selCap) return;
-            setLoading(true);
-            try {
-              await addInventoryCapsule(Number(selCap));
-              setSelCap('');
-              await refreshLists();
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          Add
-        </button>
+            {peptidesForCapsules.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.canonical_name}
+              </option>
+            ))}
+          </select>
+          <button
+            className="rounded-lg px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+            type="submit"
+          >
+            Add
+          </button>
+        </form>
       </div>
 
-      {/* Add Custom */}
-      <div className="rounded-2xl border p-4 bg-card shadow-sm">
-        <div className="font-medium mb-2">Add Custom</div>
-        <input
-          className="w-full border rounded-lg p-2"
-          placeholder="Display name"
-          value={customName}
-          onChange={(e) => setCustomName(e.target.value)}
-        />
-        <div className="mt-2 flex gap-4">
-          <label className="flex items-center gap-2 text-sm">
+      {/* Add Custom (radio: peptide or capsule) */}
+      <div className="rounded-xl border p-4">
+        <h2 className="font-medium mb-3">Add Custom</h2>
+        <form action={addCustom} className="space-y-3">
+          <label className="block text-sm">
+            Name
             <input
-              type="radio"
-              name="kind"
-              checked={customKind === 'vial'}
-              onChange={() => setCustomKind('vial')}
+              name="name"
+              type="text"
+              placeholder="e.g., BPC-157"
+              className="mt-1 w-full rounded border px-2 py-2"
+              required
             />
-            Peptide (vial)
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="kind"
-              checked={customKind === 'capsule'}
-              onChange={() => setCustomKind('capsule')}
-            />
-            Capsule
-          </label>
-        </div>
-        <button
-          className="mt-3 w-full rounded-lg border px-3 py-2 hover:bg-accent"
-          disabled={!customName.trim() || loading}
-          onClick={async () => {
-            setLoading(true);
-            try {
-              await addInventoryCustom(customName.trim(), customKind);
-              setCustomName('');
-              await refreshLists();
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          Add
-        </button>
+          <div className="flex items-center gap-4 text-sm">
+            <label className="inline-flex items-center gap-2">
+              <input type="radio" name="kind" value="peptide" defaultChecked />
+              Peptide (vial)
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input type="radio" name="kind" value="capsule" />
+              Capsule
+            </label>
+          </div>
+          <button
+            className="rounded-lg px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+            type="submit"
+          >
+            Add
+          </button>
+        </form>
       </div>
-    </div>
+    </section>
   );
 }
