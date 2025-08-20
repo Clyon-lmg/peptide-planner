@@ -1,4 +1,4 @@
-// app/auth/callback/page.tsx
+ï»¿// app/auth/callback/page.tsx
 "use client";
 
 import * as React from "react";
@@ -42,7 +42,7 @@ function CallbackInner() {
   return (
     <div className="mx-auto max-w-md p-6">
       <div className="rounded-xl border p-6 space-y-3">
-        <h1 className="text-2xl font-semibold">Signing you in…</h1>
+        <h1 className="text-2xl font-semibold">Signing you inâ€¦</h1>
         <p className="text-sm text-gray-600">
           Please wait while we complete authentication.
         </p>
@@ -52,13 +52,13 @@ function CallbackInner() {
 }
 
 export default function CallbackPage() {
-  // Wrap `useSearchParams()` usage with Suspense to satisfy Next’s requirement
+  // Wrap `useSearchParams()` usage with Suspense to satisfy Nextâ€™s requirement
   return (
     <Suspense
       fallback={
         <div className="mx-auto max-w-md p-6">
           <div className="rounded-xl border p-6 space-y-3">
-            <h1 className="text-2xl font-semibold">Loading…</h1>
+            <h1 className="text-2xl font-semibold">Loadingâ€¦</h1>
             <p className="text-sm text-gray-600">
               Preparing authentication callback.
             </p>
