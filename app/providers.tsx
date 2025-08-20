@@ -1,16 +1,25 @@
-﻿"use client";
+﻿// app/providers.tsx
+"use client";
 
 import * as React from "react";
-import { ThemeProvider } from "next-themes";
-import { Toaster } from "sonner"; // using sonner directly
-// If you’re using shadcn/ui toaster instead, swap to:
-// import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "sonner";
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+/**
+ * Global app providers without next-themes.
+ * If you later want dark/light theming, either:
+ *   1) install next-themes:  npm i next-themes @types/next-themes
+ *   2) or roll your own ThemeContext here.
+ */
+type ProvidersProps = {
+  children: React.ReactNode;
+};
+
+export default function Providers({ children }: ProvidersProps) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <>
       {children}
-      <Toaster richColors closeButton />
-    </ThemeProvider>
+      {/* Global toast portal */}
+      <Toaster richColors position="top-right" />
+    </>
   );
 }
