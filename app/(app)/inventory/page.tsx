@@ -54,8 +54,39 @@ export default async function InventoryPage() {
     await Promise.all([getKnownListsFiltered(), getVialInventory(), getCapsInventory()]);
 
   // offers per item (top 3 each)
-  const vialOfferMap = await getOffersForVials(vialRows.map((r) => r.peptide_id));
-  const capsOfferMap = await getOffersForCaps(capsRows.map((r) => r.peptide_id));
+  const vialOfferMap = await getOffersForVials(vialRows.map((r: VialRow) => r.peptide_id));
+  const capsOfferMap = await getOffersForCaps(capsRows.map((r: CapsRow) => r.peptide_id));
+
+  // ---- Inline server action wrappers (must return Promise<void>) ----
+  const addPeptide = async (formData: FormData) => {
+    "use server";
+    await addPeptideByIdAction(formData);
+  };
+  const addCapsule = async (formData: FormData) => {
+    "use server";
+    await addCapsuleByIdAction(formData);
+  };
+  const addCustom = async (formData: FormData) => {
+    "use server";
+    await addCustomAction(formData);
+  };
+  const updateVialItem = async (formData: FormData) => {
+    "use server";
+    await updateVialItemAction(formData);
+  };
+  const updateCapsuleItem = async (formData: FormData) => {
+    "use server";
+    await updateCapsuleItemAction(formData);
+  };
+  const deleteVialItem = async (formData: FormData) => {
+    "use server";
+    await deleteVialItemAction(formData);
+  };
+  const deleteCapsuleItem = async (formData: FormData) => {
+    "use server";
+    await deleteCapsuleItemAction(formData);
+  };
+  // -------------------------------------------------------------------
 
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-8">
@@ -71,10 +102,7 @@ export default async function InventoryPage() {
         {/* Add Peptide (filtered to vial-capable items) */}
         <div className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Add Peptide</h2>
-          <form
-            action={addPeptideByIdAction}
-            className="grid grid-cols-[1fr_auto] gap-3"
-          >
+          <form action={addPeptide} className="grid grid-cols-[1fr_auto] gap-3">
             <select
               name="peptide_id"
               className="rounded border px-2 py-2 w-full max-w-full"
@@ -102,10 +130,7 @@ export default async function InventoryPage() {
         {/* Add Capsule (filtered to capsule-capable items) */}
         <div className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Add Capsule</h2>
-          <form
-            action={addCapsuleByIdAction}
-            className="grid grid-cols-[1fr_auto] gap-3"
-          >
+          <form action={addCapsule} className="grid grid-cols-[1fr_auto] gap-3">
             <select
               name="peptide_id"
               className="rounded border px-2 py-2 w-full max-w-full"
@@ -133,7 +158,7 @@ export default async function InventoryPage() {
         {/* Add Custom (radio: peptide or capsule) */}
         <div className="rounded-xl border p-4">
           <h2 className="font-medium mb-3">Add Custom</h2>
-          <form action={addCustomAction} className="space-y-3">
+          <form action={addCustom} className="space-y-3">
             <label className="block text-sm">
               Name
               <input
@@ -171,13 +196,13 @@ export default async function InventoryPage() {
           <p className="text-sm text-muted-foreground">No peptides yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {vialRows.map((row) => {
+            {vialRows.map((row: VialRow) => {
               const offers = (vialOfferMap.get(row.peptide_id) ?? []) as OfferVial[];
               return (
                 <div key={row.id} className="rounded-xl border p-4 space-y-3">
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold">{row.name}</h3>
-                    <form action={deleteVialItemAction}>
+                    <form action={deleteVialItem}>
                       <input type="hidden" name="id" value={row.id} />
                       <button
                         className="text-xs rounded px-2 py-1 bg-red-600 hover:bg-red-700 text-white"
@@ -190,7 +215,7 @@ export default async function InventoryPage() {
                   </div>
 
                   {/* Editable fields */}
-                  <form action={updateVialItemAction} className="grid grid-cols-3 gap-2">
+                  <form action={updateVialItem} className="grid grid-cols-3 gap-2">
                     <input type="hidden" name="id" value={row.id} />
                     <label className="text-sm">
                       Vials
@@ -240,10 +265,7 @@ export default async function InventoryPage() {
                       <div className="text-sm font-medium mb-1">Offers</div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {offers.map((o) => (
-                          <div
-                            key={o.id}
-                            className="rounded-md border p-2 text-xs space-y-1"
-                          >
+                          <div key={o.id} className="rounded-md border p-2 text-xs space-y-1">
                             <div className="font-semibold truncate">{o.vendor_name}</div>
                             <div>Price: ${o.price.toFixed(2)}</div>
                             <div>mL per vial: {o.bac_ml ?? "—"}</div>
@@ -279,13 +301,13 @@ export default async function InventoryPage() {
           <p className="text-sm text-muted-foreground">No capsules yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {capsRows.map((row) => {
+            {capsRows.map((row: CapsRow) => {
               const offers = (capsOfferMap.get(row.peptide_id) ?? []) as OfferCaps[];
               return (
                 <div key={row.id} className="rounded-xl border p-4 space-y-3">
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold">{row.name}</h3>
-                    <form action={deleteCapsuleItemAction}>
+                    <form action={deleteCapsuleItem}>
                       <input type="hidden" name="id" value={row.id} />
                       <button
                         className="text-xs rounded px-2 py-1 bg-red-600 hover:bg-red-700 text-white"
@@ -298,7 +320,7 @@ export default async function InventoryPage() {
                   </div>
 
                   {/* Editable fields */}
-                  <form action={updateCapsuleItemAction} className="grid grid-cols-3 gap-2">
+                  <form action={updateCapsuleItem} className="grid grid-cols-3 gap-2">
                     <input type="hidden" name="id" value={row.id} />
                     <label className="text-sm">
                       Bottles
@@ -347,10 +369,7 @@ export default async function InventoryPage() {
                       <div className="text-sm font-medium mb-1">Offers</div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {offers.map((o) => (
-                          <div
-                            key={o.id}
-                            className="rounded-md border p-2 text-xs space-y-1"
-                          >
+                          <div key={o.id} className="rounded-md border p-2 text-xs space-y-1">
                             <div className="font-semibold truncate">{o.vendor_name}</div>
                             <div>Price: ${o.price.toFixed(2)}</div>
                             <div>mg / cap: {o.mg_per_cap ?? "—"}</div>
