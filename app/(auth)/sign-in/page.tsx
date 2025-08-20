@@ -1,156 +1,80 @@
 ﻿// app/(auth)/sign-in/page.tsx
-"use client";
+import { cookies } from "next/headers";
+import Link from "next/link";
+import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
 
-import * as React from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+export const dynamic = "force-dynamic"; // avoid static pre-render
+export const revalidate = 0;
 
-export default function SignInPage() {
-  const supabase = createClientComponentClient();
-  const router = useRouter();
-  const params = useSearchParams();
-  const redirectTo = params.get("redirect") || "/today";
-  const errorParam = params.get("error");
+type PageProps = {
+  searchParams?: { [key: string]: string | string[] | undefined };
+};
 
-  const [email, setEmail] = React.useState("");
-  const [sending, setSending] = React.useState(false);
-  const [sentTo, setSentTo] = React.useState<string | null>(null);
-  const [clientError, setClientError] = React.useState<string | null>(null);
-  const [cooldownSec, setCooldownSec] = React.useState(0);
+export default function SignInPage({ searchParams }: PageProps) {
+  // Inline server action must return Promise<void>
+  const sendMagicLink = async (formData: FormData) => {
+    "use server";
+    const email = String(formData.get("email") || "").trim();
+    if (!email) return;
 
-  // If we were redirected with an error (e.g., rate limit earlier), show it.
-  React.useEffect(() => {
-    if (errorParam) {
-      setClientError(decodeURIComponent(errorParam));
-    }
-  }, [errorParam]);
+    const supabase = createServerActionClient({ cookies });
+    const redirectBase =
+      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const emailRedirectTo = `${redirectBase}/auth/callback`;
 
-  // Simple 60s cooldown after requesting a magic link to reduce rate‑limit trips
-  React.useEffect(() => {
-    if (cooldownSec <= 0) return;
-    const t = setInterval(() => setCooldownSec((s) => s - 1), 1000);
-    return () => clearInterval(t);
-  }, [cooldownSec]);
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setClientError(null);
-
-    if (!email || !email.includes("@")) {
-      setClientError("Please enter a valid email address.");
-      return;
-    }
-
-    setSending(true);
-    try {
-      // Build redirect URL for the email link to bring users right back into the app
-      const baseUrl =
-        typeof window !== "undefined"
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${baseUrl}${redirectTo}`,
-        },
-      });
-
-      if (error) {
-        // common: request rate limit; surface the message cleanly and start cooldown
-        setClientError(
-          error.message.includes("rate limit")
-            ? "Too many requests for magic links. Please try again in a minute."
-            : error.message
-        );
-        setCooldownSec(60);
-        return;
-      }
-
-      setSentTo(email);
-      setCooldownSec(60);
-    } catch (err: any) {
-      setClientError(err?.message ?? "Something went wrong. Please try again.");
-    } finally {
-      setSending(false);
-    }
+    await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo },
+    });
+    // No return payload (Vercel TS requirement). UI will show static message below.
   };
 
-  const onContinue = () => {
-    // If the session is already present (e.g., user clicked the email link and came back),
-    // head to the destination. If not, this simply refreshes the page after they sign in.
-    router.replace(redirectTo);
-  };
+  const err = (searchParams?.error as string) || "";
+  const msg =
+    (searchParams?.message as string) ||
+    "Enter your email and we’ll send you a sign-in link.";
 
   return (
-    <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
-      <h1 className="text-2xl font-semibold mb-2">Sign in</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        We’ll email you a magic link to access your account.
-      </p>
+    <div className="mx-auto max-w-md p-6">
+      <div className="rounded-xl border p-6 space-y-4">
+        <h1 className="text-2xl font-semibold">Sign in</h1>
 
-      {clientError ? (
-        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm">
-          {clientError}
-        </div>
-      ) : null}
-
-      {sentTo ? (
-        <div className="space-y-4">
-          <div className="rounded-md border bg-muted p-3 text-sm">
-            We sent a sign-in link to <span className="font-medium">{sentTo}</span>.
-            <br />
-            Please check your inbox (and spam folder). {cooldownSec > 0 ? `You can request another link in ${cooldownSec}s.` : ""}
+        {err ? (
+          <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            {decodeURIComponent(err)}
           </div>
+        ) : (
+          <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+            {decodeURIComponent(msg)}
+          </div>
+        )}
 
-          <button
-            onClick={onContinue}
-            className="w-full rounded-md px-4 py-2 border bg-primary text-primary-foreground disabled:opacity-50"
-          >
-            I clicked the link – continue
-          </button>
-          <button
-            onClick={() => {
-              setSentTo(null);
-              setEmail("");
-            }}
-            className="w-full rounded-md px-4 py-2 border bg-background"
-          >
-            Use a different email
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
+        <form action={sendMagicLink} className="space-y-3">
+          <label className="block text-sm">
+            Email
             <input
-              id="email"
+              name="email"
               type="email"
-              autoComplete="email"
-              inputMode="email"
-              className="w-full rounded-md border bg-background px-3 py-2 outline-none"
+              required
               placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={sending || cooldownSec > 0}
+              className="mt-1 w-full rounded border px-3 py-2"
             />
-          </div>
-
+          </label>
           <button
             type="submit"
-            disabled={sending || cooldownSec > 0}
-            className="w-full rounded-md px-4 py-2 border bg-primary text-primary-foreground disabled:opacity-50"
+            className="rounded px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
           >
-            {sending ? "Sending…" : cooldownSec > 0 ? `Wait ${cooldownSec}s` : "Send magic link"}
+            Send magic link
           </button>
-
-          <p className="text-xs text-muted-foreground">
-            By continuing, you agree to our Terms and Privacy Policy.
-          </p>
         </form>
-      )}
+
+        <div className="text-xs text-gray-600">
+          Having trouble?{" "}
+          <Link href="/" className="underline">
+            Go home
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
