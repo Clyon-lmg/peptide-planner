@@ -10,6 +10,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// Supabase may return nested relation as an ARRAY ([]) or OBJECT ({}) or null
+type PeptidesRelation = { canonical_name: string } | { canonical_name: string }[] | null;
+
 type CartLine = {
   id: number;
   vendor_id: number;
@@ -18,7 +21,7 @@ type CartLine = {
   quantity_vials: number | null;
   quantity_units: number | null;
   prefer_coupon_id: number | null;
-  peptides: { canonical_name: string } | null;
+  peptides: PeptidesRelation;
 };
 
 type Vendor = { id: number; name: string; homepage: string | null };
@@ -91,6 +94,17 @@ function buildAffiliateUrl(
   }
 }
 
+// Normalize nested relation into a plain string
+function getPeptideName(rel: PeptidesRelation): string {
+  if (!rel) return "Peptide";
+  if (Array.isArray(rel)) {
+    const first = rel[0];
+    if (first && typeof first.canonical_name === "string") return first.canonical_name;
+    return "Peptide";
+  }
+  return typeof rel.canonical_name === "string" ? rel.canonical_name : "Peptide";
+}
+
 export default async function CartPage() {
   const { supabase, user } = await getUser();
   if (!user) {
@@ -113,12 +127,18 @@ export default async function CartPage() {
   const [{ data: raw }, { data: vendors }, { data: coupons }, { data: affLinks }] = await Promise.all([
     supabase
       .from("cart_items")
-      .select("id, vendor_id, peptide_id, kind, quantity_vials, quantity_units, prefer_coupon_id, peptides(canonical_name)")
+      // NOTE: Supabase may return peptides(...) as array. Our types + helper handle both.
+      .select(
+        "id, vendor_id, peptide_id, kind, quantity_vials, quantity_units, prefer_coupon_id, peptides(canonical_name)"
+      )
       .eq("user_id", user.id)
       .order("id", { ascending: true }),
     supabase.from("vendors").select("id, name, homepage").eq("active", true),
     supabase.from("coupons").select("id, vendor_id, code, percent_off, amount_off, expires_at"),
-    supabase.from("affiliate_links").select("id, vendor_id, base_url, param_key, param_value, active").eq("active", true),
+    supabase
+      .from("affiliate_links")
+      .select("id, vendor_id, base_url, param_key, param_value, active")
+      .eq("active", true),
   ]);
 
   const lines = (raw ?? []) as CartLine[];
@@ -222,7 +242,7 @@ export default async function CartPage() {
                     className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_auto_auto] gap-2 items-center rounded border p-2"
                   >
                     <div className="font-medium truncate">
-                      {l.peptides?.canonical_name ?? "Peptide"}{" "}
+                      {getPeptideName(l.peptides)}{" "}
                       <span className="text-xs text-gray-500">({l.kind})</span>
                     </div>
                     <div className="text-sm">${l.price.toFixed(2)}/unit</div>
@@ -273,7 +293,9 @@ export default async function CartPage() {
                     Coupon
                     <select
                       name="coupon_id"
-                      defaultValue={chosenCouponId ?? ""}
+                      defaultValue={
+                        computed.find((l) => l.prefer_coupon_id)?.prefer_coupon_id ?? ""
+                      }
                       className="ml-2 rounded border px-2 py-2"
                     >
                       <option value="">None</option>
@@ -315,7 +337,7 @@ export default async function CartPage() {
                 <a
                   href={checkoutUrl}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="rounded px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
                   title="Place Order (opens vendor in a new tab)"
                 >
