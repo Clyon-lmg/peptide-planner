@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import AddOfferButton from "../AddOfferButton"; // client helper that accepts a server action prop
 
 export type VialItem = {
   id: number;
@@ -21,67 +22,77 @@ export type CapsuleItem = {
   mg_per_cap: number;
 };
 
+export type OfferVial = {
+  id: number;
+  vendor_id: number;
+  vendor_name: string;
+  price: number;
+  bac_ml: number | null;
+};
+
+export type OfferCaps = {
+  id: number;
+  vendor_id: number;
+  vendor_name: string;
+  price: number;
+  mg_per_cap: number | null;
+  caps_per_bottle: number | null;
+};
+
 type SaveVialPayload = Pick<VialItem, "id" | "vials" | "mg_per_vial" | "bac_ml">;
 type SaveCapsPayload = Pick<CapsuleItem, "id" | "bottles" | "caps_per_bottle" | "mg_per_cap">;
 
 export type InventoryListProps = {
   vials: VialItem[];
   capsules: CapsuleItem[];
-  // Callbacks from the parent page (usually server actions wrapped client-side)
+  offersVials: Record<number, OfferVial[]>;
+  offersCapsules: Record<number, OfferCaps[]>;
+  // Callbacks from the parent page (server action wrappers returning Promise<void>)
   onSaveVial?: (payload: SaveVialPayload) => Promise<void> | void;
   onSaveCapsule?: (payload: SaveCapsPayload) => Promise<void> | void;
   onDeleteVial?: (id: number) => Promise<void> | void;
   onDeleteCapsule?: (id: number) => Promise<void> | void;
-  // Optional render props for embedded offers (3 across etc.)
-  renderVialOffers?: (peptideId: number) => React.ReactNode;
-  renderCapsuleOffers?: (peptideId: number) => React.ReactNode;
+  // Server action to add an offer directly to cart (allowed to pass to client)
+  addOfferToCart: (formData: FormData) => Promise<any>;
 };
 
 /**
  * InventoryList
- * - Client-side presentational component with local edit state per item
- * - Inline Save (blue), Delete (red)
- * - Optional offers section via render props
- * - Pure Tailwind, no external UI components
+ * - Client-side component with local edit state per item
+ * - Offers rendered directly (no function props from server)
+ * - Save (blue), Add (green), Delete (red)
  */
 export default function InventoryList({
   vials,
   capsules,
+  offersVials,
+  offersCapsules,
   onSaveVial,
   onSaveCapsule,
   onDeleteVial,
   onDeleteCapsule,
-  renderVialOffers,
-  renderCapsuleOffers,
+  addOfferToCart,
 }: InventoryListProps) {
-  // Local edit state maps keyed by item.id
   const [vialEdits, setVialEdits] = React.useState<Record<number, SaveVialPayload>>({});
   const [capsEdits, setCapsEdits] = React.useState<Record<number, SaveCapsPayload>>({});
-  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set()); // e.g., "vial-12", "cap-7"
+  const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
 
-  // Helpers to get current editable values, falling back to item props
-  const getVialEdit = (item: VialItem): SaveVialPayload => {
-    return (
-      vialEdits[item.id] ?? {
-        id: item.id,
-        vials: Number(item.vials ?? 0),
-        mg_per_vial: Number(item.mg_per_vial ?? 0),
-        bac_ml: Number(item.bac_ml ?? 0),
-      }
-    );
-  };
-  const getCapsEdit = (item: CapsuleItem): SaveCapsPayload => {
-    return (
-      capsEdits[item.id] ?? {
-        id: item.id,
-        bottles: Number(item.bottles ?? 0),
-        caps_per_bottle: Number(item.caps_per_bottle ?? 0),
-        mg_per_cap: Number(item.mg_per_cap ?? 0),
-      }
-    );
-  };
+  const getVialEdit = (item: VialItem): SaveVialPayload =>
+    vialEdits[item.id] ?? {
+      id: item.id,
+      vials: Number(item.vials ?? 0),
+      mg_per_vial: Number(item.mg_per_vial ?? 0),
+      bac_ml: Number(item.bac_ml ?? 0),
+    };
 
-  // Dirty checks
+  const getCapsEdit = (item: CapsuleItem): SaveCapsPayload =>
+    capsEdits[item.id] ?? {
+      id: item.id,
+      bottles: Number(item.bottles ?? 0),
+      caps_per_bottle: Number(item.caps_per_bottle ?? 0),
+      mg_per_cap: Number(item.mg_per_cap ?? 0),
+    };
+
   const isVialDirty = (item: VialItem) => {
     const e = vialEdits[item.id];
     if (!e) return false;
@@ -90,7 +101,8 @@ export default function InventoryList({
       Number(e.mg_per_vial) !== Number(item.mg_per_vial) ||
       Number(e.bac_ml) !== Number(item.bac_ml)
     );
-    };
+  };
+
   const isCapsDirty = (item: CapsuleItem) => {
     const e = capsEdits[item.id];
     if (!e) return false;
@@ -101,13 +113,13 @@ export default function InventoryList({
     );
   };
 
-  // Input change handlers
   const onChangeVial = (id: number, field: keyof SaveVialPayload, value: number) => {
     setVialEdits((prev) => ({
       ...prev,
       [id]: { ...(prev[id] ?? { id, vials: 0, mg_per_vial: 0, bac_ml: 0 }), [field]: value },
     }));
   };
+
   const onChangeCaps = (id: number, field: keyof SaveCapsPayload, value: number) => {
     setCapsEdits((prev) => ({
       ...prev,
@@ -115,7 +127,20 @@ export default function InventoryList({
     }));
   };
 
-  // Save handlers
+  const resetVial = (id: number) =>
+    setVialEdits((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+  const resetCaps = (id: number) =>
+    setCapsEdits((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
   const handleSaveVial = async (item: VialItem) => {
     if (!onSaveVial) return;
     const payload = getVialEdit(item);
@@ -123,12 +148,7 @@ export default function InventoryList({
     setSavingIds((s) => new Set(s).add(key));
     try {
       await onSaveVial(payload);
-      // After successful save, clear dirty state by syncing to latest item props:
-      setVialEdits((prev) => {
-        const next = { ...prev };
-        delete next[item.id];
-        return next;
-      });
+      resetVial(item.id);
     } finally {
       setSavingIds((s) => {
         const n = new Set(s);
@@ -145,11 +165,7 @@ export default function InventoryList({
     setSavingIds((s) => new Set(s).add(key));
     try {
       await onSaveCapsule(payload);
-      setCapsEdits((prev) => {
-        const next = { ...prev };
-        delete next[item.id];
-        return next;
-      });
+      resetCaps(item.id);
     } finally {
       setSavingIds((s) => {
         const n = new Set(s);
@@ -159,28 +175,12 @@ export default function InventoryList({
     }
   };
 
-  // Reset handlers (discard edits)
-  const resetVial = (id: number) =>
-    setVialEdits((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  const resetCaps = (id: number) =>
-    setCapsEdits((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-
-  // Delete handlers
   const handleDeleteVial = async (id: number) => {
     if (!onDeleteVial) return;
     const key = `vial-${id}`;
     setSavingIds((s) => new Set(s).add(key));
     try {
       await onDeleteVial(id);
-      // Clean any local state for this row
       resetVial(id);
     } finally {
       setSavingIds((s) => {
@@ -209,7 +209,7 @@ export default function InventoryList({
 
   return (
     <div className="space-y-8">
-      {/* Vial items */}
+      {/* Vials */}
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Peptides (vials)</h2>
         {vials.length === 0 ? (
@@ -220,6 +220,7 @@ export default function InventoryList({
               const edit = getVialEdit(item);
               const dirty = isVialDirty(item);
               const saving = savingIds.has(`vial-${item.id}`);
+              const offers = offersVials[item.peptide_id] ?? [];
               return (
                 <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
                   <div className="flex items-start justify-between">
@@ -292,14 +293,31 @@ export default function InventoryList({
                     )}
                   </div>
 
-                  {typeof renderVialOffers === "function" ? (
+                  {offers.length > 0 && (
                     <div className="pt-1">
                       <div className="text-sm font-medium mb-1">Offers</div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {renderVialOffers(item.peptide_id)}
+                        {offers.map((o) => (
+                          <div key={o.id} className="rounded-md border p-2 text-xs space-y-1">
+                            <div className="font-semibold truncate">{o.vendor_name}</div>
+                            <div>Price: ${o.price.toFixed(2)}</div>
+                            <div>mL per vial: {o.bac_ml ?? "—"}</div>
+                            <AddOfferButton
+                              action={addOfferToCart}
+                              payload={{
+                                vendor_id: o.vendor_id,
+                                peptide_id: item.peptide_id,
+                                kind: "vial",
+                                quantity: 1,
+                              }}
+                              label="Add"
+                              className="w-full rounded px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white"
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               );
             })}
@@ -307,7 +325,7 @@ export default function InventoryList({
         )}
       </section>
 
-      {/* Capsule items */}
+      {/* Capsules */}
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Capsules</h2>
         {capsules.length === 0 ? (
@@ -318,6 +336,7 @@ export default function InventoryList({
               const edit = getCapsEdit(item);
               const dirty = isCapsDirty(item);
               const saving = savingIds.has(`cap-${item.id}`);
+              const offers = offersCapsules[item.peptide_id] ?? [];
               return (
                 <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
                   <div className="flex items-start justify-between">
@@ -391,14 +410,32 @@ export default function InventoryList({
                     )}
                   </div>
 
-                  {typeof renderCapsuleOffers === "function" ? (
+                  {offers.length > 0 && (
                     <div className="pt-1">
                       <div className="text-sm font-medium mb-1">Offers</div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {renderCapsuleOffers(item.peptide_id)}
+                        {offers.map((o) => (
+                          <div key={o.id} className="rounded-md border p-2 text-xs space-y-1">
+                            <div className="font-semibold truncate">{o.vendor_name}</div>
+                            <div>Price: ${o.price.toFixed(2)}</div>
+                            <div>mg / cap: {o.mg_per_cap ?? "—"}</div>
+                            <div>caps / bottle: {o.caps_per_bottle ?? "—"}</div>
+                            <AddOfferButton
+                              action={addOfferToCart}
+                              payload={{
+                                vendor_id: o.vendor_id,
+                                peptide_id: item.peptide_id,
+                                kind: "capsule",
+                                quantity: 1,
+                              }}
+                              label="Add"
+                              className="w-full rounded px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white"
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               );
             })}

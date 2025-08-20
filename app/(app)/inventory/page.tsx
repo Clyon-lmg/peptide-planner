@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import AddRow from "./ui/AddRow";
 import InventoryList from "./ui/InventoryList";
-import AddOfferButton from "./AddOfferButton";
 
 import {
   getVialInventory,
@@ -38,7 +37,7 @@ export default async function InventoryPage() {
       <div className="mx-auto max-w-4xl p-6">
         <div className="rounded-xl border p-6">
           <h1 className="text-2xl font-semibold">Inventory</h1>
-          <p className="mt-2 text-sm">
+        <p className="mt-2 text-sm">
             You’re not signed in.{" "}
             <Link href="/sign-in" className="underline">
               Sign in
@@ -98,7 +97,7 @@ export default async function InventoryPage() {
   };
   // -------------------------------------------------------------------
 
-  // Prepare data for the InventoryList props
+  // Prepare serializable data for the client component
   const vialItems = vialRows.map((r) => ({
     id: r.id,
     peptide_id: r.peptide_id,
@@ -117,53 +116,16 @@ export default async function InventoryPage() {
     mg_per_cap: r.mg_per_cap,
   }));
 
-  // Render helpers for 3‑across offers inside each card
-  const renderVialOffers = (peptideId: number) => {
-    const offers = (vialOfferMap.get(peptideId) ?? []) as OfferVial[];
-    if (!offers.length) return null;
-    return offers.map((o) => (
-      <div key={o.id} className="rounded-md border p-2 text-xs space-y-1">
-        <div className="font-semibold truncate">{o.vendor_name}</div>
-        <div>Price: ${o.price.toFixed(2)}</div>
-        <div>mL per vial: {o.bac_ml ?? "—"}</div>
-        <AddOfferButton
-          action={addOfferToCartAction}
-          payload={{
-            vendor_id: o.vendor_id,
-            peptide_id: peptideId,
-            kind: "vial",
-            quantity: 1,
-          }}
-          label="Add"
-          className="w-full rounded px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white"
-        />
-      </div>
-    ));
-  };
+  // Flatten Maps into plain objects (Record<number, Offer[]>)
+  const offerVials: Record<number, OfferVial[]> = {};
+  vialRows.forEach((r) => {
+    offerVials[r.peptide_id] = (vialOfferMap.get(r.peptide_id) ?? []) as OfferVial[];
+  });
 
-  const renderCapsuleOffers = (peptideId: number) => {
-    const offers = (capsOfferMap.get(peptideId) ?? []) as OfferCaps[];
-    if (!offers.length) return null;
-    return offers.map((o) => (
-      <div key={o.id} className="rounded-md border p-2 text-xs space-y-1">
-        <div className="font-semibold truncate">{o.vendor_name}</div>
-        <div>Price: ${o.price.toFixed(2)}</div>
-        <div>mg / cap: {o.mg_per_cap ?? "—"}</div>
-        <div>caps / bottle: {o.caps_per_bottle ?? "—"}</div>
-        <AddOfferButton
-          action={addOfferToCartAction}
-          payload={{
-            vendor_id: o.vendor_id,
-            peptide_id: peptideId,
-            kind: "capsule",
-            quantity: 1,
-          }}
-          label="Add"
-          className="w-full rounded px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white"
-        />
-      </div>
-    ));
-  };
+  const offerCaps: Record<number, OfferCaps[]> = {};
+  capsRows.forEach((r) => {
+    offerCaps[r.peptide_id] = (capsOfferMap.get(r.peptide_id) ?? []) as OfferCaps[];
+  });
 
   return (
     <div className="mx-auto max-w-6xl p-6 space-y-8">
@@ -181,12 +143,13 @@ export default async function InventoryPage() {
       <InventoryList
         vials={vialItems}
         capsules={capItems}
+        offersVials={offerVials}
+        offersCapsules={offerCaps}
         onSaveVial={saveVial}
         onSaveCapsule={saveCapsule}
         onDeleteVial={deleteVial}
         onDeleteCapsule={deleteCapsule}
-        renderVialOffers={renderVialOffers}
-        renderCapsuleOffers={renderCapsuleOffers}
+        addOfferToCart={addOfferToCartAction} // passing a server action is allowed
       />
     </div>
   );

@@ -1,155 +1,162 @@
-﻿// app/(app)/cart/checkout/route.ts
-import { NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/**
- * GET /cart/checkout?vendor_id=123
- * - Creates a DRAFT order + order_items from the user's cart for this vendor
- * - Clears those cart lines
- * - Redirects to vendor using affiliate link (and appends coupon code if chosen)
- *
- * IMPORTANT: On any error, we now return a 4xx JSON instead of redirecting to /cart
- * to avoid accidental redirect loops.
- */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
-    const { data: auth } = await supabase.auth.getUser();
-    const user = auth?.user;
-    if (!user) {
-      return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
-    }
-
     const url = new URL(req.url);
-    const vendorId = Number(url.searchParams.get("vendor_id") ?? 0);
-    if (!vendorId) {
+    const vendor_id = Number(url.searchParams.get("vendor_id") || 0);
+    if (!vendor_id) {
       return NextResponse.json({ ok: false, error: "Missing vendor_id" }, { status: 400 });
     }
 
-    // Load cart lines for this vendor
-    const { data: cart, error: cartErr } = await supabase
+    const { data: ures, error: uerr } = await supabase.auth.getUser();
+    if (uerr || !ures?.user) {
+      return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
+    }
+    const user_id = ures.user.id as string;
+
+    // 1) Cart lines
+    const { data: items, error: ierr } = await supabase
       .from("cart_items")
-      .select("id, peptide_id, vendor_id, kind, quantity_vials, quantity_units, prefer_coupon_id")
-      .eq("user_id", user.id)
-      .eq("vendor_id", vendorId);
-
-    if (cartErr) {
-      return NextResponse.json({ ok: false, error: cartErr.message }, { status: 500 });
-    }
-    if (!cart || cart.length === 0) {
-      return NextResponse.json({ ok: false, error: "No items to order" }, { status: 400 });
+      .select("id, peptide_id, kind, quantity_vials, quantity_units, prefer_coupon_id, vendor_id")
+      .eq("user_id", user_id)
+      .eq("vendor_id", vendor_id);
+    if (ierr) throw ierr;
+    if (!items?.length) {
+      return NextResponse.json({ ok: false, error: "No items in cart for this vendor" }, { status: 400 });
     }
 
-    // Load product specs/prices
-    const peptideIds = Array.from(new Set(cart.map((c) => c.peptide_id)));
-    const { data: products, error: prodErr } = await supabase
+    // 2) Coupons referenced by cart rows
+    const couponIds = Array.from(new Set(items.map(i => i.prefer_coupon_id).filter(Boolean))) as number[];
+    const couponMap = new Map<number, { id: number; vendor_id: number; expires_at: string | null }>();
+    if (couponIds.length) {
+      const { data: coups, error: cErr } = await supabase
+        .from("coupons")
+        .select("id, vendor_id, expires_at")
+        .in("id", couponIds);
+      if (cErr) throw cErr;
+      for (const c of coups ?? []) couponMap.set(c.id, c);
+    }
+
+    // 3) Vendor products (prices/specs)
+    const { data: products, error: perr } = await supabase
       .from("vendor_products")
-      .select("peptide_id, kind, price, mg_per_vial, bac_ml, mg_per_cap, caps_per_bottle, vendor_id")
-      .eq("vendor_id", vendorId)
-      .in("peptide_id", peptideIds);
-
-    if (prodErr) {
-      return NextResponse.json({ ok: false, error: prodErr.message }, { status: 500 });
+      .select(
+        "vendor_id, peptide_id, price, price_currency, mg_per_vial, bac_ml, kind, caps_per_bottle, mg_per_cap"
+      )
+      .eq("vendor_id", vendor_id);
+    if (perr) throw perr;
+    const productMap = new Map<string, any>();
+    for (const p of products ?? []) {
+      productMap.set(`${p.vendor_id}:${p.peptide_id}:${p.kind ?? "vial"}`, p);
+      if (!p.kind) productMap.set(`${p.vendor_id}:${p.peptide_id}:vial`, p);
     }
 
-    // Create order draft
-    const { data: order, error: orderErr } = await supabase
+    // 4) Create order (DRAFT)
+    const { data: oins, error: oerr } = await supabase
       .from("orders")
-      .insert({ user_id: user.id, vendor_id: vendorId, status: "DRAFT" })
+      .insert({ user_id, vendor_id, status: "DRAFT" })
       .select("id")
       .single();
+    if (oerr) throw oerr;
+    const order_id = oins.id as number;
 
-    if (orderErr || !order) {
-      return NextResponse.json({ ok: false, error: orderErr?.message || "Order create failed" }, { status: 500 });
+    // 5) Affiliate + vendor homepage
+    const { data: affs } = await supabase
+      .from("affiliate_links")
+      .select("id, vendor_id, base_url, param_key, param_value, active")
+      .eq("vendor_id", vendor_id)
+      .eq("active", true)
+      .limit(1);
+    const aff = affs?.[0] ?? null;
+
+    const { data: vend } = await supabase
+      .from("vendors")
+      .select("id, homepage")
+      .eq("id", vendor_id)
+      .single();
+
+    // 6) Create order_items (vials & capsules)
+    for (const it of items) {
+      const kind = (it.kind ?? "vial") as "vial" | "capsule";
+      const pkey = `${vendor_id}:${it.peptide_id}:${kind}`;
+      const prod = productMap.get(pkey);
+      if (!prod) throw new Error(`No vendor product for peptide ${it.peptide_id} (${kind})`);
+
+      // Resolve coupon (matches vendor and not expired)
+      let coupon_id: number | null = null;
+      if (it.prefer_coupon_id) {
+        const c = couponMap.get(it.prefer_coupon_id);
+        if (c && c.vendor_id === vendor_id) {
+          if (!c.expires_at || new Date(c.expires_at) >= new Date()) coupon_id = c.id;
+        }
+      }
+
+      if (kind === "vial") {
+        const quantity_vials = Math.max(1, Number(it.quantity_vials ?? 1));
+        const { error: oierr } = await supabase.from("order_items").insert({
+          order_id,
+          peptide_id: it.peptide_id,
+          quantity_vials,
+          mg_per_vial: Number(prod.mg_per_vial ?? 0),
+          bac_ml: Number(prod.bac_ml ?? 0),
+          unit_price: Number(prod.price ?? 0),
+          coupon_id,
+          affiliate_link_id: aff?.id ?? null,
+          quantity_units: null,
+          caps_per_bottle: null,
+          mg_per_cap: null,
+        });
+        if (oierr) throw oierr;
+      } else {
+        const quantity_units = Math.max(1, Number(it.quantity_units ?? 1)); // bottles
+        const { error: oierr } = await supabase.from("order_items").insert({
+          order_id,
+          peptide_id: it.peptide_id,
+          quantity_vials: 0,
+          mg_per_vial: 0,
+          bac_ml: 0,
+          unit_price: Number(prod.price ?? 0),
+          coupon_id,
+          affiliate_link_id: aff?.id ?? null,
+          quantity_units,
+          caps_per_bottle: Number(prod.caps_per_bottle ?? 0),
+          mg_per_cap: Number(prod.mg_per_cap ?? 0),
+        });
+        if (oierr) throw oierr;
+      }
     }
 
-    // Build order_items payload (capsules stored with mg_per_vial/bac_ml=0, quantity in quantity_vials)
-    const itemsPayload = cart.map((line) => {
-      const p = (products ?? []).find(
-        (vp) => vp.peptide_id === line.peptide_id && vp.vendor_id === vendorId && vp.kind === line.kind
-      );
-      const unit_price = Number(p?.price ?? 0);
-      const q =
-        line.kind === "vial"
-          ? Number(line.quantity_vials ?? 1)
-          : Number(line.quantity_units ?? 1);
-
-      return {
-        order_id: order.id,
-        peptide_id: line.peptide_id,
-        quantity_vials: Math.max(1, q),
-        mg_per_vial: line.kind === "vial" ? Number(p?.mg_per_vial ?? 0) : 0,
-        bac_ml: line.kind === "vial" ? Number(p?.bac_ml ?? 0) : 0,
-        unit_price,
-        coupon_id: line.prefer_coupon_id ?? null,
-        affiliate_link_id: null as number | null,
-      };
-    });
-
-    const { error: oiErr } = await supabase.from("order_items").insert(itemsPayload);
-    if (oiErr) {
-      return NextResponse.json({ ok: false, error: oiErr.message }, { status: 500 });
-    }
-
-    // Clear cart for this vendor
-    const { error: delErr } = await supabase
+    // 7) Clear vendor rows from cart
+    const { error: cerr } = await supabase
       .from("cart_items")
       .delete()
-      .eq("user_id", user.id)
-      .eq("vendor_id", vendorId);
-    if (delErr) {
-      // Not fatal for redirect, but report it
-      return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
-    }
+      .eq("user_id", user_id)
+      .eq("vendor_id", vendor_id);
+    if (cerr) throw cerr;
 
-    // Find affiliate link + coupon for redirect
-    const [{ data: vendor }, { data: aff }, { data: coupon, error: couponErr }] = await Promise.all([
-      supabase.from("vendors").select("id, homepage").eq("id", vendorId).single(),
-      supabase
-        .from("affiliate_links")
-        .select("id, base_url, param_key, param_value")
-        .eq("vendor_id", vendorId)
-        .eq("active", true)
-        .limit(1)
-        .single(),
-      supabase
-        .from("coupons")
-        .select("id, code")
-        .in(
-          "id",
-          itemsPayload.map((i) => i.coupon_id).filter(Boolean) as number[]
-        )
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    if (couponErr) {
-      // Non-fatal; continue without coupon code
-    }
-
-    // Build outbound URL (absolute only)
-    let outbound = aff?.base_url || vendor?.homepage || "";
-    try {
-      const u = new URL(outbound);
-      if (aff?.param_key && aff?.param_value) u.searchParams.set(aff.param_key, aff.param_value);
-      if (coupon?.code) u.searchParams.set("coupon", coupon.code);
+    // 8) Build outbound (affiliate first, else vendor homepage)
+    let outbound = "";
+    if (aff?.base_url) {
+      const u = new URL(aff.base_url);
+      if (aff.param_key && aff.param_value) u.searchParams.set(aff.param_key, aff.param_value);
       outbound = u.toString();
-    } catch {
-      // If affiliate/homepage is not a valid absolute URL, just show a success JSON
-      outbound = "";
+    } else if (vend?.homepage) {
+      outbound = vend.homepage;
     }
 
-    if (!outbound) {
-      // No valid external link; return a simple success payload instead of redirecting
-      return NextResponse.json({ ok: true, order_id: order.id, message: "Order created (no external link found)" });
+    // Optional: redirect mode if you want to support plain <a> links
+    const mode = url.searchParams.get("mode"); // "redirect" | null
+    if (mode === "redirect" && outbound) {
+      return NextResponse.redirect(outbound, { status: 302 });
     }
 
-    // Success: redirect to vendor (302)
-    return NextResponse.redirect(outbound, { status: 302 });
+    return NextResponse.json({ ok: true, order_id, outbound });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Unexpected error" }, { status: 500 });
   }

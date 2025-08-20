@@ -1,24 +1,27 @@
-﻿// app/(app)/orders/actions.ts
-"use server";
+﻿"use server";
 
+import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
-import { revalidatePath } from "next/cache";
 
-type ActionResult = { ok: boolean; message?: string };
-
-async function getAuthed() {
+async function authed() {
   const supabase = createServerActionClient({ cookies });
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) throw new Error("Not authenticated");
   return { supabase, userId: data.user.id as string };
 }
 
-export async function markPlacedAction(formData: FormData): Promise<ActionResult> {
-  "use server";
-  const { supabase, userId } = await getAuthed();
-  const orderId = Number(formData.get("order_id"));
+export async function markPlacedAction(orderId: number) {
+  const { supabase, userId } = await authed();
   if (!orderId) return { ok: false, message: "Missing order id" };
+
+  const { data: ord, error: oErr } = await supabase
+    .from("orders")
+    .select("id, user_id")
+    .eq("id", orderId)
+    .single();
+  if (oErr) return { ok: false, message: oErr.message };
+  if (ord.user_id !== userId) return { ok: false, message: "Forbidden" };
 
   const { error } = await supabase
     .from("orders")
@@ -31,137 +34,126 @@ export async function markPlacedAction(formData: FormData): Promise<ActionResult
   return { ok: true };
 }
 
-export async function addTrackingAction(formData: FormData): Promise<ActionResult> {
-  "use server";
-  const { supabase, userId } = await getAuthed();
-  const orderId = Number(formData.get("order_id"));
-  const tracking_number = String(formData.get("tracking_number") ?? "").trim();
-  const carrier = String(formData.get("carrier") ?? "").trim();
-  if (!orderId) return { ok: false, message: "Missing order id" };
-  if (!tracking_number) return { ok: false, message: "Enter a tracking number" };
+export async function addTrackingAction(orderId: number, tracking_number: string, carrier?: string) {
+  const { supabase, userId } = await authed();
+  if (!orderId || !tracking_number) return { ok: false, message: "Missing order id or tracking number" };
 
-  const { error } = await supabase
-    .from("shipments")
-    .upsert(
-      { order_id: orderId, tracking_number, carrier: carrier || null },
-      { onConflict: "order_id" }
-    );
+  const { data: ord, error: oErr } = await supabase
+    .from("orders")
+    .select("id, user_id")
+    .eq("id", orderId)
+    .single();
+  if (oErr) return { ok: false, message: oErr.message };
+  if (ord.user_id !== userId) return { ok: false, message: "Forbidden" };
+
+  const { error } = await supabase.from("shipments").insert({
+    order_id: orderId,
+    tracking_number,
+    carrier: carrier ?? null,
+    last_status: null,
+    eta_date: null,
+  });
 
   if (error) return { ok: false, message: error.message };
-  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
   return { ok: true };
 }
 
-export async function markReceivedAction(formData: FormData): Promise<ActionResult> {
-  "use server";
-  const { supabase, userId } = await getAuthed();
-  const orderId = Number(formData.get("order_id"));
+export async function markReceivedAction(orderId: number) {
+  const { supabase, userId } = await authed();
   if (!orderId) return { ok: false, message: "Missing order id" };
 
-  const { data: items, error: itemsErr } = await supabase
-    .from("order_items")
-    .select("peptide_id, quantity_vials, mg_per_vial, bac_ml")
-    .eq("order_id", orderId);
-  if (itemsErr) return { ok: false, message: itemsErr.message };
+  const { data: ord, error: oErr } = await supabase
+    .from("orders")
+    .select("id, user_id")
+    .eq("id", orderId)
+    .single();
+  if (oErr) return { ok: false, message: oErr.message };
+  if (ord.user_id !== userId) return { ok: false, message: "Forbidden" };
 
-  for (const it of items ?? []) {
-    const qty = Math.max(0, Number(it.quantity_vials ?? 0));
-    if (qty === 0) continue;
-
-    if (Number(it.mg_per_vial ?? 0) > 0 || Number(it.bac_ml ?? 0) > 0) {
-      // vials
-      const { data: existing } = await supabase
-        .from("inventory_items")
-        .select("id, vials")
-        .eq("user_id", userId)
-        .eq("peptide_id", it.peptide_id)
-        .maybeSingle();
-
-      if (existing?.id) {
-        await supabase
-          .from("inventory_items")
-          .update({
-            vials: Number(existing.vials ?? 0) + qty,
-            mg_per_vial: Number(it.mg_per_vial ?? 0),
-            bac_ml: Number(it.bac_ml ?? 0),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id);
-      } else {
-        await supabase.from("inventory_items").insert({
-          user_id: userId,
-          peptide_id: it.peptide_id,
-          vials: qty,
-          mg_per_vial: Number(it.mg_per_vial ?? 0),
-          bac_ml: Number(it.bac_ml ?? 0),
-        });
-      }
-    } else {
-      // capsules fallback: treat quantity_vials as bottles; infer specs from vendor_products if needed
-      const { data: vp } = await supabase
-        .from("vendor_products")
-        .select("caps_per_bottle, mg_per_cap")
-        .eq("peptide_id", it.peptide_id)
-        .eq("kind", "capsule")
-        .limit(1)
-        .single();
-
-      const caps_per_bottle = Number(vp?.caps_per_bottle ?? 0);
-      const mg_per_cap = Number(vp?.mg_per_cap ?? 0);
-
-      const { data: existing } = await supabase
-        .from("inventory_capsules")
-        .select("id, bottles")
-        .eq("user_id", userId)
-        .eq("peptide_id", it.peptide_id)
-        .maybeSingle();
-
-      if (existing?.id) {
-        await supabase
-          .from("inventory_capsules")
-          .update({
-            bottles: Number(existing.bottles ?? 0) + qty,
-            caps_per_bottle,
-            mg_per_cap,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id);
-      } else {
-        await supabase.from("inventory_capsules").insert({
-          user_id: userId,
-          peptide_id: it.peptide_id,
-          bottles: qty,
-          caps_per_bottle,
-          mg_per_cap,
-        });
-      }
-    }
-  }
-
-  await supabase
+  const { error: updErr } = await supabase
     .from("orders")
     .update({ status: "RECEIVED", received_at: new Date().toISOString() })
     .eq("id", orderId)
     .eq("user_id", userId);
+  if (updErr) return { ok: false, message: updErr.message };
 
-  revalidatePath("/orders");
+  // Fetch order_items to increment inventory (vials & capsules)
+  const { data: items, error: iErr } = await supabase
+    .from("order_items")
+    .select("peptide_id, quantity_vials, mg_per_vial, bac_ml, quantity_units, caps_per_bottle, mg_per_cap")
+    .eq("order_id", orderId);
+  if (iErr) return { ok: false, message: iErr.message };
+
+  // Vials -> inventory_items
+  const vialItems = (items ?? []).filter(it => Number(it.quantity_vials ?? 0) > 0);
+  for (const it of vialItems) {
+    const vials = Number(it.quantity_vials ?? 0);
+    const { data: inv } = await supabase
+      .from("inventory_items")
+      .select("id, vials, mg_per_vial, bac_ml")
+      .eq("user_id", userId)
+      .eq("peptide_id", it.peptide_id)
+      .maybeSingle();
+
+    if (!inv) {
+      const { error: insErr } = await supabase.from("inventory_items").insert({
+        user_id: userId,
+        peptide_id: it.peptide_id,
+        vials: vials,
+        mg_per_vial: Number(it.mg_per_vial ?? 0),
+        bac_ml: Number(it.bac_ml ?? 0),
+      });
+      if (insErr) return { ok: false, message: insErr.message };
+    } else {
+      const { error: updErr2 } = await supabase
+        .from("inventory_items")
+        .update({
+          vials: Number(inv.vials ?? 0) + vials,
+          mg_per_vial: Number(inv.mg_per_vial ?? 0) || Number(it.mg_per_vial ?? 0),
+          bac_ml: Number(inv.bac_ml ?? 0) || Number(it.bac_ml ?? 0),
+        })
+        .eq("id", inv.id)
+        .eq("user_id", userId);
+      if (updErr2) return { ok: false, message: updErr2.message };
+    }
+  }
+
+  // Capsules -> inventory_capsules
+  const capItems = (items ?? []).filter(it => Number(it.quantity_units ?? 0) > 0);
+  for (const it of capItems) {
+    const bottles = Number(it.quantity_units ?? 0);
+    const { data: invc } = await supabase
+      .from("inventory_capsules")
+      .select("id, bottles, caps_per_bottle, mg_per_cap")
+      .eq("user_id", userId)
+      .eq("peptide_id", it.peptide_id)
+      .maybeSingle();
+
+    if (!invc) {
+      const { error: insErr } = await supabase.from("inventory_capsules").insert({
+        user_id: userId,
+        peptide_id: it.peptide_id,
+        bottles,
+        caps_per_bottle: Number(it.caps_per_bottle ?? 0),
+        mg_per_cap: Number(it.mg_per_cap ?? 0),
+      });
+      if (insErr) return { ok: false, message: insErr.message };
+    } else {
+      const { error: updErr3 } = await supabase
+        .from("inventory_capsules")
+        .update({
+          bottles: Number(invc.bottles ?? 0) + bottles,
+          caps_per_bottle: Number(invc.caps_per_bottle ?? 0) || Number(it.caps_per_bottle ?? 0),
+          mg_per_cap: Number(invc.mg_per_cap ?? 0) || Number(it.mg_per_cap ?? 0),
+        })
+        .eq("id", invc.id)
+        .eq("user_id", userId);
+      if (updErr3) return { ok: false, message: updErr3.message };
+    }
+  }
+
   revalidatePath("/inventory");
-  return { ok: true };
-}
-
-/** NEW: Delete an order (and its items & shipment) */
-export async function deleteOrderAction(formData: FormData): Promise<ActionResult> {
-  "use server";
-  const { supabase, userId } = await getAuthed();
-  const orderId = Number(formData.get("order_id"));
-  if (!orderId) return { ok: false, message: "Missing order id" };
-
-  // Clean children first
-  await supabase.from("order_items").delete().eq("order_id", orderId);
-  await supabase.from("shipments").delete().eq("order_id", orderId);
-  const { error } = await supabase.from("orders").delete().eq("id", orderId).eq("user_id", userId);
-  if (error) return { ok: false, message: error.message };
-
   revalidatePath("/orders");
   return { ok: true };
 }
