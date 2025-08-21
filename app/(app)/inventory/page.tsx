@@ -30,14 +30,103 @@ async function getUser() {
   return { supabase, user: data?.user ?? null };
 }
 
+/**
+ * Compute dose frequency /wk for a given schedule.
+ * Supports: EVERYDAY (7), WEEKDAYS_5_2 (5), CUSTOM (length of custom_days)
+ */
+function baseFreqPerWeek(schedule: string, customDays?: number[] | null) {
+  switch (schedule) {
+    case "EVERYDAY":
+      return 7;
+    case "WEEKDAYS_5_2":
+      return 5;
+    case "CUSTOM":
+      return Array.isArray(customDays) ? customDays.length : 0;
+    default:
+      return 0;
+  }
+}
+
+/** Apply cycles: effective freq = base * (on_weeks / (on_weeks+off_weeks)) */
+function effectiveFreqPerWeek(base: number, onWeeks: number, offWeeks: number) {
+  if (!onWeeks || !offWeeks) return base;
+  const total = onWeeks + offWeeks;
+  return total > 0 ? base * (onWeeks / total) : base;
+}
+
+/**
+ * Compute remaining doses and reorder date for a peptide given inventory and active protocol item (if any).
+ * - total mg (vials): vials * mg_per_vial
+ * - total mg (caps): bottles * caps_per_bottle * mg_per_cap
+ * - remaining doses = floor(total_mg / dose_per_admin)
+ * - reorder date = today + ceil(remaining_doses / (effective_freq_per_week)) * 7
+ */
+function computeForecast(
+  isCapsule: boolean,
+  inv: {
+    vials?: number;
+    mg_per_vial?: number;
+    bac_ml?: number; // not used here but available if you later want units calc
+    bottles?: number;
+    caps_per_bottle?: number;
+    mg_per_cap?: number;
+  },
+  protoItem:
+    | {
+        dose_mg_per_administration: number;
+        schedule: string;
+        custom_days: number[] | null;
+        cycle_on_weeks: number;
+        cycle_off_weeks: number;
+      }
+    | undefined
+) {
+  if (!protoItem) return { remainingDoses: null, reorderDateISO: null };
+
+  const dose = Number(protoItem.dose_mg_per_administration || 0);
+  if (dose <= 0) return { remainingDoses: null, reorderDateISO: null };
+
+  let totalMg = 0;
+  if (!isCapsule) {
+    totalMg = Number(inv.vials || 0) * Number(inv.mg_per_vial || 0);
+  } else {
+    totalMg =
+      Number(inv.bottles || 0) *
+      Number(inv.caps_per_bottle || 0) *
+      Number(inv.mg_per_cap || 0);
+  }
+
+  const remainingDoses = Math.max(0, Math.floor(totalMg / dose));
+
+  const base = baseFreqPerWeek(protoItem.schedule, protoItem.custom_days);
+  const eff = effectiveFreqPerWeek(base, protoItem.cycle_on_weeks || 0, protoItem.cycle_off_weeks || 0);
+  if (eff <= 0) {
+    return { remainingDoses, reorderDateISO: null };
+  }
+
+  const weeksUntilEmpty = Math.ceil(remainingDoses / eff);
+  const days = weeksUntilEmpty * 7;
+
+  const now = new Date();
+  const reorderDate = new Date(now);
+  reorderDate.setDate(now.getDate() + days);
+
+  const yyyy = reorderDate.getFullYear();
+  const mm = String(reorderDate.getMonth() + 1).padStart(2, "0");
+  const dd = String(reorderDate.getDate()).padStart(2, "0");
+  const reorderDateISO = `${yyyy}-${mm}-${dd}`;
+
+  return { remainingDoses, reorderDateISO };
+}
+
 export default async function InventoryPage() {
-  const { user } = await getUser();
+  const { supabase, user } = await getUser();
   if (!user) {
     return (
       <div className="mx-auto max-w-4xl p-6">
         <div className="rounded-xl border p-6">
           <h1 className="text-2xl font-semibold">Inventory</h1>
-        <p className="mt-2 text-sm">
+          <p className="mt-2 text-sm">
             You’re not signed in.{" "}
             <Link href="/sign-in" className="underline">
               Sign in
@@ -52,33 +141,82 @@ export default async function InventoryPage() {
   // Load inventory rows
   const [vialRows, capsRows] = await Promise.all([getVialInventory(), getCapsInventory()]);
 
+  // Get active protocol items for only the peptides we care about
+  const peptideIds = [
+    ...new Set([
+      ...vialRows.map((r: VialRow) => r.peptide_id),
+      ...capsRows.map((r: CapsRow) => r.peptide_id),
+    ]),
+  ];
+
+  let protocolItemsByPeptide = new Map<
+    number,
+    {
+      dose_mg_per_administration: number;
+      schedule: string;
+      custom_days: number[] | null;
+      cycle_on_weeks: number;
+      cycle_off_weeks: number;
+    }
+  >();
+
+  if (peptideIds.length > 0) {
+    // Query active protocol + items for this user
+    const { data: activeProto } = await supabase
+      .from("protocols")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (activeProto?.id) {
+      const { data: protoItems } = await supabase
+        .from("protocol_items")
+        .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks")
+        .eq("protocol_id", activeProto.id)
+        .in("peptide_id", peptideIds);
+
+      if (protoItems) {
+        for (const pi of protoItems) {
+          protocolItemsByPeptide.set(pi.peptide_id, {
+            dose_mg_per_administration: Number(pi.dose_mg_per_administration || 0),
+            schedule: String(pi.schedule || ""),
+            custom_days: (pi.custom_days as number[] | null) ?? null,
+            cycle_on_weeks: Number(pi.cycle_on_weeks || 0),
+            cycle_off_weeks: Number(pi.cycle_off_weeks || 0),
+          });
+        }
+      }
+    }
+  }
+
   // Preload top 3 offers per peptide (vials & capsules)
   const vialOfferMap = await getOffersForVials(vialRows.map((r: VialRow) => r.peptide_id));
   const capsOfferMap = await getOffersForCaps(capsRows.map((r: CapsRow) => r.peptide_id));
 
-  // ---- Inline server action wrappers (must return Promise<void>) ----
-  const saveVial = async (p: { id: number; vials: number; mg_per_vial: number; bac_ml: number }) => {
+  // ---- Inline server action wrappers (now accept partial edits) ----
+  const saveVial = async (p: { id: number; vials?: number; mg_per_vial?: number; bac_ml?: number }) => {
     "use server";
     const fd = new FormData();
     fd.set("id", String(p.id));
-    fd.set("vials", String(p.vials));
-    fd.set("mg_per_vial", String(p.mg_per_vial));
-    fd.set("bac_ml", String(p.bac_ml));
+    if (p.vials !== undefined) fd.set("vials", String(p.vials));
+    if (p.mg_per_vial !== undefined) fd.set("mg_per_vial", String(p.mg_per_vial));
+    if (p.bac_ml !== undefined) fd.set("bac_ml", String(p.bac_ml));
     await updateVialItemAction(fd);
   };
 
   const saveCapsule = async (p: {
     id: number;
-    bottles: number;
-    caps_per_bottle: number;
-    mg_per_cap: number;
+    bottles?: number;
+    caps_per_bottle?: number;
+    mg_per_cap?: number;
   }) => {
     "use server";
     const fd = new FormData();
     fd.set("id", String(p.id));
-    fd.set("bottles", String(p.bottles));
-    fd.set("caps_per_bottle", String(p.caps_per_bottle));
-    fd.set("mg_per_cap", String(p.mg_per_cap));
+    if (p.bottles !== undefined) fd.set("bottles", String(p.bottles));
+    if (p.caps_per_bottle !== undefined) fd.set("caps_per_bottle", String(p.caps_per_bottle));
+    if (p.mg_per_cap !== undefined) fd.set("mg_per_cap", String(p.mg_per_cap));
     await updateCapsuleItemAction(fd);
   };
 
@@ -97,24 +235,49 @@ export default async function InventoryPage() {
   };
   // -------------------------------------------------------------------
 
-  // Prepare serializable data for the client component
-  const vialItems = vialRows.map((r) => ({
-    id: r.id,
-    peptide_id: r.peptide_id,
-    canonical_name: r.name,
-    vials: r.vials,
-    mg_per_vial: r.mg_per_vial,
-    bac_ml: r.bac_ml,
-  }));
+  // Prepare serializable data for the client component, include forecasts
+  const vialItems = vialRows
+    .map((r) => {
+      const proto = protocolItemsByPeptide.get(r.peptide_id);
+      const { remainingDoses, reorderDateISO } = computeForecast(
+        false,
+        { vials: r.vials, mg_per_vial: r.mg_per_vial, bac_ml: r.bac_ml },
+        proto
+      );
+      return {
+        id: r.id,
+        peptide_id: r.peptide_id,
+        canonical_name: r.name,
+        vials: r.vials,
+        mg_per_vial: r.mg_per_vial,
+        bac_ml: r.bac_ml,
+        remainingDoses,
+        reorderDateISO,
+      };
+    })
+    // keep inventory stable and predictable: A→Z by canonical_name
+    .sort((a, b) => a.canonical_name.localeCompare(b.canonical_name));
 
-  const capItems = capsRows.map((r) => ({
-    id: r.id,
-    peptide_id: r.peptide_id,
-    canonical_name: r.name,
-    bottles: r.bottles,
-    caps_per_bottle: r.caps_per_bottle,
-    mg_per_cap: r.mg_per_cap,
-  }));
+  const capItems = capsRows
+    .map((r) => {
+      const proto = protocolItemsByPeptide.get(r.peptide_id);
+      const { remainingDoses, reorderDateISO } = computeForecast(
+        true,
+        { bottles: r.bottles, caps_per_bottle: r.caps_per_bottle, mg_per_cap: r.mg_per_cap },
+        proto
+      );
+      return {
+        id: r.id,
+        peptide_id: r.peptide_id,
+        canonical_name: r.name,
+        bottles: r.bottles,
+        caps_per_bottle: r.caps_per_bottle,
+        mg_per_cap: r.mg_per_cap,
+        remainingDoses,
+        reorderDateISO,
+      };
+    })
+    .sort((a, b) => a.canonical_name.localeCompare(b.canonical_name));
 
   // Flatten Maps into plain objects (Record<number, Offer[]>)
   const offerVials: Record<number, OfferVial[]> = {};
@@ -149,7 +312,7 @@ export default async function InventoryPage() {
         onSaveCapsule={saveCapsule}
         onDeleteVial={deleteVial}
         onDeleteCapsule={deleteCapsule}
-        addOfferToCart={addOfferToCartAction} // passing a server action is allowed
+        addOfferToCart={addOfferToCartAction}
       />
     </div>
   );

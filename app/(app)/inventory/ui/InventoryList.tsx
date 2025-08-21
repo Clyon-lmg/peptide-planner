@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import AddOfferButton from "../AddOfferButton"; // client helper that accepts a server action prop
+import AddOfferButton from "../AddOfferButton";
 
 export type VialItem = {
   id: number;
@@ -11,6 +11,8 @@ export type VialItem = {
   vials: number;
   mg_per_vial: number;
   bac_ml: number;
+  remainingDoses: number | null;
+  reorderDateISO: string | null;
 };
 
 export type CapsuleItem = {
@@ -20,6 +22,8 @@ export type CapsuleItem = {
   bottles: number;
   caps_per_bottle: number;
   mg_per_cap: number;
+  remainingDoses: number | null;
+  reorderDateISO: string | null;
 };
 
 export type OfferVial = {
@@ -39,29 +43,22 @@ export type OfferCaps = {
   caps_per_bottle: number | null;
 };
 
-type SaveVialPayload = Pick<VialItem, "id" | "vials" | "mg_per_vial" | "bac_ml">;
-type SaveCapsPayload = Pick<CapsuleItem, "id" | "bottles" | "caps_per_bottle" | "mg_per_cap">;
+// NOTE: fields are now optional for partial updates
+type SaveVialPayload = { id: number; vials?: number; mg_per_vial?: number; bac_ml?: number };
+type SaveCapsPayload = { id: number; bottles?: number; caps_per_bottle?: number; mg_per_cap?: number };
 
 export type InventoryListProps = {
   vials: VialItem[];
   capsules: CapsuleItem[];
   offersVials: Record<number, OfferVial[]>;
   offersCapsules: Record<number, OfferCaps[]>;
-  // Callbacks from the parent page (server action wrappers returning Promise<void>)
   onSaveVial?: (payload: SaveVialPayload) => Promise<void> | void;
   onSaveCapsule?: (payload: SaveCapsPayload) => Promise<void> | void;
   onDeleteVial?: (id: number) => Promise<void> | void;
   onDeleteCapsule?: (id: number) => Promise<void> | void;
-  // Server action to add an offer directly to cart (allowed to pass to client)
   addOfferToCart: (formData: FormData) => Promise<any>;
 };
 
-/**
- * InventoryList
- * - Client-side component with local edit state per item
- * - Offers rendered directly (no function props from server)
- * - Save (blue), Add (green), Delete (red)
- */
 export default function InventoryList({
   vials,
   capsules,
@@ -77,29 +74,19 @@ export default function InventoryList({
   const [capsEdits, setCapsEdits] = React.useState<Record<number, SaveCapsPayload>>({});
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
 
-  const getVialEdit = (item: VialItem): SaveVialPayload =>
-    vialEdits[item.id] ?? {
-      id: item.id,
-      vials: Number(item.vials ?? 0),
-      mg_per_vial: Number(item.mg_per_vial ?? 0),
-      bac_ml: Number(item.bac_ml ?? 0),
-    };
+  const currentVialValue = (item: VialItem, field: keyof Omit<VialItem, "id" | "peptide_id" | "canonical_name" | "remainingDoses" | "reorderDateISO">) =>
+    (vialEdits[item.id] as any)?.[field] ?? (item as any)[field];
 
-  const getCapsEdit = (item: CapsuleItem): SaveCapsPayload =>
-    capsEdits[item.id] ?? {
-      id: item.id,
-      bottles: Number(item.bottles ?? 0),
-      caps_per_bottle: Number(item.caps_per_bottle ?? 0),
-      mg_per_cap: Number(item.mg_per_cap ?? 0),
-    };
+  const currentCapsValue = (item: CapsuleItem, field: keyof Omit<CapsuleItem, "id" | "peptide_id" | "canonical_name" | "remainingDoses" | "reorderDateISO">) =>
+    (capsEdits[item.id] as any)?.[field] ?? (item as any)[field];
 
   const isVialDirty = (item: VialItem) => {
     const e = vialEdits[item.id];
     if (!e) return false;
     return (
-      Number(e.vials) !== Number(item.vials) ||
-      Number(e.mg_per_vial) !== Number(item.mg_per_vial) ||
-      Number(e.bac_ml) !== Number(item.bac_ml)
+      (e.vials !== undefined && Number(e.vials) !== Number(item.vials)) ||
+      (e.mg_per_vial !== undefined && Number(e.mg_per_vial) !== Number(item.mg_per_vial)) ||
+      (e.bac_ml !== undefined && Number(e.bac_ml) !== Number(item.bac_ml))
     );
   };
 
@@ -107,48 +94,58 @@ export default function InventoryList({
     const e = capsEdits[item.id];
     if (!e) return false;
     return (
-      Number(e.bottles) !== Number(item.bottles) ||
-      Number(e.caps_per_bottle) !== Number(item.caps_per_bottle) ||
-      Number(e.mg_per_cap) !== Number(item.mg_per_cap)
+      (e.bottles !== undefined && Number(e.bottles) !== Number(item.bottles)) ||
+      (e.caps_per_bottle !== undefined && Number(e.caps_per_bottle) !== Number(item.caps_per_bottle)) ||
+      (e.mg_per_cap !== undefined && Number(e.mg_per_cap) !== Number(item.mg_per_cap))
     );
   };
 
   const onChangeVial = (id: number, field: keyof SaveVialPayload, value: number) => {
     setVialEdits((prev) => ({
       ...prev,
-      [id]: { ...(prev[id] ?? { id, vials: 0, mg_per_vial: 0, bac_ml: 0 }), [field]: value },
+      [id]: { ...(prev[id] ?? { id }), id, [field]: value },
     }));
   };
 
   const onChangeCaps = (id: number, field: keyof SaveCapsPayload, value: number) => {
     setCapsEdits((prev) => ({
       ...prev,
-      [id]: { ...(prev[id] ?? { id, bottles: 0, caps_per_bottle: 0, mg_per_cap: 0 }), [field]: value },
+      [id]: { ...(prev[id] ?? { id }), id, [field]: value },
     }));
   };
 
-  const resetVial = (id: number) =>
+  const clearVial = (id: number) =>
     setVialEdits((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
+      const n = { ...prev };
+      delete n[id];
+      return n;
     });
 
-  const resetCaps = (id: number) =>
+  const clearCaps = (id: number) =>
     setCapsEdits((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
+      const n = { ...prev };
+      delete n[id];
+      return n;
     });
 
   const handleSaveVial = async (item: VialItem) => {
     if (!onSaveVial) return;
-    const payload = getVialEdit(item);
+    const edited = vialEdits[item.id];
+    if (!edited) return;
+
+    // send only changed fields
+    const payload: SaveVialPayload = { id: item.id };
+    if (edited.vials !== undefined && Number(edited.vials) !== Number(item.vials)) payload.vials = Number(edited.vials);
+    if (edited.mg_per_vial !== undefined && Number(edited.mg_per_vial) !== Number(item.mg_per_vial)) payload.mg_per_vial = Number(edited.mg_per_vial);
+    if (edited.bac_ml !== undefined && Number(edited.bac_ml) !== Number(item.bac_ml)) payload.bac_ml = Number(edited.bac_ml);
+
+    if (Object.keys(payload).length === 1) return; // nothing changed
+
     const key = `vial-${item.id}`;
     setSavingIds((s) => new Set(s).add(key));
     try {
       await onSaveVial(payload);
-      resetVial(item.id);
+      clearVial(item.id);
     } finally {
       setSavingIds((s) => {
         const n = new Set(s);
@@ -160,12 +157,21 @@ export default function InventoryList({
 
   const handleSaveCaps = async (item: CapsuleItem) => {
     if (!onSaveCapsule) return;
-    const payload = getCapsEdit(item);
+    const edited = capsEdits[item.id];
+    if (!edited) return;
+
+    const payload: SaveCapsPayload = { id: item.id };
+    if (edited.bottles !== undefined && Number(edited.bottles) !== Number(item.bottles)) payload.bottles = Number(edited.bottles);
+    if (edited.caps_per_bottle !== undefined && Number(edited.caps_per_bottle) !== Number(item.caps_per_bottle)) payload.caps_per_bottle = Number(edited.caps_per_bottle);
+    if (edited.mg_per_cap !== undefined && Number(edited.mg_per_cap) !== Number(item.mg_per_cap)) payload.mg_per_cap = Number(edited.mg_per_cap);
+
+    if (Object.keys(payload).length === 1) return;
+
     const key = `cap-${item.id}`;
     setSavingIds((s) => new Set(s).add(key));
     try {
       await onSaveCapsule(payload);
-      resetCaps(item.id);
+      clearCaps(item.id);
     } finally {
       setSavingIds((s) => {
         const n = new Set(s);
@@ -181,7 +187,7 @@ export default function InventoryList({
     setSavingIds((s) => new Set(s).add(key));
     try {
       await onDeleteVial(id);
-      resetVial(id);
+      clearVial(id);
     } finally {
       setSavingIds((s) => {
         const n = new Set(s);
@@ -197,7 +203,7 @@ export default function InventoryList({
     setSavingIds((s) => new Set(s).add(key));
     try {
       await onDeleteCapsule(id);
-      resetCaps(id);
+      clearCaps(id);
     } finally {
       setSavingIds((s) => {
         const n = new Set(s);
@@ -206,6 +212,10 @@ export default function InventoryList({
       });
     }
   };
+
+  const Pill = ({ children }: { children: React.ReactNode }) => (
+    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">{children}</span>
+  );
 
   return (
     <div className="space-y-8">
@@ -217,7 +227,6 @@ export default function InventoryList({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {vials.map((item) => {
-              const edit = getVialEdit(item);
               const dirty = isVialDirty(item);
               const saving = savingIds.has(`vial-${item.id}`);
               const offers = offersVials[item.peptide_id] ?? [];
@@ -236,13 +245,29 @@ export default function InventoryList({
                     </button>
                   </div>
 
+                  {/* Forecast row */}
+                  <div className="flex gap-2 text-xs">
+                    <Pill>
+                      Remaining doses:{" "}
+                      <span className="ml-1 font-semibold">
+                        {item.remainingDoses ?? "—"}
+                      </span>
+                    </Pill>
+                    <Pill>
+                      Est. reorder:{" "}
+                      <span className="ml-1 font-semibold">
+                        {item.reorderDateISO ?? "—"}
+                      </span>
+                    </Pill>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2">
                     <label className="text-sm">
                       Vials
                       <input
                         type="number"
                         min={0}
-                        value={Number.isFinite(edit.vials) ? edit.vials : 0}
+                        value={Number.isFinite(currentVialValue(item, "vials") as number) ? (currentVialValue(item, "vials") as number) : 0}
                         onChange={(e) => onChangeVial(item.id, "vials", Number(e.target.value))}
                         className="mt-1 w-full rounded border px-2 py-1"
                       />
@@ -253,7 +278,7 @@ export default function InventoryList({
                         type="number"
                         step="0.01"
                         min={0}
-                        value={Number.isFinite(edit.mg_per_vial) ? edit.mg_per_vial : 0}
+                        value={Number.isFinite(currentVialValue(item, "mg_per_vial") as number) ? (currentVialValue(item, "mg_per_vial") as number) : 0}
                         onChange={(e) => onChangeVial(item.id, "mg_per_vial", Number(e.target.value))}
                         className="mt-1 w-full rounded border px-2 py-1"
                       />
@@ -264,7 +289,7 @@ export default function InventoryList({
                         type="number"
                         step="0.01"
                         min={0}
-                        value={Number.isFinite(edit.bac_ml) ? edit.bac_ml : 0}
+                        value={Number.isFinite(currentVialValue(item, "bac_ml") as number) ? (currentVialValue(item, "bac_ml") as number) : 0}
                         onChange={(e) => onChangeVial(item.id, "bac_ml", Number(e.target.value))}
                         className="mt-1 w-full rounded border px-2 py-1"
                       />
@@ -284,7 +309,7 @@ export default function InventoryList({
                     {dirty && (
                       <button
                         type="button"
-                        onClick={() => resetVial(item.id)}
+                        onClick={() => clearVial(item.id)}
                         className="rounded px-3 py-2 text-sm border border-gray-300 hover:bg-gray-50"
                         title="Discard changes"
                       >
@@ -333,7 +358,6 @@ export default function InventoryList({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {capsules.map((item) => {
-              const edit = getCapsEdit(item);
               const dirty = isCapsDirty(item);
               const saving = savingIds.has(`cap-${item.id}`);
               const offers = offersCapsules[item.peptide_id] ?? [];
@@ -352,13 +376,29 @@ export default function InventoryList({
                     </button>
                   </div>
 
+                  {/* Forecast row */}
+                  <div className="flex gap-2 text-xs">
+                    <Pill>
+                      Remaining doses:{" "}
+                      <span className="ml-1 font-semibold">
+                        {item.remainingDoses ?? "—"}
+                      </span>
+                    </Pill>
+                    <Pill>
+                      Est. reorder:{" "}
+                      <span className="ml-1 font-semibold">
+                        {item.reorderDateISO ?? "—"}
+                      </span>
+                    </Pill>
+                  </div>
+
                   <div className="grid grid-cols-3 gap-2">
                     <label className="text-sm">
                       Bottles
                       <input
                         type="number"
                         min={0}
-                        value={Number.isFinite(edit.bottles) ? edit.bottles : 0}
+                        value={Number.isFinite(currentCapsValue(item, "bottles") as number) ? (currentCapsValue(item, "bottles") as number) : 0}
                         onChange={(e) => onChangeCaps(item.id, "bottles", Number(e.target.value))}
                         className="mt-1 w-full rounded border px-2 py-1"
                       />
@@ -368,10 +408,8 @@ export default function InventoryList({
                       <input
                         type="number"
                         min={0}
-                        value={Number.isFinite(edit.caps_per_bottle) ? edit.caps_per_bottle : 0}
-                        onChange={(e) =>
-                          onChangeCaps(item.id, "caps_per_bottle", Number(e.target.value))
-                        }
+                        value={Number.isFinite(currentCapsValue(item, "caps_per_bottle") as number) ? (currentCapsValue(item, "caps_per_bottle") as number) : 0}
+                        onChange={(e) => onChangeCaps(item.id, "caps_per_bottle", Number(e.target.value))}
                         className="mt-1 w-full rounded border px-2 py-1"
                       />
                     </label>
@@ -381,7 +419,7 @@ export default function InventoryList({
                         type="number"
                         step="0.01"
                         min={0}
-                        value={Number.isFinite(edit.mg_per_cap) ? edit.mg_per_cap : 0}
+                        value={Number.isFinite(currentCapsValue(item, "mg_per_cap") as number) ? (currentCapsValue(item, "mg_per_cap") as number) : 0}
                         onChange={(e) => onChangeCaps(item.id, "mg_per_cap", Number(e.target.value))}
                         className="mt-1 w-full rounded border px-2 py-1"
                       />
@@ -401,7 +439,7 @@ export default function InventoryList({
                     {dirty && (
                       <button
                         type="button"
-                        onClick={() => resetCaps(item.id)}
+                        onClick={() => clearCaps(item.id)}
                         className="rounded px-3 py-2 text-sm border border-gray-300 hover:bg-gray-50"
                         title="Discard changes"
                       >
