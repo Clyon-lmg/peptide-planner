@@ -1,3 +1,4 @@
+// app/(app)/protocols/page.tsx
 "use client";
 import React from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -10,6 +11,36 @@ type Protocol = {
   name: string;
 };
 
+/** Button-like row wrapper that isn't a <button> (avoids nested button hydration issues) */
+function RowButton({
+  className,
+  onClick,
+  children,
+}: {
+  className?: string;
+  onClick?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className={className}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (!onClick) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          // Synthesize a click for keyboard activation
+          onClick(e as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>);
+        }
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function ProtocolsPage() {
   const supabase = React.useMemo(() => createClientComponentClient(), []);
   const [protocols, setProtocols] = React.useState<Protocol[]>([]);
@@ -17,7 +48,6 @@ export default function ProtocolsPage() {
   const [creating, setCreating] = React.useState(false);
 
   const reload = React.useCallback(async () => {
-    // This client pulls the JWT from Supabase cookies set by your auth flow
     const { data, error } = await supabase
       .from("protocols")
       .select("*")
@@ -34,7 +64,9 @@ export default function ProtocolsPage() {
 
   React.useEffect(() => {
     let active = true;
-    (async () => { await reload(); })();
+    (async () => {
+      await reload();
+    })();
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, _session) => {
       if (!active) return;
       reload();
@@ -51,10 +83,12 @@ export default function ProtocolsPage() {
       const name = prompt("Name your protocol");
       if (!name) return;
       // Insert without user_id; DB trigger fills it using auth.uid()
-      const { error } = await supabase.from("protocols").insert([{ name, is_active: false }]);
+      const { error } = await supabase
+        .from("protocols")
+        .insert([{ name, is_active: false }]);
       if (error) throw error;
       await reload();
-    } catch (e:any) {
+    } catch (e: any) {
       console.error(e);
       alert(e.message || "Failed to create protocol.");
     } finally {
@@ -65,7 +99,10 @@ export default function ProtocolsPage() {
   const renameProtocol = async (p: Protocol) => {
     const name = prompt("Rename protocol", p.name);
     if (!name) return;
-    const { error } = await supabase.from("protocols").update({ name }).eq("id", p.id);
+    const { error } = await supabase
+      .from("protocols")
+      .update({ name })
+      .eq("id", p.id);
     if (error) {
       console.error(error);
       alert("Rename failed.");
@@ -75,7 +112,12 @@ export default function ProtocolsPage() {
   };
 
   const deleteProtocol = async (p: Protocol) => {
-    if (!confirm(`Delete protocol "${p.name}"? This will remove its items and future doses.`)) return;
+    if (
+      !confirm(
+        `Delete protocol "${p.name}"? This will remove its items and future doses.`
+      )
+    )
+      return;
     const { error } = await supabase.from("protocols").delete().eq("id", p.id);
     if (error) {
       console.error(error);
@@ -105,33 +147,44 @@ export default function ProtocolsPage() {
           <ul className="space-y-1">
             {protocols.map((p) => (
               <li key={p.id}>
-                <button
-                  className={"w-full text-left px-2 py-2 rounded hover:bg-gray-100 " + (selectedId === p.id ? "bg-gray-100" : "")}
+                <RowButton
+                  className={
+                    "w-full text-left px-2 py-2 rounded hover:bg-gray-100 " +
+                    (selectedId === p.id ? "bg-gray-100" : "")
+                  }
                   onClick={() => setSelectedId(p.id)}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-medium">{p.name}</div>
-                      {p.is_active && <div className="text-xs text-emerald-600">Active</div>}
+                      {p.is_active && (
+                        <div className="text-xs text-emerald-600">Active</div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         className="text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300"
-                        onClick={(e) => { e.stopPropagation(); renameProtocol(p); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          renameProtocol(p);
+                        }}
                       >
                         Rename
                       </button>
                       <button
                         type="button"
                         className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700"
-                        onClick={(e) => { e.stopPropagation(); deleteProtocol(p); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteProtocol(p);
+                        }}
                       >
                         Delete
                       </button>
                     </div>
                   </div>
-                </button>
+                </RowButton>
               </li>
             ))}
           </ul>
@@ -140,11 +193,13 @@ export default function ProtocolsPage() {
         <main className="col-span-12 md:col-span-8">
           {selectedId ? (
             <ProtocolEditor
-              protocol={protocols.find(p => p.id === selectedId)!}
+              protocol={protocols.find((p) => p.id === selectedId)!}
               onReload={reload}
             />
           ) : (
-            <div className="border rounded-xl p-6 text-gray-500">Select or create a protocol to begin.</div>
+            <div className="border rounded-xl p-6 text-gray-500">
+              Select or create a protocol to begin.
+            </div>
           )}
         </main>
       </div>
