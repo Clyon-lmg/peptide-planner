@@ -1,6 +1,6 @@
 // app/(app)/inventory/page.tsx
 import { cookies } from "next/headers";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createServerComponentClient, createServerActionClient } from "@supabase/auth-helpers-nextjs";
 import Link from "next/link";
 
 import AddRow from "./ui/AddRow";
@@ -11,8 +11,7 @@ import {
   getCapsInventory,
   getOffersForVials,
   getOffersForCaps,
-  updateVialItemAction,
-  updateCapsuleItemAction,
+  // keep using your existing actions for add/delete/offer
   deleteVialItemAction,
   deleteCapsuleItemAction,
   addOfferToCartAction,
@@ -32,7 +31,6 @@ async function getUser() {
 
 /**
  * Compute dose frequency /wk for a given schedule.
- * Supports: EVERYDAY (7), WEEKDAYS_5_2 (5), CUSTOM (length of custom_days)
  */
 function baseFreqPerWeek(schedule: string, customDays?: number[] | null) {
   switch (schedule) {
@@ -55,18 +53,14 @@ function effectiveFreqPerWeek(base: number, onWeeks: number, offWeeks: number) {
 }
 
 /**
- * Compute remaining doses and reorder date for a peptide given inventory and active protocol item (if any).
- * - total mg (vials): vials * mg_per_vial
- * - total mg (caps): bottles * caps_per_bottle * mg_per_cap
- * - remaining doses = floor(total_mg / dose_per_admin)
- * - reorder date = today + ceil(remaining_doses / (effective_freq_per_week)) * 7
+ * Compute remaining doses & reorder date for a peptide given inventory and active protocol item (if any).
  */
 function computeForecast(
   isCapsule: boolean,
   inv: {
     vials?: number;
     mg_per_vial?: number;
-    bac_ml?: number; // not used here but available if you later want units calc
+    bac_ml?: number;
     bottles?: number;
     caps_per_bottle?: number;
     mg_per_cap?: number;
@@ -194,34 +188,56 @@ export default async function InventoryPage() {
   const vialOfferMap = await getOffersForVials(vialRows.map((r: VialRow) => r.peptide_id));
   const capsOfferMap = await getOffersForCaps(capsRows.map((r: CapsRow) => r.peptide_id));
 
-  // ---- Inline server action wrappers (now accept partial edits) ----
+  // ---------- Partial update server actions (no overwriting!) ----------
   const saveVial = async (p: { id: number; vials?: number; mg_per_vial?: number; bac_ml?: number }) => {
     "use server";
-    const fd = new FormData();
-    fd.set("id", String(p.id));
-    if (p.vials !== undefined) fd.set("vials", String(p.vials));
-    if (p.mg_per_vial !== undefined) fd.set("mg_per_vial", String(p.mg_per_vial));
-    if (p.bac_ml !== undefined) fd.set("bac_ml", String(p.bac_ml));
-    await updateVialItemAction(fd);
+    const sa = createServerActionClient({ cookies });
+    const { data: auth } = await sa.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) throw new Error("Not signed in");
+
+    const update: Record<string, number> = {};
+    if (p.vials !== undefined) update.vials = Number(p.vials);
+    if (p.mg_per_vial !== undefined) update.mg_per_vial = Number(p.mg_per_vial);
+    if (p.bac_ml !== undefined) update.bac_ml = Number(p.bac_ml);
+
+    if (Object.keys(update).length === 0) return;
+
+    const { error } = await sa
+      .from("inventory_items")
+      .update(update)
+      .eq("id", p.id)
+      .eq("user_id", uid);
+
+    if (error) throw error;
   };
 
-  const saveCapsule = async (p: {
-    id: number;
-    bottles?: number;
-    caps_per_bottle?: number;
-    mg_per_cap?: number;
-  }) => {
+  const saveCapsule = async (p: { id: number; bottles?: number; caps_per_bottle?: number; mg_per_cap?: number }) => {
     "use server";
-    const fd = new FormData();
-    fd.set("id", String(p.id));
-    if (p.bottles !== undefined) fd.set("bottles", String(p.bottles));
-    if (p.caps_per_bottle !== undefined) fd.set("caps_per_bottle", String(p.caps_per_bottle));
-    if (p.mg_per_cap !== undefined) fd.set("mg_per_cap", String(p.mg_per_cap));
-    await updateCapsuleItemAction(fd);
+    const sa = createServerActionClient({ cookies });
+    const { data: auth } = await sa.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) throw new Error("Not signed in");
+
+    const update: Record<string, number> = {};
+    if (p.bottles !== undefined) update.bottles = Number(p.bottles);
+    if (p.caps_per_bottle !== undefined) update.caps_per_bottle = Number(p.caps_per_bottle);
+    if (p.mg_per_cap !== undefined) update.mg_per_cap = Number(p.mg_per_cap);
+
+    if (Object.keys(update).length === 0) return;
+
+    const { error } = await sa
+      .from("inventory_capsules")
+      .update(update)
+      .eq("id", p.id)
+      .eq("user_id", uid);
+
+    if (error) throw error;
   };
 
   const deleteVial = async (id: number) => {
     "use server";
+    // keep using your existing action
     const fd = new FormData();
     fd.set("id", String(id));
     await deleteVialItemAction(fd);
@@ -233,7 +249,7 @@ export default async function InventoryPage() {
     fd.set("id", String(id));
     await deleteCapsuleItemAction(fd);
   };
-  // -------------------------------------------------------------------
+  // --------------------------------------------------------------------
 
   // Prepare serializable data for the client component, include forecasts
   const vialItems = vialRows
@@ -255,7 +271,6 @@ export default async function InventoryPage() {
         reorderDateISO,
       };
     })
-    // keep inventory stable and predictable: A→Z by canonical_name
     .sort((a, b) => a.canonical_name.localeCompare(b.canonical_name));
 
   const capItems = capsRows

@@ -43,7 +43,7 @@ export type OfferCaps = {
   caps_per_bottle: number | null;
 };
 
-// NOTE: fields are now optional for partial updates
+// Optional fields for partial updates
 type SaveVialPayload = { id: number; vials?: number; mg_per_vial?: number; bac_ml?: number };
 type SaveCapsPayload = { id: number; bottles?: number; caps_per_bottle?: number; mg_per_cap?: number };
 
@@ -58,6 +58,12 @@ export type InventoryListProps = {
   onDeleteCapsule?: (id: number) => Promise<void> | void;
   addOfferToCart: (formData: FormData) => Promise<any>;
 };
+
+function parseNum(value: string, allowEmpty = true) {
+  if (allowEmpty && value.trim() === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
 
 export default function InventoryList({
   vials,
@@ -74,11 +80,15 @@ export default function InventoryList({
   const [capsEdits, setCapsEdits] = React.useState<Record<number, SaveCapsPayload>>({});
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
 
-  const currentVialValue = (item: VialItem, field: keyof Omit<VialItem, "id" | "peptide_id" | "canonical_name" | "remainingDoses" | "reorderDateISO">) =>
-    (vialEdits[item.id] as any)?.[field] ?? (item as any)[field];
+  const currentVialValue = (
+    item: VialItem,
+    field: keyof Omit<VialItem, "id" | "peptide_id" | "canonical_name" | "remainingDoses" | "reorderDateISO">
+  ) => (vialEdits[item.id] as any)?.[field] ?? (item as any)[field];
 
-  const currentCapsValue = (item: CapsuleItem, field: keyof Omit<CapsuleItem, "id" | "peptide_id" | "canonical_name" | "remainingDoses" | "reorderDateISO">) =>
-    (capsEdits[item.id] as any)?.[field] ?? (item as any)[field];
+  const currentCapsValue = (
+    item: CapsuleItem,
+    field: keyof Omit<CapsuleItem, "id" | "peptide_id" | "canonical_name" | "remainingDoses" | "reorderDateISO">
+  ) => (capsEdits[item.id] as any)?.[field] ?? (item as any)[field];
 
   const isVialDirty = (item: VialItem) => {
     const e = vialEdits[item.id];
@@ -100,17 +110,17 @@ export default function InventoryList({
     );
   };
 
-  const onChangeVial = (id: number, field: keyof SaveVialPayload, value: number) => {
+  const onChangeVial = (id: number, field: keyof SaveVialPayload, value: number | undefined) => {
     setVialEdits((prev) => ({
       ...prev,
-      [id]: { ...(prev[id] ?? { id }), id, [field]: value },
+      [id]: { ...(prev[id] ?? { id }), id, ...(value === undefined ? {} : { [field]: value }) } as SaveVialPayload,
     }));
   };
 
-  const onChangeCaps = (id: number, field: keyof SaveCapsPayload, value: number) => {
+  const onChangeCaps = (id: number, field: keyof SaveCapsPayload, value: number | undefined) => {
     setCapsEdits((prev) => ({
       ...prev,
-      [id]: { ...(prev[id] ?? { id }), id, [field]: value },
+      [id]: { ...(prev[id] ?? { id }), id, ...(value === undefined ? {} : { [field]: value }) } as SaveCapsPayload,
     }));
   };
 
@@ -128,24 +138,10 @@ export default function InventoryList({
       return n;
     });
 
-  const handleSaveVial = async (item: VialItem) => {
-    if (!onSaveVial) return;
-    const edited = vialEdits[item.id];
-    if (!edited) return;
-
-    // send only changed fields
-    const payload: SaveVialPayload = { id: item.id };
-    if (edited.vials !== undefined && Number(edited.vials) !== Number(item.vials)) payload.vials = Number(edited.vials);
-    if (edited.mg_per_vial !== undefined && Number(edited.mg_per_vial) !== Number(item.mg_per_vial)) payload.mg_per_vial = Number(edited.mg_per_vial);
-    if (edited.bac_ml !== undefined && Number(edited.bac_ml) !== Number(item.bac_ml)) payload.bac_ml = Number(edited.bac_ml);
-
-    if (Object.keys(payload).length === 1) return; // nothing changed
-
-    const key = `vial-${item.id}`;
+  const saveWrapper = async (key: string, fn: () => Promise<void>) => {
     setSavingIds((s) => new Set(s).add(key));
     try {
-      await onSaveVial(payload);
-      clearVial(item.id);
+      await fn();
     } finally {
       setSavingIds((s) => {
         const n = new Set(s);
@@ -153,6 +149,25 @@ export default function InventoryList({
         return n;
       });
     }
+  };
+
+  const handleSaveVial = async (item: VialItem) => {
+    if (!onSaveVial) return;
+    const edited = vialEdits[item.id];
+    if (!edited) return;
+
+    const payload: SaveVialPayload = { id: item.id };
+    if (edited.vials !== undefined && Number(edited.vials) !== Number(item.vials)) payload.vials = Number(edited.vials);
+    if (edited.mg_per_vial !== undefined && Number(edited.mg_per_vial) !== Number(item.mg_per_vial))
+      payload.mg_per_vial = Number(edited.mg_per_vial);
+    if (edited.bac_ml !== undefined && Number(edited.bac_ml) !== Number(item.bac_ml)) payload.bac_ml = Number(edited.bac_ml);
+
+    if (Object.keys(payload).length === 1) return; // nothing changed
+
+    await saveWrapper(`vial-${item.id}`, async () => {
+      await onSaveVial(payload);
+      clearVial(item.id);
+    });
   };
 
   const handleSaveCaps = async (item: CapsuleItem) => {
@@ -161,56 +176,35 @@ export default function InventoryList({
     if (!edited) return;
 
     const payload: SaveCapsPayload = { id: item.id };
-    if (edited.bottles !== undefined && Number(edited.bottles) !== Number(item.bottles)) payload.bottles = Number(edited.bottles);
-    if (edited.caps_per_bottle !== undefined && Number(edited.caps_per_bottle) !== Number(item.caps_per_bottle)) payload.caps_per_bottle = Number(edited.caps_per_bottle);
-    if (edited.mg_per_cap !== undefined && Number(edited.mg_per_cap) !== Number(item.mg_per_cap)) payload.mg_per_cap = Number(edited.mg_per_cap);
+    if (edited.bottles !== undefined && Number(edited.bottles) !== Number(item.bottles))
+      payload.bottles = Number(edited.bottles);
+    if (edited.caps_per_bottle !== undefined && Number(edited.caps_per_bottle) !== Number(item.caps_per_bottle))
+      payload.caps_per_bottle = Number(edited.caps_per_bottle);
+    if (edited.mg_per_cap !== undefined && Number(edited.mg_per_cap) !== Number(item.mg_per_cap))
+      payload.mg_per_cap = Number(edited.mg_per_cap);
 
     if (Object.keys(payload).length === 1) return;
 
-    const key = `cap-${item.id}`;
-    setSavingIds((s) => new Set(s).add(key));
-    try {
+    await saveWrapper(`cap-${item.id}`, async () => {
       await onSaveCapsule(payload);
       clearCaps(item.id);
-    } finally {
-      setSavingIds((s) => {
-        const n = new Set(s);
-        n.delete(key);
-        return n;
-      });
-    }
+    });
   };
 
   const handleDeleteVial = async (id: number) => {
     if (!onDeleteVial) return;
-    const key = `vial-${id}`;
-    setSavingIds((s) => new Set(s).add(key));
-    try {
+    await saveWrapper(`vial-${id}`, async () => {
       await onDeleteVial(id);
       clearVial(id);
-    } finally {
-      setSavingIds((s) => {
-        const n = new Set(s);
-        n.delete(key);
-        return n;
-      });
-    }
+    });
   };
 
   const handleDeleteCaps = async (id: number) => {
     if (!onDeleteCapsule) return;
-    const key = `cap-${id}`;
-    setSavingIds((s) => new Set(s).add(key));
-    try {
+    await saveWrapper(`cap-${id}`, async () => {
       await onDeleteCapsule(id);
       clearCaps(id);
-    } finally {
-      setSavingIds((s) => {
-        const n = new Set(s);
-        n.delete(key);
-        return n;
-      });
-    }
+    });
   };
 
   const Pill = ({ children }: { children: React.ReactNode }) => (
@@ -246,18 +240,12 @@ export default function InventoryList({
                   </div>
 
                   {/* Forecast row */}
-                  <div className="flex gap-2 text-xs">
+                  <div className="flex gap-2 text-xs" aria-live="polite">
                     <Pill>
-                      Remaining doses:{" "}
-                      <span className="ml-1 font-semibold">
-                        {item.remainingDoses ?? "—"}
-                      </span>
+                      Remaining doses: <span className="ml-1 font-semibold">{item.remainingDoses ?? "—"}</span>
                     </Pill>
                     <Pill>
-                      Est. reorder:{" "}
-                      <span className="ml-1 font-semibold">
-                        {item.reorderDateISO ?? "—"}
-                      </span>
+                      Est. reorder: <span className="ml-1 font-semibold">{item.reorderDateISO ?? "—"}</span>
                     </Pill>
                   </div>
 
@@ -267,9 +255,12 @@ export default function InventoryList({
                       <input
                         type="number"
                         min={0}
-                        value={Number.isFinite(currentVialValue(item, "vials") as number) ? (currentVialValue(item, "vials") as number) : 0}
-                        onChange={(e) => onChangeVial(item.id, "vials", Number(e.target.value))}
+                        inputMode="numeric"
+                        value={String(currentVialValue(item, "vials") ?? "")}
+                        onChange={(e) => onChangeVial(item.id, "vials", parseNum(e.target.value))}
+                        disabled={saving}
                         className="mt-1 w-full rounded border px-2 py-1"
+                        aria-label={`Vials for ${item.canonical_name}`}
                       />
                     </label>
                     <label className="text-sm">
@@ -278,9 +269,12 @@ export default function InventoryList({
                         type="number"
                         step="0.01"
                         min={0}
-                        value={Number.isFinite(currentVialValue(item, "mg_per_vial") as number) ? (currentVialValue(item, "mg_per_vial") as number) : 0}
-                        onChange={(e) => onChangeVial(item.id, "mg_per_vial", Number(e.target.value))}
+                        inputMode="decimal"
+                        value={String(currentVialValue(item, "mg_per_vial") ?? "")}
+                        onChange={(e) => onChangeVial(item.id, "mg_per_vial", parseNum(e.target.value))}
+                        disabled={saving}
                         className="mt-1 w-full rounded border px-2 py-1"
+                        aria-label={`mg per vial for ${item.canonical_name}`}
                       />
                     </label>
                     <label className="text-sm">
@@ -289,9 +283,12 @@ export default function InventoryList({
                         type="number"
                         step="0.01"
                         min={0}
-                        value={Number.isFinite(currentVialValue(item, "bac_ml") as number) ? (currentVialValue(item, "bac_ml") as number) : 0}
-                        onChange={(e) => onChangeVial(item.id, "bac_ml", Number(e.target.value))}
+                        inputMode="decimal"
+                        value={String(currentVialValue(item, "bac_ml") ?? "")}
+                        onChange={(e) => onChangeVial(item.id, "bac_ml", parseNum(e.target.value))}
+                        disabled={saving}
                         className="mt-1 w-full rounded border px-2 py-1"
+                        aria-label={`BAC mL for ${item.canonical_name}`}
                       />
                     </label>
                   </div>
@@ -303,6 +300,8 @@ export default function InventoryList({
                       disabled={!dirty || saving}
                       className="rounded px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                       title="Save changes"
+                      aria-busy={saving}
+                      aria-label={`Save ${item.canonical_name}`}
                     >
                       {saving ? "Saving…" : "Save"}
                     </button>
@@ -371,24 +370,18 @@ export default function InventoryList({
                       className="text-xs rounded px-2 py-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"
                       disabled={saving}
                       title="Delete from inventory"
+                      aria-label={`Delete ${item.canonical_name}`}
                     >
                       {saving ? "…" : "Delete"}
                     </button>
                   </div>
 
-                  {/* Forecast row */}
-                  <div className="flex gap-2 text-xs">
+                  <div className="flex gap-2 text-xs" aria-live="polite">
                     <Pill>
-                      Remaining doses:{" "}
-                      <span className="ml-1 font-semibold">
-                        {item.remainingDoses ?? "—"}
-                      </span>
+                      Remaining doses: <span className="ml-1 font-semibold">{item.remainingDoses ?? "—"}</span>
                     </Pill>
                     <Pill>
-                      Est. reorder:{" "}
-                      <span className="ml-1 font-semibold">
-                        {item.reorderDateISO ?? "—"}
-                      </span>
+                      Est. reorder: <span className="ml-1 font-semibold">{item.reorderDateISO ?? "—"}</span>
                     </Pill>
                   </div>
 
@@ -398,9 +391,12 @@ export default function InventoryList({
                       <input
                         type="number"
                         min={0}
-                        value={Number.isFinite(currentCapsValue(item, "bottles") as number) ? (currentCapsValue(item, "bottles") as number) : 0}
-                        onChange={(e) => onChangeCaps(item.id, "bottles", Number(e.target.value))}
+                        inputMode="numeric"
+                        value={String(currentCapsValue(item, "bottles") ?? "")}
+                        onChange={(e) => onChangeCaps(item.id, "bottles", parseNum(e.target.value))}
+                        disabled={saving}
                         className="mt-1 w-full rounded border px-2 py-1"
+                        aria-label={`Bottles for ${item.canonical_name}`}
                       />
                     </label>
                     <label className="text-sm">
@@ -408,9 +404,12 @@ export default function InventoryList({
                       <input
                         type="number"
                         min={0}
-                        value={Number.isFinite(currentCapsValue(item, "caps_per_bottle") as number) ? (currentCapsValue(item, "caps_per_bottle") as number) : 0}
-                        onChange={(e) => onChangeCaps(item.id, "caps_per_bottle", Number(e.target.value))}
+                        inputMode="numeric"
+                        value={String(currentCapsValue(item, "caps_per_bottle") ?? "")}
+                        onChange={(e) => onChangeCaps(item.id, "caps_per_bottle", parseNum(e.target.value))}
+                        disabled={saving}
                         className="mt-1 w-full rounded border px-2 py-1"
+                        aria-label={`Caps per bottle for ${item.canonical_name}`}
                       />
                     </label>
                     <label className="text-sm">
@@ -419,9 +418,12 @@ export default function InventoryList({
                         type="number"
                         step="0.01"
                         min={0}
-                        value={Number.isFinite(currentCapsValue(item, "mg_per_cap") as number) ? (currentCapsValue(item, "mg_per_cap") as number) : 0}
-                        onChange={(e) => onChangeCaps(item.id, "mg_per_cap", Number(e.target.value))}
+                        inputMode="decimal"
+                        value={String(currentCapsValue(item, "mg_per_cap") ?? "")}
+                        onChange={(e) => onChangeCaps(item.id, "mg_per_cap", parseNum(e.target.value))}
+                        disabled={saving}
                         className="mt-1 w-full rounded border px-2 py-1"
+                        aria-label={`mg per cap for ${item.canonical_name}`}
                       />
                     </label>
                   </div>
@@ -433,6 +435,8 @@ export default function InventoryList({
                       disabled={!dirty || saving}
                       className="rounded px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                       title="Save changes"
+                      aria-busy={saving}
+                      aria-label={`Save ${item.canonical_name}`}
                     >
                       {saving ? "Saving…" : "Save"}
                     </button>

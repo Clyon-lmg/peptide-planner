@@ -1,3 +1,4 @@
+// app/(app)/today/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
@@ -19,8 +20,14 @@ function localISODate(): string {
   return new Date().toLocaleDateString('en-CA');
 }
 
+// Extend at the usage site so we can render optional inventory forecast fields
+type TodayDoseRowExtended = TodayDoseRow & {
+  remainingDoses?: number | null;
+  reorderDateISO?: string | null;
+};
+
 export default function TodayPage() {
-  const [rows, setRows] = useState<TodayDoseRow[] | null>(null);
+  const [rows, setRows] = useState<TodayDoseRowExtended[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -30,7 +37,9 @@ export default function TodayPage() {
     setLoading(true);
     try {
       const data = await getTodayDosesWithUnits(today);
-      setRows(data);
+      // If your server action doesn't yet include remainingDoses/reorderDateISO,
+      // this still works (falls back to "—" in the UI).
+      setRows(data as TodayDoseRowExtended[]);
     } finally {
       setLoading(false);
     }
@@ -89,18 +98,44 @@ export default function TodayPage() {
                 <div className="flex items-center justify-between pr-24">
                   <div className="min-w-0">
                     <div className="text-lg font-medium truncate">{r.canonical_name}</div>
+
+                    {/* Bold numbers for dose and syringe */}
                     <div className="text-xs text-muted-foreground">
-                      Dose: <span className="font-mono">{fmt(r.dose_mg)}</span> mg
-                      {'  '}•{'  '}
-                      Syringe: <span className="font-mono">{fmt(r.syringe_units, 2)}</span> units
+                      Dose:{' '}
+                      <span className="font-mono font-bold">{fmt(r.dose_mg)}</span>{' '}
+                      mg{'  '}•{'  '}
+                      Syringe:{' '}
+                      <span className="font-mono font-bold">
+                        {fmt(r.syringe_units, 2)}
+                      </span>{' '}
+                      units
                     </div>
                   </div>
                 </div>
 
+                {/* Inventory mix line */}
                 <div className="text-xs text-muted-foreground">
                   Inventory mix: {fmt(r.mg_per_vial)} mg/vial • {fmt(r.bac_ml)} mL BAC
                 </div>
-                {needsSetup && <div className="text-xs text-amber-600">Set mg/vial & BAC in Inventory</div>}
+                {needsSetup && (
+                  <div className="text-xs text-amber-600">Set mg/vial &amp; BAC in Inventory</div>
+                )}
+
+                {/* NEW: Forecast pills if available (falls back to —) */}
+                <div className="flex gap-2 text-xs" aria-live="polite">
+                  <span className="inline-flex items-center rounded-full border px-2 py-0.5">
+                    Remaining doses:{' '}
+                    <span className="ml-1 font-semibold">
+                      {r.remainingDoses ?? '—'}
+                    </span>
+                  </span>
+                  <span className="inline-flex items-center rounded-full border px-2 py-0.5">
+                    Est. reorder:{' '}
+                    <span className="ml-1 font-semibold">
+                      {r.reorderDateISO ?? '—'}
+                    </span>
+                  </span>
+                </div>
 
                 <div className="pt-1 flex flex-wrap gap-2">
                   <button
