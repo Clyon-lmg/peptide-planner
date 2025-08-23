@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { Calendar, Package, Notebook, Home, ShoppingCart, ClipboardList, Lightbulb, Bug } from "lucide-react"
+import { Calendar, Package, Notebook, Home, ShoppingCart, ClipboardList } from "lucide-react"
 import { ThemeToggle } from "../ThemeToggle"
 const nav = [
   { href: "/today", label: "Today", icon: Home },
@@ -11,9 +11,7 @@ const nav = [
   { href: "/protocol", label: "Protocol", icon: Notebook },
   { href: "/cart", label: "Cart", icon: ShoppingCart },
   { href: "/orders", label: "Orders", icon: ClipboardList },
-  { href: "/suggestions", label: "Suggestions", icon: Lightbulb },
-  { href: "/debug/seed", label: "Debug", icon: Bug },
-]
+  ]
 export default function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
   const pathname = usePathname()
   
