@@ -77,6 +77,8 @@ export default function Header() {
                     ) : (
                         <span className="text-xs text-neutral-500">Checking session…</span>
                     )}
+                    <span className="text-xs opacity-60">For research purposes only</span>
+
                 </nav>
             </div>
         </header>

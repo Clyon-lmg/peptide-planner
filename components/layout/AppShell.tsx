@@ -34,8 +34,10 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
               ><Icon className="size-4"/><span>{n.label}</span></Link>
             })}
           </nav>
-   <div className="mt-8"><ThemeToggle /></div>        </div>
-      </aside>
+<p className="text-xs opacity-70">For research purposes only</p>
+          <div className="mt-8"><ThemeToggle /></div>
+        </div>
+        </aside>
       <main className="p-5 md:p-8">
         <header className="flex items-center justify-between mb-6">
           <h1 className="pp-h1">{titleFromPath(pathname)}</h1>
