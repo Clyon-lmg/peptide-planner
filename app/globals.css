@@ -1,8 +1,7 @@
 @import "tailwindcss";
 
 :root { --bg:255 255 255; --fg:15 23 42; --card:255 255 255; --border:226 232 240; --ring:99 102 241; --muted:100 116 139; }
-.dark :root { --bg:3 7 18; --fg:226 232 240; --card:15 23 42; --border:51 65 85; --ring:129 140 248; --muted:148 163 184; }
-
+html.dark { --bg:3 7 18; --fg:226 232 240; --card:15 23 42; --border:51 65 85; --ring:129 140 248; --muted:148 163 184; }
 body { background-color: rgb(var(--bg)); color: rgb(var(--fg)); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
 a { color: rgb(var(--ring)); }
 

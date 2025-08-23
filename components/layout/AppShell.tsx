@@ -1,8 +1,9 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+
 import { Calendar, Package, Notebook, Home, ShoppingCart, ClipboardList, Lightbulb, Bug } from "lucide-react"
+import { ThemeToggle } from "../ThemeToggle"
 const nav = [
   { href: "/today", label: "Today", icon: Home },
   { href: "/calendar", label: "Calendar", icon: Calendar },
@@ -15,8 +16,7 @@ const nav = [
 ]
 export default function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
   const pathname = usePathname()
-  const [dark, setDark] = useState(false)
-  useEffect(() => { document.documentElement.classList.toggle("dark", dark) }, [dark])
+  
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[260px_1fr]">
       <aside className="hidden lg:block" style={{ background:"rgb(var(--card))", borderRight:"1px solid rgb(var(--border))" }}>
@@ -36,8 +36,7 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
               ><Icon className="size-4"/><span>{n.label}</span></Link>
             })}
           </nav>
-          <button className="btn w-full mt-8" onClick={()=>setDark(v=>!v)}>{dark?"Light mode":"Dark mode"}</button>
-        </div>
+   <div className="mt-8"><ThemeToggle /></div>        </div>
       </aside>
       <main className="p-5 md:p-8">
         <header className="flex items-center justify-between mb-6">
