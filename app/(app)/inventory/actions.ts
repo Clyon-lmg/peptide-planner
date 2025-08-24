@@ -74,6 +74,7 @@ export type VialRow = {
   vials: number;
   mg_per_vial: number;
   bac_ml: number;
+  half_life_hours: number;
   name: string;
 };
 
@@ -83,14 +84,33 @@ export type CapsRow = {
   bottles: number;
   caps_per_bottle: number;
   mg_per_cap: number;
+  half_life_hours: number;
   name: string;
+};
+
+export type SaveVialPayload = {
+  id: number;
+  vials?: number;
+  mg_per_vial?: number;
+  bac_ml?: number;
+  half_life_hours?: number;
+};
+
+export type SaveCapsPayload = {
+  id: number;
+  bottles?: number;
+  caps_per_bottle?: number;
+  mg_per_cap?: number;
+  half_life_hours?: number;
 };
 
 export async function getVialInventory(): Promise<VialRow[]> {
   const { supabase, userId } = await getAuthed();
   const { data } = await supabase
     .from("inventory_items")
-    .select("id, peptide_id, vials, mg_per_vial, bac_ml, peptides!inner(canonical_name)")
+        .select(
+      "id, peptide_id, vials, mg_per_vial, bac_ml, half_life_hours, peptides!inner(canonical_name)"
+    )
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
 
@@ -101,6 +121,7 @@ export async function getVialInventory(): Promise<VialRow[]> {
       vials: Number(r.vials ?? 0),
       mg_per_vial: Number(r.mg_per_vial ?? 0),
       bac_ml: Number(r.bac_ml ?? 0),
+      half_life_hours: Number(r.half_life_hours ?? 0),
       name: r.peptides?.canonical_name ?? "Peptide",
     })) ?? []
   );
@@ -111,7 +132,7 @@ export async function getCapsInventory(): Promise<CapsRow[]> {
   const { data } = await supabase
     .from("inventory_capsules")
     .select(
-      "id, peptide_id, bottles, caps_per_bottle, mg_per_cap, peptides!inner(canonical_name)",
+      "id, peptide_id, bottles, caps_per_bottle, mg_per_cap, half_life_hours, peptides!inner(canonical_name)",
     )
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
@@ -123,6 +144,7 @@ export async function getCapsInventory(): Promise<CapsRow[]> {
       bottles: Number(r.bottles ?? 0),
       caps_per_bottle: Number(r.caps_per_bottle ?? 0),
       mg_per_cap: Number(r.mg_per_cap ?? 0),
+      half_life_hours: Number(r.half_life_hours ?? 0),
       name: r.peptides?.canonical_name ?? "Capsule",
     })) ?? []
   );
@@ -236,7 +258,14 @@ export async function addPeptideByIdAction(formData: FormData): Promise<ActionRe
   const { error } = await supabase
     .from("inventory_items")
     .upsert(
-      { user_id: userId, peptide_id: peptideId, vials: 0, mg_per_vial: 0, bac_ml: 0 },
+            {
+        user_id: userId,
+        peptide_id: peptideId,
+        vials: 0,
+        mg_per_vial: 0,
+        bac_ml: 0,
+        half_life_hours: 0,
+      },
       { onConflict: "user_id,peptide_id" }
     );
 
@@ -254,7 +283,14 @@ export async function addCapsuleByIdAction(formData: FormData): Promise<ActionRe
   const { error } = await supabase
     .from("inventory_capsules")
     .upsert(
-      { user_id: userId, peptide_id: peptideId, bottles: 0, caps_per_bottle: 0, mg_per_cap: 0 },
+           {
+        user_id: userId,
+        peptide_id: peptideId,
+        bottles: 0,
+        caps_per_bottle: 0,
+        mg_per_cap: 0,
+        half_life_hours: 0,
+      },
       { onConflict: "user_id,peptide_id" }
     );
 
@@ -296,6 +332,7 @@ export async function addCustomAction(formData: FormData): Promise<ActionResult>
         vials: 0,
         mg_per_vial: 0,
         bac_ml: 0,
+        half_life_hours: 0,
       },
       { onConflict: "user_id,peptide_id" },
     );
@@ -308,6 +345,7 @@ export async function addCustomAction(formData: FormData): Promise<ActionResult>
         bottles: 0,
         caps_per_bottle: 0,
         mg_per_cap: 0,
+        half_life_hours: 0,
       },
       { onConflict: "user_id,peptide_id" },
     );
@@ -325,6 +363,7 @@ export async function updateVialItemAction(formData: FormData): Promise<ActionRe
   const vials = Number(formData.get("vials") ?? 0);
   const mg_per_vial = Number(formData.get("mg_per_vial") ?? 0);
   const bac_ml = Number(formData.get("bac_ml") ?? 0);
+  const half_life_hours = Number(formData.get("half_life_hours") ?? 0);
   if (!id) return { ok: false, message: "Missing id" };
 
   const { error } = await supabase
@@ -333,6 +372,7 @@ export async function updateVialItemAction(formData: FormData): Promise<ActionRe
       vials,
       mg_per_vial,
       bac_ml,
+      half_life_hours,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
@@ -350,6 +390,7 @@ export async function updateCapsuleItemAction(formData: FormData): Promise<Actio
   const bottles = Number(formData.get("bottles") ?? 0);
   const caps_per_bottle = Number(formData.get("caps_per_bottle") ?? 0);
   const mg_per_cap = Number(formData.get("mg_per_cap") ?? 0);
+  const half_life_hours = Number(formData.get("half_life_hours") ?? 0);
   if (!id) return { ok: false, message: "Missing id" };
 
   const { error } = await supabase
@@ -358,6 +399,7 @@ export async function updateCapsuleItemAction(formData: FormData): Promise<Actio
       bottles,
       caps_per_bottle,
       mg_per_cap,
+      half_life_hours,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)

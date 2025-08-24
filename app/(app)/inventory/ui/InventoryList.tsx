@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import AddOfferButton from "../AddOfferButton";
+import type { SaveVialPayload, SaveCapsPayload } from "../actions";
 
 export type VialItem = {
   id: number;
@@ -11,6 +12,7 @@ export type VialItem = {
   vials: number;
   mg_per_vial: number;
   bac_ml: number;
+  half_life_hours: number;
   remainingDoses: number | null;
   reorderDateISO: string | null;
 };
@@ -22,6 +24,7 @@ export type CapsuleItem = {
   bottles: number;
   caps_per_bottle: number;
   mg_per_cap: number;
+  half_life_hours: number;
   remainingDoses: number | null;
   reorderDateISO: string | null;
 };
@@ -42,10 +45,6 @@ export type OfferCaps = {
   mg_per_cap: number | null;
   caps_per_bottle: number | null;
 };
-
-// Optional fields for partial updates
-type SaveVialPayload = { id: number; vials?: number; mg_per_vial?: number; bac_ml?: number };
-type SaveCapsPayload = { id: number; bottles?: number; caps_per_bottle?: number; mg_per_cap?: number };
 
 export type InventoryListProps = {
   vials: VialItem[];
@@ -96,7 +95,8 @@ export default function InventoryList({
     return (
       (e.vials !== undefined && Number(e.vials) !== Number(item.vials)) ||
       (e.mg_per_vial !== undefined && Number(e.mg_per_vial) !== Number(item.mg_per_vial)) ||
-      (e.bac_ml !== undefined && Number(e.bac_ml) !== Number(item.bac_ml))
+      (e.bac_ml !== undefined && Number(e.bac_ml) !== Number(item.bac_ml)) ||
+      (e.half_life_hours !== undefined && Number(e.half_life_hours) !== Number(item.half_life_hours))
     );
   };
 
@@ -106,7 +106,8 @@ export default function InventoryList({
     return (
       (e.bottles !== undefined && Number(e.bottles) !== Number(item.bottles)) ||
       (e.caps_per_bottle !== undefined && Number(e.caps_per_bottle) !== Number(item.caps_per_bottle)) ||
-      (e.mg_per_cap !== undefined && Number(e.mg_per_cap) !== Number(item.mg_per_cap))
+      (e.mg_per_cap !== undefined && Number(e.mg_per_cap) !== Number(item.mg_per_cap)) ||
+      (e.half_life_hours !== undefined && Number(e.half_life_hours) !== Number(item.half_life_hours))
     );
   };
 
@@ -160,7 +161,13 @@ export default function InventoryList({
     if (edited.vials !== undefined && Number(edited.vials) !== Number(item.vials)) payload.vials = Number(edited.vials);
     if (edited.mg_per_vial !== undefined && Number(edited.mg_per_vial) !== Number(item.mg_per_vial))
       payload.mg_per_vial = Number(edited.mg_per_vial);
-    if (edited.bac_ml !== undefined && Number(edited.bac_ml) !== Number(item.bac_ml)) payload.bac_ml = Number(edited.bac_ml);
+    if (edited.bac_ml !== undefined && Number(edited.bac_ml) !== Number(item.bac_ml))
+      payload.bac_ml = Number(edited.bac_ml);
+    if (
+      edited.half_life_hours !== undefined &&
+      Number(edited.half_life_hours) !== Number(item.half_life_hours)
+    )
+      payload.half_life_hours = Number(edited.half_life_hours);
 
     if (Object.keys(payload).length === 1) return; // nothing changed
 
@@ -182,6 +189,11 @@ export default function InventoryList({
       payload.caps_per_bottle = Number(edited.caps_per_bottle);
     if (edited.mg_per_cap !== undefined && Number(edited.mg_per_cap) !== Number(item.mg_per_cap))
       payload.mg_per_cap = Number(edited.mg_per_cap);
+    if (
+      edited.half_life_hours !== undefined &&
+      Number(edited.half_life_hours) !== Number(item.half_life_hours)
+    )
+      payload.half_life_hours = Number(edited.half_life_hours);
 
     if (Object.keys(payload).length === 1) return;
 
@@ -254,7 +266,7 @@ export default function InventoryList({
                     </Pill>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     <label className="text-sm">
                       Vials
                       <input
@@ -292,9 +304,23 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "bac_ml") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "bac_ml", parseNum(e.target.value))}
                         disabled={saving}
-                       className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"  
-                       aria-label={`BAC mL for ${item.canonical_name}`}
+                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                        aria-label={`BAC mL for ${item.canonical_name}`}
                       />
+                    </label>
+                    <label className="text-sm">
+                      Half-life (hrs)
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        inputMode="decimal"
+                        value={String(currentVialValue(item, "half_life_hours") ?? "")}
+                        onChange={(e) => onChangeVial(item.id, "half_life_hours", parseNum(e.target.value))}
+                        disabled={saving}
+                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                        aria-label={`Half-life hours for ${item.canonical_name}`}
+                        />
                     </label>
                   </div>
 
@@ -397,7 +423,7 @@ export default function InventoryList({
                     </Pill>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     <label className="text-sm">
                       Bottles
                       <input
@@ -436,6 +462,20 @@ export default function InventoryList({
                         disabled={saving}
                         className="mt-1 w-full rounded border px-2 py-1"
                         aria-label={`mg per cap for ${item.canonical_name}`}
+                      />
+                    </label>
+                                        <label className="text-sm">
+                      Half-life (hrs)
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        inputMode="decimal"
+                        value={String(currentCapsValue(item, "half_life_hours") ?? "")}
+                        onChange={(e) => onChangeCaps(item.id, "half_life_hours", parseNum(e.target.value))}
+                        disabled={saving}
+                        className="mt-1 w-full rounded border px-2 py-1"
+                        aria-label={`Half-life hours for ${item.canonical_name}`}
                       />
                     </label>
                   </div>

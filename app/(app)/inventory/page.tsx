@@ -19,6 +19,8 @@ import {
   type CapsRow,
   type OfferVial,
   type OfferCaps,
+  type SaveVialPayload,
+  type SaveCapsPayload,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -195,7 +197,7 @@ export default async function InventoryPage() {
   const capsOfferMap = await getOffersForCaps(capsRows.map((r: CapsRow) => r.peptide_id));
 
   // ---------- Partial update server actions (no overwriting!) ----------
-  const saveVial = async (p: { id: number; vials?: number; mg_per_vial?: number; bac_ml?: number }) => {
+  const saveVial = async (p: SaveVialPayload) => {
     "use server";
     const sa = createServerActionClient({ cookies });
     const { data: auth } = await sa.auth.getUser();
@@ -206,6 +208,8 @@ export default async function InventoryPage() {
     if (p.vials !== undefined) update.vials = Number(p.vials);
     if (p.mg_per_vial !== undefined) update.mg_per_vial = Number(p.mg_per_vial);
     if (p.bac_ml !== undefined) update.bac_ml = Number(p.bac_ml);
+    if (p.half_life_hours !== undefined)
+      update.half_life_hours = Number(p.half_life_hours);
 
     if (Object.keys(update).length === 0) return;
 
@@ -218,7 +222,7 @@ export default async function InventoryPage() {
     if (error) throw error;
   };
 
-  const saveCapsule = async (p: { id: number; bottles?: number; caps_per_bottle?: number; mg_per_cap?: number }) => {
+  const saveCapsule = async (p: SaveCapsPayload) => {
     "use server";
     const sa = createServerActionClient({ cookies });
     const { data: auth } = await sa.auth.getUser();
@@ -229,6 +233,8 @@ export default async function InventoryPage() {
     if (p.bottles !== undefined) update.bottles = Number(p.bottles);
     if (p.caps_per_bottle !== undefined) update.caps_per_bottle = Number(p.caps_per_bottle);
     if (p.mg_per_cap !== undefined) update.mg_per_cap = Number(p.mg_per_cap);
+    if (p.half_life_hours !== undefined)
+      update.half_life_hours = Number(p.half_life_hours);
 
     if (Object.keys(update).length === 0) return;
 
@@ -273,6 +279,7 @@ export default async function InventoryPage() {
         vials: r.vials,
         mg_per_vial: r.mg_per_vial,
         bac_ml: r.bac_ml,
+        half_life_hours: r.half_life_hours,
         remainingDoses,
         reorderDateISO,
       };
@@ -294,6 +301,7 @@ export default async function InventoryPage() {
         bottles: r.bottles,
         caps_per_bottle: r.caps_per_bottle,
         mg_per_cap: r.mg_per_cap,
+        half_life_hours: r.half_life_hours,
         remainingDoses,
         reorderDateISO,
       };
