@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/sign-up",
   "/(auth)/sign-up",
   "/api/public",
+  "/auth/callback",
 ];
 
 export async function middleware(req: NextRequest) {
