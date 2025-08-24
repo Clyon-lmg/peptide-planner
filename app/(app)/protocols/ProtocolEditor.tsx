@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import ProtocolItemRow, { ProtocolItemState, InventoryPeptide } from "./ProtocolItemRow";
+import ProtocolGraph from "./ProtocolGraph";
 import { onProtocolUpdated, setActiveProtocolAndRegenerate } from "@/lib/protocolEngine";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
@@ -44,19 +45,29 @@ export default function ProtocolEditor({ protocol, onReload }: {
 
       const { data: vialInv } = await supabase
         .from("inventory_items")
-        .select("peptide_id, peptides:peptide_id ( id, canonical_name )");
+        .select("peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )");
       const { data: capInv } = await supabase
         .from("inventory_capsules")
-        .select("peptide_id, peptides:peptide_id ( id, canonical_name )");
+        .select("peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )");
 
       const merged: Record<number, InventoryPeptide> = {};
       (vialInv || []).forEach((row: any) => {
-        if (row.peptides) merged[row.peptides.id] = { id: row.peptides.id, canonical_name: row.peptides.canonical_name };
-      });
+        if (row.peptides)
+          merged[row.peptides.id] = {
+            id: row.peptides.id,
+            canonical_name: row.peptides.canonical_name,
+            half_life_hours: Number(row.half_life_hours || 0),
+          };
+          });
       (capInv || []).forEach((row: any) => {
-        if (row.peptides) merged[row.peptides.id] = { id: row.peptides.id, canonical_name: row.peptides.canonical_name };
-      });
-      setPeptides(Object.values(merged).sort((a,b)=>a.canonical_name.localeCompare(b.canonical_name)));
+        if (row.peptides)
+          merged[row.peptides.id] = {
+            id: row.peptides.id,
+            canonical_name: row.peptides.canonical_name,
+            half_life_hours: Number(row.half_life_hours || 0),
+          };
+          });
+      setPeptides(Object.values(merged).sort((a, b) => a.canonical_name.localeCompare(b.canonical_name)));
     })();
   }, [protocol.id, supabase]);
 
@@ -133,7 +144,8 @@ export default function ProtocolEditor({ protocol, onReload }: {
   };
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="space-y-4">
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold">{protocol.name}</h3>
         <div className="flex gap-2">
@@ -183,6 +195,8 @@ export default function ProtocolEditor({ protocol, onReload }: {
       >
         + Add peptide
       </button>
+            </div>
+      <ProtocolGraph items={items} peptides={peptides} />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 "use client";
 import React from "react";
 
-export type InventoryPeptide = { id: number; canonical_name: string };
+export type InventoryPeptide = { id: number; canonical_name: string; half_life_hours: number };
 
 export type ProtocolItemState = {
   id?: number;
