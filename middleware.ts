@@ -7,6 +7,8 @@ const PUBLIC_PATHS = [
   "/",
   "/sign-in",
   "/(auth)/sign-in",
+  "/sign-up",
+  "/(auth)/sign-up",
   "/api/public",
 ];
 
@@ -43,8 +45,14 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // If the user is signed in and tries to go to sign-in, bounce them to /today
-  if (session && (pathname === "/sign-in" || pathname.startsWith("/(auth)/sign-in"))) {
+  // If the user is signed in and tries to go to sign-in or sign-up, bounce them to /today
+  if (
+    session &&
+    (pathname === "/sign-in" ||
+      pathname.startsWith("/(auth)/sign-in") ||
+      pathname === "/sign-up" ||
+      pathname.startsWith("/(auth)/sign-up"))
+  ) {
     const url = req.nextUrl.clone();
     url.pathname = "/today";
     return NextResponse.redirect(url);
