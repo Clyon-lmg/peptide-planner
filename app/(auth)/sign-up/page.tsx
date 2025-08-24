@@ -1,4 +1,4 @@
-﻿import { cookies } from "next/headers";
+﻿﻿import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -27,7 +27,11 @@ export default function SignUpPage({ searchParams }: PageProps) {
     }
 
     const supabase = createServerActionClient({ cookies });
-    const redirectBase = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const hdrs = headers();
+    const protocol = hdrs.get("x-forwarded-proto") || "http";
+    const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "localhost:3000";
+    const redirectBase =
+      process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

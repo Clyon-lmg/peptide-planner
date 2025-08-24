@@ -1,5 +1,5 @@
 ﻿// app/(auth)/sign-in/page.tsx
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
@@ -21,9 +21,12 @@ export default function SignInPage({ searchParams }: PageProps) {
     if (!email) return;
 
     const supabase = createServerActionClient({ cookies });
+    const hdrs = headers();
+    const protocol = hdrs.get("x-forwarded-proto") || "http";
+    const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "localhost:3000";
     const redirectBase =
-      process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-const next = String(formData.get("redirect") || "");
+      process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
+    const next = String(formData.get("redirect") || "");
     const emailRedirectTo = next
       ? `${redirectBase}/auth/callback?next=${encodeURIComponent(next)}`
       : `${redirectBase}/auth/callback`;
