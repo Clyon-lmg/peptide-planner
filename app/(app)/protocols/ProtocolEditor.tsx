@@ -130,7 +130,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
   };
 
   return (
-    <div className="rounded-xl border p-4">
+    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold">{protocol.name}</h3>
         <div className="flex gap-2">
@@ -174,7 +174,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
       </div>
 
       <button
-        className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300"
+        className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
         onClick={addItem}
         type="button"
       >

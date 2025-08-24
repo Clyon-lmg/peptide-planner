@@ -208,7 +208,9 @@ export default function InventoryList({
   };
 
   const Pill = ({ children }: { children: React.ReactNode }) => (
-    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">{children}</span>
+    <span className="inline-flex items-center rounded-full border border-gray-300 dark:border-gray-700 px-2 py-0.5 text-xs">
+      {children}
+    </span>
   );
 
   return (
@@ -217,7 +219,7 @@ export default function InventoryList({
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Peptides (vials)</h2>
         {vials.length === 0 ? (
-          <p className="text-sm text-gray-500">No peptides yet.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No peptides yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {vials.map((item) => {
@@ -225,7 +227,10 @@ export default function InventoryList({
               const saving = savingIds.has(`vial-${item.id}`);
               const offers = offersVials[item.peptide_id] ?? [];
               return (
-                <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm space-y-3 text-gray-900 dark:text-gray-100"
+                >
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold">{item.canonical_name}</h3>
                     <button
@@ -259,8 +264,8 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "vials") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "vials", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border px-2 py-1"
-                        aria-label={`Vials for ${item.canonical_name}`}
+                       className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                       aria-label={`Vials for ${item.canonical_name}`}
                       />
                     </label>
                     <label className="text-sm">
@@ -273,7 +278,7 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "mg_per_vial") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "mg_per_vial", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border px-2 py-1"
+                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
                         aria-label={`mg per vial for ${item.canonical_name}`}
                       />
                     </label>
@@ -287,8 +292,8 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "bac_ml") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "bac_ml", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border px-2 py-1"
-                        aria-label={`BAC mL for ${item.canonical_name}`}
+                       className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"  
+                       aria-label={`BAC mL for ${item.canonical_name}`}
                       />
                     </label>
                   </div>
@@ -309,7 +314,7 @@ export default function InventoryList({
                       <button
                         type="button"
                         onClick={() => clearVial(item.id)}
-                        className="rounded px-3 py-2 text-sm border border-gray-300 hover:bg-gray-50"
+                        className="rounded px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                         title="Discard changes"
                       >
                         Discard
@@ -322,7 +327,10 @@ export default function InventoryList({
                       <div className="text-sm font-medium mb-1">Offers</div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {offers.map((o) => (
-                          <div key={o.id} className="rounded-md border p-2 text-xs space-y-1">
+                         <div
+                            key={o.id}
+                            className="rounded-md border border-gray-200 dark:border-gray-700 p-2 text-xs space-y-1 bg-gray-50 dark:bg-gray-800"
+                          >
                             <div className="font-semibold truncate">{o.vendor_name}</div>
                             <div>Price: ${o.price.toFixed(2)}</div>
                             <div>mL per vial: {o.bac_ml ?? "—"}</div>
@@ -353,7 +361,8 @@ export default function InventoryList({
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Capsules</h2>
         {capsules.length === 0 ? (
-          <p className="text-sm text-gray-500">No capsules yet.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">No capsules yet.</p>
+
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {capsules.map((item) => {
@@ -361,7 +370,10 @@ export default function InventoryList({
               const saving = savingIds.has(`cap-${item.id}`);
               const offers = offersCapsules[item.peptide_id] ?? [];
               return (
-                <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+                              <div
+                  key={item.id}
+                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm space-y-3 text-gray-900 dark:text-gray-100"
+                >
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold">{item.canonical_name}</h3>
                     <button
@@ -395,7 +407,7 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "bottles") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "bottles", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border px-2 py-1"
+                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
                         aria-label={`Bottles for ${item.canonical_name}`}
                       />
                     </label>
@@ -408,7 +420,7 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "caps_per_bottle") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "caps_per_bottle", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border px-2 py-1"
+                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
                         aria-label={`Caps per bottle for ${item.canonical_name}`}
                       />
                     </label>
@@ -444,7 +456,7 @@ export default function InventoryList({
                       <button
                         type="button"
                         onClick={() => clearCaps(item.id)}
-                        className="rounded px-3 py-2 text-sm border border-gray-300 hover:bg-gray-50"
+                        className="rounded px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
                         title="Discard changes"
                       >
                         Discard
@@ -457,8 +469,11 @@ export default function InventoryList({
                       <div className="text-sm font-medium mb-1">Offers</div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {offers.map((o) => (
-                          <div key={o.id} className="rounded-md border p-2 text-xs space-y-1">
-                            <div className="font-semibold truncate">{o.vendor_name}</div>
+                          <div
+                            key={o.id}
+                            className="rounded-md border border-gray-200 dark:border-gray-700 p-2 text-xs space-y-1 bg-gray-50 dark:bg-gray-800"
+                          >
+                          <div className="font-semibold truncate">{o.vendor_name}</div>
                             <div>Price: ${o.price.toFixed(2)}</div>
                             <div>mg / cap: {o.mg_per_cap ?? "—"}</div>
                             <div>caps / bottle: {o.caps_per_bottle ?? "—"}</div>

@@ -142,16 +142,16 @@ export default function ProtocolsPage() {
       </div>
 
       <div className="grid grid-cols-12 gap-4">
-        <aside className="col-span-12 md:col-span-4 border rounded-xl p-3">
+        <aside className="col-span-12 md:col-span-4 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
           <h2 className="font-semibold mb-2">Your Protocols</h2>
           <ul className="space-y-1">
             {protocols.map((p) => (
               <li key={p.id}>
                 <RowButton
                   className={
-                    "w-full text-left px-2 py-2 rounded hover:bg-gray-100 " +
-                    (selectedId === p.id ? "bg-gray-100" : "")
-                  }
+                    "w-full text-left px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 " +
+                    (selectedId === p.id ? "bg-gray-100 dark:bg-gray-800" : "")
+                }
                   onClick={() => setSelectedId(p.id)}
                 >
                   <div className="flex items-center justify-between">
@@ -164,7 +164,7 @@ export default function ProtocolsPage() {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        className="text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                        className="text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
                         onClick={(e) => {
                           e.stopPropagation();
                           renameProtocol(p);
@@ -197,7 +197,7 @@ export default function ProtocolsPage() {
               onReload={reload}
             />
           ) : (
-            <div className="border rounded-xl p-6 text-gray-500">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">
               Select or create a protocol to begin.
             </div>
           )}
