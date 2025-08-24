@@ -74,6 +74,7 @@ function computeForecast(
         custom_days: number[] | null;
         cycle_on_weeks: number;
         cycle_off_weeks: number;
+        every_n_days: number | null;
       }
     | undefined
 ) {
