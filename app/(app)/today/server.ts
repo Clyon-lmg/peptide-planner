@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
 
 export type DoseStatus = "PENDING" | "TAKEN" | "SKIPPED";
-export type Schedule = "EVERYDAY" | "WEEKDAYS_5_2" | "CUSTOM";
+export type Schedule = "EVERYDAY" | "WEEKDAYS_5_2" | "CUSTOM" | "EVERY_N_DAYS";
 
 export type TodayDoseRow = {
   peptide_id: number;
@@ -24,10 +24,11 @@ function fmtISO(d: Date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function baseFreqPerWeek(schedule: Schedule, custom_days?: number[] | null) {
+function baseFreqPerWeek(schedule: Schedule, custom_days?: number[] | null, every_n_days?: number | null) {
   switch (schedule) {
     case "EVERYDAY": return 7;
     case "WEEKDAYS_5_2": return 5;
+    case "EVERY_N_DAYS": return every_n_days ? 7 / every_n_days : 0;
     case "CUSTOM": return Array.isArray(custom_days) ? custom_days.length : 0;
     default: return 0;
   }
@@ -62,7 +63,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
   const { data: items } = await sa
     .from("protocol_items")
-    .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks")
+    .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days")
     .eq("protocol_id", protocol.id);
 
   if (!items?.length) return [];
@@ -111,7 +112,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     let reorderDateISO: string | null = null;
     if (dose_mg && dose_mg > 0) {
       remainingDoses = Math.max(0, Math.floor(totalMg / dose_mg));
-      const base = baseFreqPerWeek(String(it.schedule || "EVERYDAY") as Schedule, (it.custom_days as number[] | null) ?? null);
+      const base = baseFreqPerWeek(String(it.schedule || "EVERYDAY") as Schedule, (it.custom_days as number[] | null) ?? null, (it.every_n_days as number | null) ?? null);
       const eff = effectiveFreqPerWeek(base, Number(it.cycle_on_weeks || 0), Number(it.cycle_off_weeks || 0));
       if (eff > 0) {
         const weeksUntilEmpty = Math.ceil((remainingDoses || 0) / eff);
@@ -164,7 +165,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, status: Dos
   if (!existing?.id) {
     const { data: pi } = await sa
       .from("protocol_items")
-      .select("dose_mg_per_administration")
+      .select("dose_mg_per_administration,every_n_days")
       .eq("protocol_id", protocol.id)
       .eq("peptide_id", peptide_id)
       .maybeSingle();

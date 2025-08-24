@@ -8,11 +8,12 @@ export type ProtocolItemState = {
   id?: number;
   peptide_id: number | null;
   dose_mg_per_administration: number;
-  schedule: "EVERYDAY" | "WEEKDAYS" | "CUSTOM";
+  schedule: "EVERYDAY" | "WEEKDAYS" | "CUSTOM" | "EVERY_N_DAYS";
   custom_days: number[];
   cycle_on_weeks: number;
   cycle_off_weeks: number;
-};
+  every_n_days?: number | null;
+  };
 
 export default function ProtocolItemRow({
   value,
@@ -68,7 +69,17 @@ export default function ProtocolItemRow({
             <option value="EVERYDAY">Every day</option>
             <option value="WEEKDAYS">Weekdays</option>
             <option value="CUSTOM">Custom</option>
+            <option value="EVERY_N_DAYS">Every N days</option>
           </select>
+            {v.schedule === "EVERY_N_DAYS" && (
+            <input
+              type="number"
+              min={1}
+              className="w-full border rounded-lg px-3 py-2 mt-2"
+              value={v.every_n_days ?? 1}
+              onChange={(e) => onChange({ ...v, every_n_days: Number(e.target.value || 1) })}
+            />
+          )}
         </div>
 
         {/* Delete button aligned far right */}

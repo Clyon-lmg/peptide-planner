@@ -12,8 +12,9 @@ type Props = {
     mg_per_vial: number;
     bac_ml: number;
     dose_mg?: number | null;
-    schedule?: 'EVERYDAY' | 'WEEKDAYS' | 'CUSTOM';
+    schedule?: 'EVERYDAY' | 'WEEKDAYS' | 'CUSTOM' | 'EVERY_N_DAYS';
     custom_days?: number[] | null;
+    every_n_days?: number | null;
     consumed_doses?: number; // all-time LOGGED
     onDeleted?: () => void;
 };
@@ -52,7 +53,7 @@ export default function InventoryCard(p: Props) {
         return Math.floor(remainingMg / state.mg_per_vial);
     }, [remainingMg, state.mg_per_vial]);
 
-    const freq = state.schedule ? freqPerWeek(state.schedule, state.custom_days) : 0;
+    const freq = state.schedule ? freqPerWeek(state.schedule, state.custom_days, state.every_n_days ?? undefined) : 0;
     const runout = remainingDoses ? projectedRunoutDate(remainingDoses, freq || 1) : null;
 
     useEffect(() => {

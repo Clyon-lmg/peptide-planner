@@ -32,12 +32,14 @@ async function getUser() {
 /**
  * Compute dose frequency /wk for a given schedule.
  */
-function baseFreqPerWeek(schedule: string, customDays?: number[] | null) {
+function baseFreqPerWeek(schedule: string, customDays?: number[] | null, every_n_days?: number | null) {
   switch (schedule) {
     case "EVERYDAY":
       return 7;
     case "WEEKDAYS_5_2":
       return 5;
+    case "EVERY_N_DAYS":
+      return every_n_days ? 7 / every_n_days : 0;
     case "CUSTOM":
       return Array.isArray(customDays) ? customDays.length : 0;
     default:
@@ -92,7 +94,7 @@ function computeForecast(
 
   const remainingDoses = Math.max(0, Math.floor(totalMg / dose));
 
-  const base = baseFreqPerWeek(protoItem.schedule, protoItem.custom_days);
+  const base = baseFreqPerWeek(protoItem.schedule, protoItem.custom_days, protoItem.every_n_days);
   const eff = effectiveFreqPerWeek(base, protoItem.cycle_on_weeks || 0, protoItem.cycle_off_weeks || 0);
   if (eff <= 0) {
     return { remainingDoses, reorderDateISO: null };
@@ -151,7 +153,8 @@ export default async function InventoryPage() {
       custom_days: number[] | null;
       cycle_on_weeks: number;
       cycle_off_weeks: number;
-    }
+      every_n_days: number | null;
+          }
   >();
 
   if (peptideIds.length > 0) {
@@ -166,7 +169,7 @@ export default async function InventoryPage() {
     if (activeProto?.id) {
       const { data: protoItems } = await supabase
         .from("protocol_items")
-        .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks")
+        .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days")
         .eq("protocol_id", activeProto.id)
         .in("peptide_id", peptideIds);
 
@@ -178,6 +181,8 @@ export default async function InventoryPage() {
             custom_days: (pi.custom_days as number[] | null) ?? null,
             cycle_on_weeks: Number(pi.cycle_on_weeks || 0),
             cycle_off_weeks: Number(pi.cycle_off_weeks || 0),
+            every_n_days: (pi.every_n_days as number | null) ?? null,
+
           });
         }
       }

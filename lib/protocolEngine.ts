@@ -3,7 +3,7 @@
 
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export type Schedule = "EVERYDAY" | "WEEKDAYS" | "CUSTOM";
+export type Schedule = "EVERYDAY" | "WEEKDAYS" | "CUSTOM" | "EVERY_N_DAYS";
 
 type ProtocolItem = {
   id: number;
@@ -14,6 +14,7 @@ type ProtocolItem = {
   custom_days: number[] | null;
   cycle_on_weeks: number;
   cycle_off_weeks: number;
+  every_n_days: number | null;
 };
 
 function localDateStr(d = new Date()) {
@@ -52,7 +53,7 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
   // Fetch items
   const itemsRes = await supabase
     .from("protocol_items")
-    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks")
+    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days")
     .eq("protocol_id", protocolId);
   if (itemsRes.error) throw itemsRes.error;
   const items = itemsRes.data || [];
@@ -81,6 +82,10 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
       if (it.schedule === "CUSTOM") {
         const arr = (it.custom_days || []) as number[];
         if (!isCustomDay(d, arr)) { idx++; continue; }
+      }
+            if (it.schedule === "EVERY_N_DAYS") {
+        const n = Number(it.every_n_days || 0);
+        if (n <= 0 || idx % n !== 0) { idx++; continue; }
       }
       const ds = localDateStr(d);
       inserts.push({

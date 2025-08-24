@@ -38,6 +38,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
         custom_days: r.custom_days || [],
         cycle_on_weeks: Number(r.cycle_on_weeks || 0),
         cycle_off_weeks: Number(r.cycle_off_weeks || 0),
+        every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
       }));
       setItems(mapped);
 
@@ -69,7 +70,8 @@ export default function ProtocolEditor({ protocol, onReload }: {
         custom_days: [],
         cycle_on_weeks: 0,
         cycle_off_weeks: 0,
-      }
+        every_n_days: 1,
+    }
     ]);
   };
 
@@ -90,6 +92,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
           dose_mg_per_administration: i.dose_mg_per_administration,
           schedule: i.schedule,
           custom_days: i.schedule === "CUSTOM" ? i.custom_days : null,
+          every_n_days: i.schedule === "EVERY_N_DAYS" ? i.every_n_days : null,
           cycle_on_weeks: i.cycle_on_weeks || 0,
           cycle_off_weeks: i.cycle_off_weeks || 0,
         }));

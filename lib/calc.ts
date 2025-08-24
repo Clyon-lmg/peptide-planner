@@ -23,11 +23,12 @@ export function remainingDoses(totalMg: number, doseMg: number) {
 
 // frequency per week given schedule type
 export function freqPerWeek(
-    schedule: 'EVERYDAY' | 'WEEKDAYS' | 'CUSTOM',
-    customDays?: number[] | null
-) {
+    schedule: 'EVERYDAY' | 'WEEKDAYS' | 'CUSTOM' | 'EVERY_N_DAYS',
+    customDays?: number[] | null,
+    every_n_days?: number | null) {
     if (schedule === 'EVERYDAY') return 7;
     if (schedule === 'WEEKDAYS') return 5;
+    if (schedule === 'EVERY_N_DAYS') return every_n_days ? 7 / every_n_days : 0;
     const set = new Set(customDays ?? []);
     return Math.max(0, Math.min(7, set.size));
 }
