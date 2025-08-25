@@ -106,7 +106,7 @@ export type SaveCapsPayload = {
 
 export async function getVialInventory(): Promise<VialRow[]> {
   const { supabase, userId } = await getAuthed();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("inventory_items")
         .select(
       "id, peptide_id, vials, mg_per_vial, bac_ml, half_life_hours, peptides(canonical_name)"
@@ -114,7 +114,12 @@ export async function getVialInventory(): Promise<VialRow[]> {
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
 
-  return (
+   if (error) {
+    console.error("Error fetching vial inventory:", error);
+    throw error;
+  }
+
+    return (
     data?.map((r: any) => ({
       id: r.id,
       peptide_id: r.peptide_id,
@@ -129,13 +134,18 @@ export async function getVialInventory(): Promise<VialRow[]> {
 
 export async function getCapsInventory(): Promise<CapsRow[]> {
   const { supabase, userId } = await getAuthed();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("inventory_capsules")
     .select(
       "id, peptide_id, bottles, caps_per_bottle, mg_per_cap, half_life_hours, peptides(canonical_name)",
     )
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
+
+      if (error) {
+    console.error("Error fetching capsule inventory:", error);
+    throw error;
+  }
 
   return (
     data?.map((r: any) => ({
