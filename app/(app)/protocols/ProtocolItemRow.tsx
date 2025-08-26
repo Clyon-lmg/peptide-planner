@@ -59,7 +59,6 @@ export default function ProtocolItemRow({
         </div>
 
         {/* Schedule */}
-        <div className="col-span-6 md:col-span-2">
         <div className="col-span-6 md:col-span-3">
           <label className="block text-xs text-gray-600 mb-1">Schedule</label>
           <select
@@ -82,7 +81,8 @@ export default function ProtocolItemRow({
             />
           )}
         </div>
-                {/* Color */}
+
+       {/* Color */}
         <div className="col-span-6 md:col-span-2">
           <label className="block text-xs text-gray-600 mb-1">Color</label>
           <input
