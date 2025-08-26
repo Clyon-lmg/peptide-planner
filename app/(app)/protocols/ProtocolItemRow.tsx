@@ -46,6 +46,17 @@ export default function ProtocolItemRow({
           </select>
         </div>
 
+                {/* Color */}
+        <div className="col-span-6 md:col-span-1">
+          <label className="block text-xs text-gray-600 mb-1">Color</label>
+          <input
+            type="color"
+            className="w-full border rounded-lg px-3 py-2 h-10"
+            value={v.color}
+            onChange={(e) => onChange({ ...v, color: e.target.value })}
+          />
+        </div>
+
         {/* Dose (mg) */}
         <div className="col-span-6 md:col-span-2">
           <label className="block text-xs text-gray-600 mb-1">Dose (mg)</label>
@@ -80,17 +91,6 @@ export default function ProtocolItemRow({
               onChange={(e) => onChange({ ...v, every_n_days: Number(e.target.value || 1) })}
             />
           )}
-        </div>
-
-       {/* Color */}
-        <div className="col-span-6 md:col-span-2">
-          <label className="block text-xs text-gray-600 mb-1">Color</label>
-          <input
-            type="color"
-            className="w-full border rounded-lg px-3 py-2 h-10"
-            value={v.color}
-            onChange={(e) => onChange({ ...v, color: e.target.value })}
-          />
         </div>
 
         {/* Delete button aligned far right */}

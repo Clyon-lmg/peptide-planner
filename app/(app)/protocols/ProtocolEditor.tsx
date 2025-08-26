@@ -5,6 +5,17 @@ import ProtocolGraph from "./ProtocolGraph";
 import { onProtocolUpdated, setActiveProtocolAndRegenerate } from "@/lib/protocolEngine";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
+const COLOR_PALETTE = [
+  "#f87171",
+  "#60a5fa",
+  "#34d399",
+  "#fbbf24",
+  "#a78bfa",
+  "#f472b6",
+  "#38bdf8",
+  "#fb923c",
+];
+
 type Protocol = {
   id: number;
   user_id: string;
@@ -31,7 +42,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
         .order("id", { ascending: true });
       if (itemsErr) console.error(itemsErr);
 
-      const mapped: ProtocolItemState[] = (rawItems || []).map((r: any) => ({
+const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) => ({
         id: r.id,
         peptide_id: r.peptide_id,
         dose_mg_per_administration: Number(r.dose_mg_per_administration || 0),
@@ -40,8 +51,8 @@ export default function ProtocolEditor({ protocol, onReload }: {
         cycle_on_weeks: Number(r.cycle_on_weeks || 0),
         cycle_off_weeks: Number(r.cycle_off_weeks || 0),
         every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
-        color: r.color || "#000000",
-       }));
+        color: r.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
+    }));
       setItems(mapped);
 
       const { data: vialInv } = await supabase
@@ -73,20 +84,23 @@ export default function ProtocolEditor({ protocol, onReload }: {
   }, [protocol.id, supabase]);
 
   const addItem = () => {
-    setItems(prev => [
-      ...prev,
-      {
-        peptide_id: null,
-        dose_mg_per_administration: 0,
-        schedule: "EVERYDAY",
-        custom_days: [],
-        cycle_on_weeks: 0,
-        cycle_off_weeks: 0,
-        every_n_days: 1,
-  color: "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0"),
-      }   
-    ]);
-  };
+    setItems(prev => {
+      const nextColor = COLOR_PALETTE[prev.length % COLOR_PALETTE.length];
+      return [
+        ...prev,
+        {
+          peptide_id: null,
+          dose_mg_per_administration: 0,
+          schedule: "EVERYDAY",
+          custom_days: [],
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: 1,
+          color: nextColor,
+        },
+      ];
+    });
+    };
 
   const save = async () => {
     setSaving(true);
