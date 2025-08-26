@@ -82,16 +82,16 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     let remainingDoses: number | null = null;
     let reorderDateISO: string | null = null;
     if (dose_mg && dose_mg > 0) {
-      remainingDoses = Math.max(0, Math.floor(totalMg / dose_mg));
-      const base = baseFreqPerWeek(String(it.schedule || "EVERYDAY") as Schedule, (it.custom_days as number[] | null) ?? null, (it.every_n_days as number | null) ?? null);
-      const eff = effectiveFreqPerWeek(base, Number(it.cycle_on_weeks || 0), Number(it.cycle_off_weeks || 0));
-      if (eff > 0) {
-        const weeksUntilEmpty = Math.ceil((remainingDoses || 0) / eff);
-        const days = weeksUntilEmpty * 7;
-        const reorder = new Date(Date.now() + days * 86400000);
-        reorderDateISO = fmtISO(reorder);
-      }
-    }
+      ({ remainingDoses, reorderDateISO } = forecastRemainingDoses(
+        totalMg,
+        dose_mg,
+        String(it.schedule || "EVERYDAY") as Schedule,
+        (it.custom_days as number[] | null) ?? null,
+        Number(it.cycle_on_weeks || 0),
+        Number(it.cycle_off_weeks || 0),
+        (it.every_n_days as number | null) ?? null
+      ));
+  }
 
     return {
       peptide_id: pid,
