@@ -13,6 +13,7 @@ export type ProtocolItemState = {
   cycle_on_weeks: number;
   cycle_off_weeks: number;
   every_n_days?: number | null;
+  color: string;
   };
 
 export default function ProtocolItemRow({
@@ -59,6 +60,7 @@ export default function ProtocolItemRow({
         </div>
 
         {/* Schedule */}
+        <div className="col-span-6 md:col-span-2">
         <div className="col-span-6 md:col-span-3">
           <label className="block text-xs text-gray-600 mb-1">Schedule</label>
           <select
@@ -81,9 +83,19 @@ export default function ProtocolItemRow({
             />
           )}
         </div>
+                {/* Color */}
+        <div className="col-span-6 md:col-span-2">
+          <label className="block text-xs text-gray-600 mb-1">Color</label>
+          <input
+            type="color"
+            className="w-full border rounded-lg px-3 py-2 h-10"
+            value={v.color}
+            onChange={(e) => onChange({ ...v, color: e.target.value })}
+          />
+        </div>
 
         {/* Delete button aligned far right */}
-        <div className="col-span-12 md:col-span-3 flex md:justify-end">
+        <div className="col-span-12 md:col-span-2 flex md:justify-end">
           <button
             type="button"
             className="mt-6 px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700"

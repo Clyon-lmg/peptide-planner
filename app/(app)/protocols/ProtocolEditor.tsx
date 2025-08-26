@@ -40,7 +40,8 @@ export default function ProtocolEditor({ protocol, onReload }: {
         cycle_on_weeks: Number(r.cycle_on_weeks || 0),
         cycle_off_weeks: Number(r.cycle_off_weeks || 0),
         every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
-      }));
+        color: r.color || "#000000",
+       }));
       setItems(mapped);
 
       const { data: vialInv } = await supabase
@@ -82,7 +83,8 @@ export default function ProtocolEditor({ protocol, onReload }: {
         cycle_on_weeks: 0,
         cycle_off_weeks: 0,
         every_n_days: 1,
-    }
+  color: "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0"),
+      }   
     ]);
   };
 
@@ -106,7 +108,8 @@ export default function ProtocolEditor({ protocol, onReload }: {
           every_n_days: i.schedule === "EVERY_N_DAYS" ? i.every_n_days : null,
           cycle_on_weeks: i.cycle_on_weeks || 0,
           cycle_off_weeks: i.cycle_off_weeks || 0,
-        }));
+          color: i.color,
+       }));
 
       if (rows.length) {
         const { error: insErr } = await supabase.from("protocol_items").insert(rows);

@@ -70,10 +70,13 @@ export default function ProtocolGraph({
         level += dailyDose;
         points.push(level);
       }
+            const color = its[0]?.color || "#000000";
       return {
         label: peptide?.canonical_name || `Peptide ${pid}`,
         data: points,
         borderWidth: 2,
+        borderColor: color,
+        backgroundColor: color,
       };
     });
 
