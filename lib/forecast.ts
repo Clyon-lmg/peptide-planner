@@ -1,7 +1,7 @@
 ﻿// lib/forecast.ts
 // Shared forecasting helpers for dosing and inventory.
 
-export type Schedule = "EVERYDAY" | "WEEKDAYS_5_2" | "CUSTOM" | "EVERY_N_DAYS";
+export type Schedule = "EVERYDAY" | "WEEKDAYS" | "CUSTOM" | "EVERY_N_DAYS";
 
 function toISODate(d: Date) {
   const yyyy = d.getUTCFullYear();
@@ -19,7 +19,7 @@ export function baseFreqPerWeek(
   switch (schedule) {
     case "EVERYDAY":
       return 7;
-    case "WEEKDAYS_5_2":
+    case "WEEKDAYS":
       return 5;
     case "EVERY_N_DAYS":
       return every_n_days ? 7 / every_n_days : 0;
