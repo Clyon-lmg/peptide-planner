@@ -29,10 +29,12 @@ export default function SignUpPage({ searchParams }: PageProps) {
     const supabase = createServerActionClient({ cookies });
     const hdrs = headers();
     const protocol = hdrs.get("x-forwarded-proto") || "http";
-    const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "localhost:3000";
+    const host = hdrs.get("x-forwarded-host") || hdrs.get("host");
     const redirectBase =
-      process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
-    const { data, error } = await supabase.auth.signUp({
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`) ||
+      `${protocol}://${host}`;
+      const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
