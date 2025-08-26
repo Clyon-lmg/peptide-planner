@@ -22,6 +22,7 @@ import {
   type SaveVialPayload,
   type SaveCapsPayload,
 } from "./actions";
+import { forecastRemainingDoses, type Schedule } from "@/lib/forecast";
 
 export const dynamic = "force-dynamic";
 
@@ -29,93 +30,6 @@ async function getUser() {
   const supabase = createServerComponentClient({ cookies });
   const { data } = await supabase.auth.getUser();
   return { supabase, user: data?.user ?? null };
-}
-
-/**
- * Compute dose frequency /wk for a given schedule.
- */
-function baseFreqPerWeek(schedule: string, customDays?: number[] | null, every_n_days?: number | null) {
-  switch (schedule) {
-    case "EVERYDAY":
-      return 7;
-    case "WEEKDAYS_5_2":
-      return 5;
-    case "EVERY_N_DAYS":
-      return every_n_days ? 7 / every_n_days : 0;
-    case "CUSTOM":
-      return Array.isArray(customDays) ? customDays.length : 0;
-    default:
-      return 0;
-  }
-}
-
-/** Apply cycles: effective freq = base * (on_weeks / (on_weeks+off_weeks)) */
-function effectiveFreqPerWeek(base: number, onWeeks: number, offWeeks: number) {
-  if (!onWeeks && !offWeeks) return base;
-  const total = onWeeks + offWeeks;
-  return total > 0 ? base * (onWeeks / total) : base;
-}
-
-/**
- * Compute remaining doses & reorder date for a peptide given inventory and active protocol item (if any).
- */
-function computeForecast(
-  isCapsule: boolean,
-  inv: {
-    vials?: number;
-    mg_per_vial?: number;
-    bac_ml?: number;
-    bottles?: number;
-    caps_per_bottle?: number;
-    mg_per_cap?: number;
-  },
-  protoItem:
-    | {
-        dose_mg_per_administration: number;
-        schedule: string;
-        custom_days: number[] | null;
-        cycle_on_weeks: number;
-        cycle_off_weeks: number;
-        every_n_days: number | null;
-      }
-    | undefined
-) {
-  if (!protoItem) return { remainingDoses: null, reorderDateISO: null };
-
-  const dose = Number(protoItem.dose_mg_per_administration || 0);
-  if (dose <= 0) return { remainingDoses: null, reorderDateISO: null };
-
-  let totalMg = 0;
-  if (!isCapsule) {
-    totalMg = Number(inv.vials || 0) * Number(inv.mg_per_vial || 0);
-  } else {
-    totalMg =
-      Number(inv.bottles || 0) *
-      Number(inv.caps_per_bottle || 0) *
-      Number(inv.mg_per_cap || 0);
-  }
-
-  const remainingDoses = Math.max(0, Math.floor(totalMg / dose));
-
-  const base = baseFreqPerWeek(protoItem.schedule, protoItem.custom_days, protoItem.every_n_days);
-  const eff = effectiveFreqPerWeek(base, protoItem.cycle_on_weeks || 0, protoItem.cycle_off_weeks || 0);
-  if (eff <= 0) {
-    return { remainingDoses, reorderDateISO: null };
-  }
-
-  const weeksUntilEmpty = Math.ceil(remainingDoses / eff);
-  const days = weeksUntilEmpty * 7;
-
-  const now = new Date();
-  const reorderDate = new Date(now);
-  reorderDate.setDate(now.getDate() + days);
-
-  const yyyy = reorderDate.getFullYear();
-  const mm = String(reorderDate.getMonth() + 1).padStart(2, "0");
-  const dd = String(reorderDate.getDate()).padStart(2, "0");
-  const reorderDateISO = `${yyyy}-${mm}-${dd}`;
-
-  return { remainingDoses, reorderDateISO };
 }
 
 export default async function InventoryPage() {
@@ -152,12 +66,12 @@ export default async function InventoryPage() {
     number,
     {
       dose_mg_per_administration: number;
-      schedule: string;
+      schedule: Schedule;
       custom_days: number[] | null;
       cycle_on_weeks: number;
       cycle_off_weeks: number;
       every_n_days: number | null;
-          }
+    }
   >();
 
   if (peptideIds.length > 0) {
@@ -180,7 +94,7 @@ export default async function InventoryPage() {
         for (const pi of protoItems) {
           protocolItemsByPeptide.set(pi.peptide_id, {
             dose_mg_per_administration: Number(pi.dose_mg_per_administration || 0),
-            schedule: String(pi.schedule || ""),
+            schedule: String(pi.schedule || "EVERYDAY") as Schedule,
             custom_days: (pi.custom_days as number[] | null) ?? null,
             cycle_on_weeks: Number(pi.cycle_on_weeks || 0),
             cycle_off_weeks: Number(pi.cycle_off_weeks || 0),
@@ -267,11 +181,17 @@ export default async function InventoryPage() {
   const vialItems = vialRows
     .map((r) => {
       const proto = protocolItemsByPeptide.get(r.peptide_id);
-      const { remainingDoses, reorderDateISO } = computeForecast(
-        false,
-        { vials: r.vials, mg_per_vial: r.mg_per_vial, bac_ml: r.bac_ml },
-        proto
-      );
+           const { remainingDoses, reorderDateISO } = proto
+        ? forecastRemainingDoses(
+            Number(r.vials || 0) * Number(r.mg_per_vial || 0),
+            proto.dose_mg_per_administration,
+            proto.schedule as Schedule,
+            proto.custom_days,
+            proto.cycle_on_weeks,
+            proto.cycle_off_weeks,
+            proto.every_n_days
+          )
+        : { remainingDoses: null, reorderDateISO: null };
       return {
         id: r.id,
         peptide_id: r.peptide_id,
@@ -289,11 +209,19 @@ export default async function InventoryPage() {
   const capItems = capsRows
     .map((r) => {
       const proto = protocolItemsByPeptide.get(r.peptide_id);
-      const { remainingDoses, reorderDateISO } = computeForecast(
-        true,
-        { bottles: r.bottles, caps_per_bottle: r.caps_per_bottle, mg_per_cap: r.mg_per_cap },
-        proto
-      );
+            const { remainingDoses, reorderDateISO } = proto
+        ? forecastRemainingDoses(
+            Number(r.bottles || 0) *
+              Number(r.caps_per_bottle || 0) *
+              Number(r.mg_per_cap || 0),
+            proto.dose_mg_per_administration,
+            proto.schedule as Schedule,
+            proto.custom_days,
+            proto.cycle_on_weeks,
+            proto.cycle_off_weeks,
+            proto.every_n_days
+          )
+        : { remainingDoses: null, reorderDateISO: null };
       return {
         id: r.id,
         peptide_id: r.peptide_id,

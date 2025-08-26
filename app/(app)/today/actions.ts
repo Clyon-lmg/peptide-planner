@@ -3,9 +3,10 @@
 
 import { cookies } from "next/headers";
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
+import { unitsFromDose, forecastRemainingDoses, type Schedule } from "@/lib/forecast";
 
 export type DoseStatus = "PENDING" | "TAKEN" | "SKIPPED";
-export type Schedule = "EVERYDAY" | "WEEKDAYS_5_2" | "CUSTOM" | "EVERY_N_DAYS";
+export type { Schedule };
 
 export type TodayDoseRow = {
   peptide_id: number;
@@ -22,40 +23,6 @@ export type TodayDoseRow = {
 // ---- tiny types to avoid SWC comma/semicolon parsing issue in generics
 interface VialInv { vials: number; mg_per_vial: number; bac_ml: number }
 interface CapsInv { bottles: number; caps_per_bottle: number; mg_per_cap: number }
-
-// ---------- Helpers ----------
-function fmtISO(d: Date) {
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function baseFreqPerWeek(schedule: Schedule, custom_days?: number[] | null, every_n_days?: number | null) {
-  switch (schedule) {
-    case "EVERYDAY": return 7;
-    case "WEEKDAYS_5_2": return 5;
-    case "EVERY_N_DAYS": return every_n_days ? 7 / every_n_days : 0;
-    case "CUSTOM": return Array.isArray(custom_days) ? custom_days.length : 0;
-    default: return 0;
-  }
-}
-
-function effectiveFreqPerWeek(base: number, onWeeks: number, offWeeks: number) {
-  if (!onWeeks && !offWeeks) return base;
-  const total = onWeeks + offWeeks;
-  return total > 0 ? base * (onWeeks / total) : base;
-}
-
-function unitsFromDose(
-  dose_mg?: number | null,
-  mg_per_vial?: number | null,
-  bac_ml?: number | null
-) {
-  if (!dose_mg || !mg_per_vial || !bac_ml || mg_per_vial <= 0 || bac_ml <= 0) return null;
-  const mL = dose_mg * (Number(bac_ml) / Number(mg_per_vial)); // mg / (mg/mL)
-  return Math.max(0, mL * 100); // U‑100 units
-}
 
 // ---------- Queries ----------
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
@@ -129,16 +96,16 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     let reorderDateISO: string | null = null;
 
     if (dose_mg && dose_mg > 0) {
-      remainingDoses = Math.max(0, Math.floor(totalMg / dose_mg));
-      const base = baseFreqPerWeek(String(it.schedule || "EVERYDAY") as Schedule, (it.custom_days as number[] | null) ?? null, (it.every_n_days as number | null) ?? null);
-      const eff = effectiveFreqPerWeek(base, Number(it.cycle_on_weeks || 0), Number(it.cycle_off_weeks || 0));
-      if (eff > 0) {
-        const weeksUntilEmpty = Math.ceil((remainingDoses || 0) / eff);
-        const days = weeksUntilEmpty * 7;
-        const reorder = new Date(Date.now() + days * 86400000);
-        reorderDateISO = fmtISO(reorder);
-      }
-    }
+      ({ remainingDoses, reorderDateISO } = forecastRemainingDoses(
+        totalMg,
+        dose_mg,
+        String(it.schedule || "EVERYDAY") as Schedule,
+        (it.custom_days as number[] | null) ?? null,
+        Number(it.cycle_on_weeks || 0),
+        Number(it.cycle_off_weeks || 0),
+        (it.every_n_days as number | null) ?? null
+      ));
+  }
 
     return {
       peptide_id: pid,
