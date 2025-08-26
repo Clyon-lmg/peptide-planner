@@ -82,6 +82,10 @@ export default function SignInPage({ searchParams }: PageProps) {
           <Link href="/" className="underline">
             Go home
           </Link>
+          {" or "}
+          <Link href="/sign-up" className="underline">
+            Create account
+          </Link>
         </div>
       </div>
     </div>
