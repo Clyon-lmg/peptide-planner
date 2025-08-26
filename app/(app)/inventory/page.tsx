@@ -51,7 +51,7 @@ function baseFreqPerWeek(schedule: string, customDays?: number[] | null, every_n
 
 /** Apply cycles: effective freq = base * (on_weeks / (on_weeks+off_weeks)) */
 function effectiveFreqPerWeek(base: number, onWeeks: number, offWeeks: number) {
-  if (!onWeeks || !offWeeks) return base;
+  if (!onWeeks && !offWeeks) return base;
   const total = onWeeks + offWeeks;
   return total > 0 ? base * (onWeeks / total) : base;
 }
