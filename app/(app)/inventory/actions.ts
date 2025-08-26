@@ -108,8 +108,8 @@ export async function getVialInventory(): Promise<VialRow[]> {
   const { supabase, userId } = await getAuthed();
   const { data, error } = await supabase
     .from("inventory_items")
-        .select(
-      "id, peptide_id, vials, mg_per_vial, bac_ml, half_life_hours, peptides!left(canonical_name)"
+    .select(
+      "id, peptide_id, vials, mg_per_vial, bac_ml, half_life_hours, peptides(canonical_name)"
     )
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
@@ -137,7 +137,7 @@ export async function getCapsInventory(): Promise<CapsRow[]> {
   const { data, error } = await supabase
     .from("inventory_capsules")
     .select(
-      "id, peptide_id, bottles, caps_per_bottle, mg_per_cap, half_life_hours, peptides!left(canonical_name)",
+      "id, peptide_id, bottles, caps_per_bottle, mg_per_cap, half_life_hours, peptides(canonical_name)",
     )
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
