@@ -35,7 +35,7 @@ type DosesByDay = Record<string, CalendarDoseRow[]>;
 export default function CalendarPage() {
   const [cursor, setCursor] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [byDay, setByDay] = useState<DosesByDay>({});
 
   const gridStart = useMemo(() => startOfCalendarGrid(cursor), [cursor]);
@@ -63,10 +63,10 @@ export default function CalendarPage() {
           map[r.date_for].push(r);
         }
         setByDay(map);
-        } catch (err) {
-        console.error('Failed to load doses', err);
-        setError('Unable to load doses');
-      } finally {
+      } catch (e) {
+        console.error('Failed to load doses', e);
+        setError(e instanceof Error ? e : new Error(String(e)));
+    } finally {
         setLoading(false);
       }
     })();
@@ -110,7 +110,7 @@ export default function CalendarPage() {
         {loading ? (
           <div className="text-sm text-muted-foreground">Loading…</div>
         ) : error ? (
-          <div className="text-sm text-red-600">{error}</div>
+          <div className="text-sm text-red-600">Unable to load doses.</div>
         ) : null}
       </div>
 
