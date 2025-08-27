@@ -1,4 +1,5 @@
-﻿'use server';
+﻿// app/(app)/calendar/actions.ts
+'use server';
 
 import { cookies } from 'next/headers';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -17,8 +18,11 @@ export type CalendarDoseRow = {
  * Return all doses for the signed-in user in the inclusive ISO date range.
  * startIso / endIso are "YYYY-MM-DD" (from the client in local system tz).
  */
-export async function getDosesForRange(startIso: string, endIso: string) {
-  const supabase = createServerComponentClient({ cookies });
+export async function getDosesForRange(
+  startIso: string,
+  endIso: string
+): Promise<CalendarDoseRow[]> {
+    const supabase = createServerComponentClient({ cookies });
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -41,7 +45,9 @@ export async function getDosesForRange(startIso: string, endIso: string) {
     .eq('protocol_id', protocol.id);
   if (!items?.length) return [];
 
-  const peptideIds = Array.from(new Set(items.map((i: any) => Number(i.peptide_id))));
+  const peptideIds = Array.from(
+    new Set(items.map((i: any) => Number(i.peptide_id)))
+  );
 
   // ----- Peptide names -----
   const { data: peptideRows } = await supabase
@@ -54,7 +60,7 @@ export async function getDosesForRange(startIso: string, endIso: string) {
 
   // ----- Existing dose statuses -----
   const { data: doseRows } = await supabase
-  .from('doses')
+    .from('doses')
     .select('date_for, peptide_id, dose_mg, status')
     .eq('user_id', user.id)
     .eq('protocol_id', protocol.id)
@@ -76,7 +82,7 @@ export async function getDosesForRange(startIso: string, endIso: string) {
   const protocolStart = protocol.start_date
     ? new Date(String(protocol.start_date))
     : new Date();
-  const DAY_MS = 86400000;
+  const DAY_MS = 24 * 60 * 60 * 1000;
 
   const rows: CalendarDoseRow[] = [];
 
@@ -110,9 +116,10 @@ export async function getDosesForRange(startIso: string, endIso: string) {
     }
   }
 
-  rows.sort((a, b) =>
-    a.date_for.localeCompare(b.date_for) ||
-    a.canonical_name.localeCompare(b.canonical_name)
+  rows.sort(
+    (a, b) =>
+      a.date_for.localeCompare(b.date_for) ||
+      a.canonical_name.localeCompare(b.canonical_name)
   );
   
   return rows;
