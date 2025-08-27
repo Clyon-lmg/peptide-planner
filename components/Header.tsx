@@ -16,11 +16,22 @@ export default function Header() {
         const { data: { session } } = await supabase.auth.getSession();
         setEmail(session?.user?.email ?? null);
 
+                if (!session) {
+            setCartCount(0);
+            setAuthReady(true);
+            return;
+        }
+
         // Count cart rows for current user
         const { count, error } = await supabase
             .from('cart_items')
             .select('id', { count: 'exact', head: true });
-        if (!error) setCartCount(count ?? 0);
+
+        if (error) {
+            setCartCount(0);
+        } else {
+            setCartCount(count ?? 0);
+        }
 
         setAuthReady(true);
     };
