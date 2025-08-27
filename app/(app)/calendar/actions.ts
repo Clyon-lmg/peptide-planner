@@ -80,16 +80,17 @@ export async function getDosesForRange(
   const start = new Date(startIso + 'T00:00:00Z');
   const end = new Date(endIso + 'T00:00:00Z');
   const protocolStart = protocol.start_date
-    ? new Date(String(protocol.start_date))
-    : new Date();
-  const DAY_MS = 24 * 60 * 60 * 1000;
+    ? new Date(protocol.start_date + 'T00:00:00Z')
+    : new Date();  
+    const protocolStartISO = protocolStart.toISOString().slice(0, 10);
+    const DAY_MS = 24 * 60 * 60 * 1000;
 
   const rows: CalendarDoseRow[] = [];
 
   for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
     const d = new Date(t);
     const diffDays = Math.floor((t - protocolStart.getTime()) / DAY_MS);
-    const iso = d.toISOString().split('T')[0];
+    const iso = d.toISOString().slice(0, 10);
 
     for (const it of items) {
       const onWeeks = Number(it.cycle_on_weeks || 0);
@@ -99,7 +100,7 @@ export async function getDosesForRange(
 
       const itemForSchedule = {
         ...it,
-        protocol_start_date: protocolStart.toISOString().split('T')[0],
+        protocol_start_date: protocolStartISO,
       };
       if (!isDoseDay(d, itemForSchedule)) continue;
 
