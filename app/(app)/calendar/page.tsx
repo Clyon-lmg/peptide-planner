@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { getDosesForRange, type CalendarDoseRow } from './actions';
 
@@ -109,8 +110,6 @@ export default function CalendarPage() {
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
           <div key={d} className="px-2 py-1 flex-1 text-center md:text-left">
             {d}
-          </div>
-          {d}
           </div>
         ))}
       </div>
