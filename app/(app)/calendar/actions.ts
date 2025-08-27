@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { isDoseDay } from '@/lib/scheduleEngine';
 import type { DoseStatus } from '../today/actions';
 
 export type CalendarDoseRow = {
@@ -23,23 +24,96 @@ export async function getDosesForRange(startIso: string, endIso: string) {
   } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  const { data, error } = await supabase
-    .from('doses')
-    .select('date_for, peptide_id, dose_mg, status, peptides(canonical_name)')
+  // ----- Active protocol and items -----
+  const { data: protocol } = await supabase
+    .from('protocols')
+    .select('id, start_date')
     .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!protocol?.id) return [];
+
+  const { data: items } = await supabase
+    .from('protocol_items')
+    .select(
+      'peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days'
+    )
+    .eq('protocol_id', protocol.id);
+  if (!items?.length) return [];
+
+  const peptideIds = Array.from(new Set(items.map((i: any) => Number(i.peptide_id))));
+
+  // ----- Peptide names -----
+  const { data: peptideRows } = await supabase
+    .from('peptides')
+    .select('id, canonical_name')
+    .in('id', peptideIds);
+  const nameById = new Map<number, string>(
+    (peptideRows ?? []).map((p: any) => [Number(p.id), String(p.canonical_name)])
+  );
+
+  // ----- Existing dose statuses -----
+  const { data: doseRows } = await supabase
+  .from('doses')
+    .select('date_for, peptide_id, dose_mg, status')
+    .eq('user_id', user.id)
+    .eq('protocol_id', protocol.id)
     .gte('date_for', startIso)
-    .lte('date_for', endIso)
-    .order('date_for', { ascending: true });
+    .lte('date_for', endIso);
 
-  if (error) throw error;
+  const statusMap = new Map<string, { status: DoseStatus; dose_mg: number }>();
+  (doseRows ?? []).forEach((r: any) => {
+    const key = `${r.date_for}_${r.peptide_id}`;
+    statusMap.set(key, {
+      status: (r.status ?? 'PENDING') as DoseStatus,
+      dose_mg: Number(r.dose_mg ?? 0),
+    });
+  });
 
-  const rows: CalendarDoseRow[] = (data ?? []).map((r: any) => ({
-    date_for: r.date_for,
-    peptide_id: r.peptide_id,
-    canonical_name: r.peptides?.canonical_name ?? '',
-    dose_mg: Number(r.dose_mg ?? 0),
-    status: (r.status ?? 'PENDING') as DoseStatus,
-  }));
+  // ----- Generate expected doses for each day -----
+  const start = new Date(startIso + 'T00:00:00Z');
+  const end = new Date(endIso + 'T00:00:00Z');
+  const protocolStart = protocol.start_date
+    ? new Date(String(protocol.start_date))
+    : new Date();
+  const DAY_MS = 86400000;
 
+  const rows: CalendarDoseRow[] = [];
+
+  for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
+    const d = new Date(t);
+    const diffDays = Math.floor((t - protocolStart.getTime()) / DAY_MS);
+    const iso = d.toISOString().split('T')[0];
+
+    for (const it of items) {
+      const onWeeks = Number(it.cycle_on_weeks || 0);
+      const offWeeks = Number(it.cycle_off_weeks || 0);
+      const cycleLen = (onWeeks + offWeeks) * 7;
+      if (cycleLen > 0 && diffDays % cycleLen >= onWeeks * 7) continue;
+
+      const itemForSchedule = {
+        ...it,
+        protocol_start_date: protocolStart.toISOString().split('T')[0],
+      };
+      if (!isDoseDay(d, itemForSchedule)) continue;
+
+      const key = `${iso}_${it.peptide_id}`;
+      const existing = statusMap.get(key);
+      rows.push({
+        date_for: iso,
+        peptide_id: Number(it.peptide_id),
+        canonical_name: nameById.get(Number(it.peptide_id)) || '',
+        dose_mg:
+          existing?.dose_mg ?? Number(it.dose_mg_per_administration || 0),
+        status: existing?.status ?? 'PENDING',
+      });
+    }
+  }
+
+  rows.sort((a, b) =>
+    a.date_for.localeCompare(b.date_for) ||
+    a.canonical_name.localeCompare(b.canonical_name)
+  );
+  
   return rows;
 }

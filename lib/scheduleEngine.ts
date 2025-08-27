@@ -1,6 +1,3 @@
-+33
--1
-
 export function isDoseDay(d: Date, item: any) {
   const dow = d.getDay();
   if (item.schedule === 'EVERYDAY') return true;
