@@ -107,12 +107,11 @@ export default function CalendarPage() {
 
       <div className="flex items-center justify-between mb-1">
         <div className="text-lg font-medium">{monthLabel}</div>
-                {loading ? (
+        {loading ? (
           <div className="text-sm text-muted-foreground">Loading…</div>
         ) : error ? (
           <div className="text-sm text-red-600">{error}</div>
         ) : null}
-        {loading && <div className="text-sm text-muted-foreground">Loading…</div>}
       </div>
 
       {/* Weekday headers (Sun..Sat) */}

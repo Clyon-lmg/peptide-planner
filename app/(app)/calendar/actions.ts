@@ -49,23 +49,23 @@ export async function getDosesForRange(
     new Set(items.map((i: any) => Number(i.peptide_id)))
   );
 
-  // ----- Peptide names -----
-  const { data: peptideRows } = await supabase
-    .from('peptides')
-    .select('id, canonical_name')
-    .in('id', peptideIds);
+    // ----- Peptide names and existing statuses (fetch in parallel) -----
+  const [{ data: peptideRows }, { data: doseRows }] = await Promise.all([
+    supabase
+      .from('peptides')
+      .select('id, canonical_name')
+      .in('id', peptideIds),
+    supabase
+      .from('doses')
+      .select('date_for, peptide_id, dose_mg, status')
+      .eq('user_id', user.id)
+      .eq('protocol_id', protocol.id)
+      .gte('date_for', startIso)
+      .lte('date_for', endIso),
+  ]);
   const nameById = new Map<number, string>(
     (peptideRows ?? []).map((p: any) => [Number(p.id), String(p.canonical_name)])
   );
-
-  // ----- Existing dose statuses -----
-  const { data: doseRows } = await supabase
-    .from('doses')
-    .select('date_for, peptide_id, dose_mg, status')
-    .eq('user_id', user.id)
-    .eq('protocol_id', protocol.id)
-    .gte('date_for', startIso)
-    .lte('date_for', endIso);
 
   const statusMap = new Map<string, { status: DoseStatus; dose_mg: number }>();
   (doseRows ?? []).forEach((r: any) => {
