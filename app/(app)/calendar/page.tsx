@@ -103,14 +103,16 @@ export default function CalendarPage() {
       </div>
 
       {/* Weekday headers (Sun..Sat) */}
-      <div className="grid grid-cols-7 text-[11px] font-medium text-muted-foreground mb-1">
-        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
-          <div key={d} className="px-2 py-1">{d}</div>
+      <div className="flex md:grid md:grid-cols-7 text-[11px] font-medium text-muted-foreground mb-1">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+          <div key={d} className="px-2 py-1 flex-1 text-center md:text-left">
+            {d}
+          </div>
         ))}
       </div>
 
       {/* Month grid, 6 rows x 7 cols */}
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-2">
         {days.map((d) => {
           const dIso = isoDate(d);
           const inMonth = d.getMonth() === currentMonth;
