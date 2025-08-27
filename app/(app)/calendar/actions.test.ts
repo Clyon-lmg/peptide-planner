@@ -129,7 +129,7 @@ describe('getDosesForRange', () => {
     );
   });
 
-    it('handles UTC+ timezone offsets', async () => {
+  it('handles UTC+ timezone offsets', async () => {
     const supabase = createSupabaseMock({
       user: { id: 'user1' },
       protocol: { id: 1, start_date: '2024-01-01' },
@@ -158,6 +158,152 @@ describe('getDosesForRange', () => {
     assert.deepEqual(
       rows.map((r: any) => r.date_for),
       ['2024-01-01', '2024-01-03', '2024-01-05', '2024-01-07']
+    );
+  });
+
+    it('does not drift across DST forward transition', async () => {
+    const supabase = createSupabaseMock({
+      user: { id: 'user1' },
+      protocol: { id: 1, start_date: '2024-01-01' },
+      items: [
+        {
+          peptide_id: 10,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+        },
+      ],
+      peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
+      doses: [],
+    });
+
+    (globalThis as any).__supabaseMock = supabase;
+    const originalOffset = Date.prototype.getTimezoneOffset;
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    Date.prototype.getTimezoneOffset = function () {
+      const parts = Object.fromEntries(
+        dtf.formatToParts(this).map((p) => [p.type, p.value])
+      );
+      const asUTC = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        Number(parts.hour),
+        Number(parts.minute),
+        Number(parts.second)
+      );
+      return (this.getTime() - asUTC) / 60000;
+    };
+
+    const rows = await getDosesForRange('2024-03-03', '2024-03-17');
+    Date.prototype.getTimezoneOffset = originalOffset;
+
+    const expected = [
+      '2024-03-03',
+      '2024-03-04',
+      '2024-03-05',
+      '2024-03-06',
+      '2024-03-07',
+      '2024-03-08',
+      '2024-03-09',
+      '2024-03-10',
+      '2024-03-11',
+      '2024-03-12',
+      '2024-03-13',
+      '2024-03-14',
+      '2024-03-15',
+      '2024-03-16',
+      '2024-03-17',
+    ];
+
+    assert.equal(rows.length, expected.length);
+    assert.deepEqual(
+      rows.map((r: any) => r.date_for),
+      expected
+    );
+  });
+
+  it('does not drift across DST backward transition', async () => {
+    const supabase = createSupabaseMock({
+      user: { id: 'user1' },
+      protocol: { id: 1, start_date: '2024-01-01' },
+      items: [
+        {
+          peptide_id: 10,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+        },
+      ],
+      peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
+      doses: [],
+    });
+
+    (globalThis as any).__supabaseMock = supabase;
+    const originalOffset = Date.prototype.getTimezoneOffset;
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    Date.prototype.getTimezoneOffset = function () {
+      const parts = Object.fromEntries(
+        dtf.formatToParts(this).map((p) => [p.type, p.value])
+      );
+      const asUTC = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        Number(parts.hour),
+        Number(parts.minute),
+        Number(parts.second)
+      );
+      return (this.getTime() - asUTC) / 60000;
+    };
+
+    const rows = await getDosesForRange('2024-10-27', '2024-11-10');
+    Date.prototype.getTimezoneOffset = originalOffset;
+
+    const expected = [
+      '2024-10-27',
+      '2024-10-28',
+      '2024-10-29',
+      '2024-10-30',
+      '2024-10-31',
+      '2024-11-01',
+      '2024-11-02',
+      '2024-11-03',
+      '2024-11-04',
+      '2024-11-05',
+      '2024-11-06',
+      '2024-11-07',
+      '2024-11-08',
+      '2024-11-09',
+      '2024-11-10',
+    ];
+
+    assert.equal(rows.length, expected.length);
+    assert.deepEqual(
+      rows.map((r: any) => r.date_for),
+      expected
     );
   });
 

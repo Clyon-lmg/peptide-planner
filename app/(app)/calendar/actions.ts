@@ -91,8 +91,8 @@ export async function getDosesForRange(
   const rows: CalendarDoseRow[] = [];
 
   for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
-    const dLocal = new Date(t + tzOffset);
-    const diffDays = Math.floor(
+    const offset = new Date(t).getTimezoneOffset() * 60000;
+    const dLocal = new Date(t + offset);    const diffDays = Math.floor(
       (dLocal.getTime() - protocolStartLocal.getTime()) / DAY_MS
     );
     const iso = dLocal.toISOString().slice(0, 10);
