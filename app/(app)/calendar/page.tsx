@@ -5,7 +5,9 @@ import { getDosesForRange, type CalendarDoseRow } from './actions';
 
 // Helpers (client-side, uses user local system time)
 function isoDate(d: Date) {
-  return d.toLocaleDateString('en-CA'); // YYYY-MM-DD in local tz
+  // Use timezone-offset trick to produce YYYY-MM-DD in local tz
+  const t = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return t.toISOString().split('T')[0];
 }
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -107,6 +109,8 @@ export default function CalendarPage() {
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
           <div key={d} className="px-2 py-1 flex-1 text-center md:text-left">
             {d}
+          </div>
+          {d}
           </div>
         ))}
       </div>
