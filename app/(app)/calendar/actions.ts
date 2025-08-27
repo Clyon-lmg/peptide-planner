@@ -77,13 +77,13 @@ export async function getDosesForRange(
   });
 
   // ----- Generate expected doses for each day -----
-  const start = new Date(startIso + 'T00:00:00Z');
-  const end = new Date(endIso + 'T00:00:00Z');
+  const tzOffset =
+    new Date(startIso + 'T00:00:00Z').getTimezoneOffset() * 60000;
+  const start = new Date(Date.parse(startIso + 'T00:00:00Z') - tzOffset);
+  const end = new Date(Date.parse(endIso + 'T00:00:00Z') - tzOffset);
   const protocolStart = protocol.start_date
-    ? new Date(protocol.start_date + 'T00:00:00Z')
-    : new Date();
-  const protocolStartISO = protocolStart.toISOString().slice(0, 10);
-  const tzOffset = new Date().getTimezoneOffset() * 60000;
+    ? new Date(Date.parse(protocol.start_date + 'T00:00:00Z') - tzOffset)
+    : new Date(Date.now() - tzOffset);
   const protocolStartLocal = new Date(protocolStart.getTime() + tzOffset);
   const DAY_MS = 24 * 60 * 60 * 1000;
 
