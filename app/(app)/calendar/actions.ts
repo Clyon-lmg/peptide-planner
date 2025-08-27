@@ -85,6 +85,7 @@ export async function getDosesForRange(
     ? new Date(Date.parse(protocol.start_date + 'T00:00:00Z') - tzOffset)
     : new Date(Date.now() - tzOffset);
   const protocolStartLocal = new Date(protocolStart.getTime() + tzOffset);
+  const protocolStartISO = protocolStartLocal.toISOString().slice(0, 10);
   const DAY_MS = 24 * 60 * 60 * 1000;
 
   const rows: CalendarDoseRow[] = [];
