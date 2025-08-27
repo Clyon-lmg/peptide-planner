@@ -3,9 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it, beforeEach } from 'node:test';
-import Module from 'node:module';
-
-const require = Module.createRequire(import.meta.url);
+import { getDosesForRange } from './actions';
 
 function createSupabaseMock({
   user = null,
@@ -67,8 +65,7 @@ function createSupabaseMock({
 
 describe('getDosesForRange', () => {
   beforeEach(() => {
-    const path = require.resolve('@supabase/auth-helpers-nextjs');
-    delete require.cache[path];
+    delete (globalThis as any).__supabaseMock;
   });
 
   it('returns rows for authenticated user with protocol items', async () => {
@@ -90,11 +87,40 @@ describe('getDosesForRange', () => {
       doses: [],
     });
 
-    const path = require.resolve('@supabase/auth-helpers-nextjs');
-    require.cache[path] = { exports: { createServerActionClient: () => supabase } };
-
-    const { getDosesForRange } = require('./actions');
+    (globalThis as any).__supabaseMock = supabase;
     const rows = await getDosesForRange('2024-01-01', '2024-01-07');
+
+    assert.equal(rows.length, 4);
+    assert.deepEqual(
+      rows.map((r: any) => r.date_for),
+      ['2024-01-01', '2024-01-03', '2024-01-05', '2024-01-07']
+    );
+  });
+
+  it('handles non-UTC timezone offsets', async () => {
+    const supabase = createSupabaseMock({
+      user: { id: 'user1' },
+      protocol: { id: 1, start_date: '2024-01-01' },
+      items: [
+        {
+          peptide_id: 10,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERY_N_DAYS',
+          every_n_days: 2,
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+        },
+      ],
+      peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
+      doses: [],
+    });
+
+    (globalThis as any).__supabaseMock = supabase;
+    const originalOffset = Date.prototype.getTimezoneOffset;
+    Date.prototype.getTimezoneOffset = () => 300; // UTC-5    
+    const rows = await getDosesForRange('2024-01-01', '2024-01-07');
+    Date.prototype.getTimezoneOffset = originalOffset;
 
     assert.equal(rows.length, 4);
     assert.deepEqual(
@@ -105,10 +131,8 @@ describe('getDosesForRange', () => {
 
   it('throws when user is unauthenticated', async () => {
     const supabase = createSupabaseMock({ user: null });
-    const path = require.resolve('@supabase/auth-helpers-nextjs');
-    require.cache[path] = { exports: { createServerActionClient: () => supabase } };
+    (globalThis as any).__supabaseMock = supabase;
 
-    const { getDosesForRange } = require('./actions');
     await assert.rejects(
       () => getDosesForRange('2024-01-01', '2024-01-02'),
       /Not authenticated/

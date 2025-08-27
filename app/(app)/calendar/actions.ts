@@ -3,7 +3,7 @@
 
 import { cookies } from 'next/headers';
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
-import { isDoseDay } from '@/lib/scheduleEngine';
+import { isDoseDayUTC } from '@/lib/scheduleEngine';
 import type { DoseStatus } from '../today/actions';
 
 export type CalendarDoseRow = {
@@ -81,16 +81,20 @@ export async function getDosesForRange(
   const end = new Date(endIso + 'T00:00:00Z');
   const protocolStart = protocol.start_date
     ? new Date(protocol.start_date + 'T00:00:00Z')
-    : new Date();  
-    const protocolStartISO = protocolStart.toISOString().slice(0, 10);
-    const DAY_MS = 24 * 60 * 60 * 1000;
+    : new Date();
+  const protocolStartISO = protocolStart.toISOString().slice(0, 10);
+  const tzOffset = new Date().getTimezoneOffset() * 60000;
+  const protocolStartLocal = new Date(protocolStart.getTime() + tzOffset);
+  const DAY_MS = 24 * 60 * 60 * 1000;
 
   const rows: CalendarDoseRow[] = [];
 
   for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
-    const d = new Date(t);
-    const diffDays = Math.floor((t - protocolStart.getTime()) / DAY_MS);
-    const iso = d.toISOString().slice(0, 10);
+    const dLocal = new Date(t + tzOffset);
+    const diffDays = Math.floor(
+      (dLocal.getTime() - protocolStartLocal.getTime()) / DAY_MS
+    );
+    const iso = dLocal.toISOString().slice(0, 10);
 
     for (const it of items) {
       const onWeeks = Number(it.cycle_on_weeks || 0);
@@ -102,7 +106,7 @@ export async function getDosesForRange(
         ...it,
         protocol_start_date: protocolStartISO,
       };
-      if (!isDoseDay(d, itemForSchedule)) continue;
+      if (!isDoseDayUTC(dLocal, itemForSchedule)) continue;
 
       const key = `${iso}_${it.peptide_id}`;
       const existing = statusMap.get(key);
