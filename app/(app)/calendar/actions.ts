@@ -77,14 +77,19 @@ export async function getDosesForRange(
   });
 
   // ----- Generate expected doses for each day -----
-  const tzOffset =
+  const startOffset =
     new Date(startIso + 'T00:00:00Z').getTimezoneOffset() * 60000;
-  const start = new Date(Date.parse(startIso + 'T00:00:00Z') - tzOffset);
-  const end = new Date(Date.parse(endIso + 'T00:00:00Z') - tzOffset);
+  const start = new Date(Date.parse(startIso + 'T00:00:00Z') - startOffset);
+  const endOffset =
+    new Date(endIso + 'T00:00:00Z').getTimezoneOffset() * 60000;
+  const end = new Date(Date.parse(endIso + 'T00:00:00Z') - endOffset);
+  const protocolOffset = protocol.start_date
+    ? new Date(protocol.start_date + 'T00:00:00Z').getTimezoneOffset() * 60000
+    : startOffset;
   const protocolStart = protocol.start_date
-    ? new Date(Date.parse(protocol.start_date + 'T00:00:00Z') - tzOffset)
-    : new Date(Date.now() - tzOffset);
-  const protocolStartLocal = new Date(protocolStart.getTime() + tzOffset);
+    ? new Date(Date.parse(protocol.start_date + 'T00:00:00Z') - protocolOffset)
+    : new Date(Date.now() - protocolOffset);
+  const protocolStartLocal = new Date(protocolStart.getTime() + protocolOffset);
   const protocolStartISO = protocolStartLocal.toISOString().slice(0, 10);
   const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -92,8 +97,9 @@ export async function getDosesForRange(
 
   for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
     const offset = new Date(t).getTimezoneOffset() * 60000;
-    const dLocal = new Date(t + offset);    const diffDays = Math.floor(
-      (dLocal.getTime() - protocolStartLocal.getTime()) / DAY_MS
+    const dLocal = new Date(t + offset);
+    const diffDays = Math.floor(
+        (dLocal.getTime() - protocolStartLocal.getTime()) / DAY_MS
     );
     const iso = dLocal.toISOString().slice(0, 10);
 
