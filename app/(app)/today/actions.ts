@@ -4,6 +4,7 @@
 import { cookies } from "next/headers";
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
 import { unitsFromDose, forecastRemainingDoses, type Schedule } from "@/lib/forecast";
+import { isDoseDayUTC } from "@/lib/scheduleEngine";
 
 export type DoseStatus = "PENDING" | "TAKEN" | "SKIPPED";
 export type { Schedule };
@@ -34,7 +35,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
   // Active protocol
   const { data: protocol } = await sa
     .from("protocols")
-    .select("id")
+    .select("id,start_date")
     .eq("user_id", uid)
     .eq("is_active", true)
     .maybeSingle();
@@ -47,7 +48,31 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     .eq("protocol_id", protocol.id);
   if (!items?.length) return [];
 
-  const peptideIds = [...new Set(items.map((i: any) => Number(i.peptide_id)))];
+  const tzOffset = new Date(dateISO + "T00:00:00Z").getTimezoneOffset() * 60000;
+  const start = new Date(Date.parse(dateISO + "T00:00:00Z") - tzOffset);
+  const offset = start.getTimezoneOffset() * 60000;
+  const dLocal = new Date(start.getTime() + offset);
+
+  const protocolStart = protocol.start_date
+    ? new Date(Date.parse(String(protocol.start_date) + "T00:00:00Z") - tzOffset)
+    : new Date(Date.now() - tzOffset);
+  const protocolStartLocal = new Date(protocolStart.getTime() + tzOffset);
+  const protocolStartISO = protocolStartLocal.toISOString().slice(0, 10);
+  const diffDays = Math.floor(
+    (dLocal.getTime() - protocolStartLocal.getTime()) / (24 * 60 * 60 * 1000)
+  );
+
+  const scheduledItems = items.filter((it: any) => {
+    const onWeeks = Number(it.cycle_on_weeks || 0);
+    const offWeeks = Number(it.cycle_off_weeks || 0);
+    const cycleLen = (onWeeks + offWeeks) * 7;
+    if (cycleLen > 0 && diffDays % cycleLen >= onWeeks * 7) return false;
+    const itemForSchedule = { ...it, protocol_start_date: protocolStartISO };
+    return isDoseDayUTC(dLocal, itemForSchedule);
+  });
+  if (!scheduledItems.length) return [];
+
+  const peptideIds = [...new Set(scheduledItems.map((i: any) => Number(i.peptide_id)))];
 
   // Peptide names, inventory (vials + caps), and today’s status
   const [{ data: peptideRows }, { data: invVials }, { data: invCaps }, { data: doseRows }] = await Promise.all([
@@ -81,7 +106,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
   (doseRows ?? []).forEach((d: any) => statusByPeptide.set(Number(d.peptide_id), d.status as DoseStatus));
 
   // Compose rows (Remaining/Reorder use TOTAL mg = vials + caps; Units need vial concentration)
-  const rows: TodayDoseRow[] = items.map((it: any) => {
+  const rows: TodayDoseRow[] = scheduledItems.map((it: any) => {
     const pid = Number(it.peptide_id);
     const vialInv = vialByPeptide.get(pid);
     const capsInv = capsByPeptide.get(pid);
