@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { isDoseDay } from "@/lib/scheduleEngine";
+import { isDoseDayLocal } from "@/lib/scheduleEngine";
 import type { ProtocolItemState, InventoryPeptide } from "./ProtocolItemRow";
 
 ChartJS.register(
@@ -65,7 +65,7 @@ export default function ProtocolGraph({
         d.setDate(today.getDate() + i);
         level = level * decay;
         const dailyDose = its.reduce((sum, item) => {
-          return isDoseDay(d, item) ? sum + item.dose_mg_per_administration : sum;
+          return isDoseDayLocal(d, item) ? sum + item.dose_mg_per_administration : sum;
         }, 0);
         level += dailyDose;
         points.push(level);
