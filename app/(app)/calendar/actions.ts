@@ -91,16 +91,19 @@ export async function getDosesForRange(
     : new Date(Date.now() - protocolOffset);
   const protocolStartLocal = new Date(protocolStart.getTime() + protocolOffset);
   const protocolStartISO = protocolStartLocal.toISOString().slice(0, 10);
-  const DAY_MS = 24 * 60 * 60 * 1000;
 
   const rows: CalendarDoseRow[] = [];
 
-  for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
-    const offset = new Date(t).getTimezoneOffset() * 60000;
-    const dLocal = new Date(t - offset);
-    const diffDays = Math.floor(
-      (t - protocolStart.getTime()) / DAY_MS
-    );
+  // Difference in local days between start and protocol start
+  let diffDays = Math.floor(
+    (Date.parse(startIso + 'T00:00:00Z') -
+      Date.parse(protocolStartISO + 'T00:00:00Z')) /
+      (24 * 60 * 60 * 1000)
+  );
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1), diffDays++) {
+    const offset = d.getTimezoneOffset() * 60000;
+    const dLocal = new Date(d.getTime() - offset);
     const iso = dLocal.toISOString().slice(0, 10);
 
     for (const it of items) {

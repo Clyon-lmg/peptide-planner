@@ -307,7 +307,7 @@ describe('getDosesForRange', () => {
     );
   });
 
-    it('handles protocol start before DST while querying after', async () => {
+  it('handles protocol start before DST while querying after', async () => {
     const supabase = createSupabaseMock({
       user: { id: 'user1' },
       protocol: { id: 1, start_date: '2024-03-01' },
@@ -359,6 +359,37 @@ describe('getDosesForRange', () => {
     assert.deepEqual(
       rows.map((r: any) => r.date_for),
       ['2024-03-11', '2024-03-13', '2024-03-15']
+    );
+  });
+
+  it('processes every day across a DST change', async () => {
+    const supabase = createSupabaseMock({
+      user: { id: 'user1' },
+      protocol: { id: 1, start_date: '2024-01-01' },
+      items: [
+        {
+          peptide_id: 10,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+        },
+      ],
+      peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
+      doses: [],
+    });
+
+    (globalThis as any).__supabaseMock = supabase;
+    const prevTZ = process.env.TZ;
+    process.env.TZ = 'America/Los_Angeles';
+    const rows = await getDosesForRange('2024-03-09', '2024-03-12');
+    process.env.TZ = prevTZ;
+
+    assert.equal(rows.length, 4);
+    assert.deepEqual(
+      rows.map((r: any) => r.date_for),
+      ['2024-03-09', '2024-03-10', '2024-03-11', '2024-03-12']
     );
   });
 
