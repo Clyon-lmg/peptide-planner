@@ -97,9 +97,9 @@ export async function getDosesForRange(
 
   for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
     const offset = new Date(t).getTimezoneOffset() * 60000;
-    const dLocal = new Date(t + offset);
+    const dLocal = new Date(t - offset);
     const diffDays = Math.floor(
-        (dLocal.getTime() - protocolStartLocal.getTime()) / DAY_MS
+      (t - protocolStart.getTime()) / DAY_MS
     );
     const iso = dLocal.toISOString().slice(0, 10);
 
