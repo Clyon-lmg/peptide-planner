@@ -77,34 +77,26 @@ export async function getDosesForRange(
   });
 
   // ----- Generate expected doses for each day -----
-  const startOffset =
-    new Date(startIso + 'T00:00:00Z').getTimezoneOffset() * 60000;
-  const start = new Date(Date.parse(startIso + 'T00:00:00Z') - startOffset);
-  const endOffset =
-    new Date(endIso + 'T00:00:00Z').getTimezoneOffset() * 60000;
-  const end = new Date(Date.parse(endIso + 'T00:00:00Z') - endOffset);
-  const protocolOffset = protocol.start_date
-    ? new Date(protocol.start_date + 'T00:00:00Z').getTimezoneOffset() * 60000
-    : startOffset;
-  const protocolStart = protocol.start_date
-    ? new Date(Date.parse(protocol.start_date + 'T00:00:00Z') - protocolOffset)
-    : new Date(Date.now() - protocolOffset);
-  const protocolStartLocal = new Date(protocolStart.getTime() + protocolOffset);
-  const protocolStartISO = protocolStartLocal.toISOString().slice(0, 10);
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const start = new Date(startIso + 'T00:00:00Z');
+  const end = new Date(endIso + 'T00:00:00Z');
+  const protocolStartISO =
+    protocol.start_date ?? start.toISOString().slice(0, 10);
+  const protocolStart = new Date(protocolStartISO + 'T00:00:00Z');
 
   const rows: CalendarDoseRow[] = [];
 
-  // Difference in local days between start and protocol start
+  // Difference in days between start and protocol start
   let diffDays = Math.floor(
-    (Date.parse(startIso + 'T00:00:00Z') -
-      Date.parse(protocolStartISO + 'T00:00:00Z')) /
-      (24 * 60 * 60 * 1000)
+    (start.getTime() - protocolStart.getTime()) / DAY_MS
   );
 
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1), diffDays++) {
-    const offset = d.getTimezoneOffset() * 60000;
-    const dLocal = new Date(d.getTime() + offset);
-    const iso = dLocal.toISOString().slice(0, 10);
+  for (
+    let d = new Date(start);
+    d <= end;
+    d.setUTCDate(d.getUTCDate() + 1), diffDays++
+  ) {
+    const iso = d.toISOString().slice(0, 10);
 
     for (const it of items) {
       const onWeeks = Number(it.cycle_on_weeks || 0);
@@ -116,7 +108,7 @@ export async function getDosesForRange(
         ...it,
         protocol_start_date: protocolStartISO,
       };
-      if (!isDoseDayUTC(dLocal, itemForSchedule)) continue;
+      if (!isDoseDayUTC(d, itemForSchedule)) continue;
 
       const key = `${iso}_${it.peptide_id}`;
       const existing = statusMap.get(key);

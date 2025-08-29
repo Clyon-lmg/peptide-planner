@@ -48,23 +48,11 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     .eq("protocol_id", protocol.id);
   if (!items?.length) return [];
 
-  const dateOffset =
-    new Date(dateISO + "T00:00:00Z").getTimezoneOffset() * 60000;
-  const start = new Date(Date.parse(dateISO + "T00:00:00Z") - dateOffset);
-  const offset = start.getTimezoneOffset() * 60000;
-  const dLocal = new Date(start.getTime() + offset);
-
-  const protocolOffset = protocol.start_date
-    ? new Date(String(protocol.start_date) + "T00:00:00Z").getTimezoneOffset() * 60000
-    : dateOffset;
-  const protocolStart = protocol.start_date
-    ? new Date(Date.parse(String(protocol.start_date) + "T00:00:00Z") - protocolOffset)
-    : new Date(Date.now() - protocolOffset);
-  const protocolStartLocal = new Date(protocolStart.getTime() + protocolOffset);
-  const protocolStartISO = protocolStartLocal.toISOString().slice(0, 10);
-  const diffDays = Math.floor(
-    (dLocal.getTime() - protocolStartLocal.getTime()) / (24 * 60 * 60 * 1000)
-  );
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const d = new Date(dateISO + "T00:00:00Z");
+  const protocolStartISO = protocol.start_date ?? dateISO;
+  const protocolStart = new Date(protocolStartISO + "T00:00:00Z");
+  const diffDays = Math.floor((d.getTime() - protocolStart.getTime()) / DAY_MS);
 
   const scheduledItems = items.filter((it: any) => {
     const onWeeks = Number(it.cycle_on_weeks || 0);
@@ -72,7 +60,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     const cycleLen = (onWeeks + offWeeks) * 7;
     if (cycleLen > 0 && diffDays % cycleLen >= onWeeks * 7) return false;
     const itemForSchedule = { ...it, protocol_start_date: protocolStartISO };
-    return isDoseDayUTC(dLocal, itemForSchedule);
+    return isDoseDayUTC(d, itemForSchedule);
   });
   if (!scheduledItems.length) return [];
 
