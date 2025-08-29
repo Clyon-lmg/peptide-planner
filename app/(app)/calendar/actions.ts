@@ -77,7 +77,6 @@ export async function getDosesForRange(
   });
 
   // ----- Generate expected doses for each day -----
-  const DAY_MS = 24 * 60 * 60 * 1000;
   const start = new Date(startIso + 'T00:00:00Z');
   const end = new Date(endIso + 'T00:00:00Z');
   const protocolStartISO =
@@ -86,29 +85,11 @@ export async function getDosesForRange(
 
   const rows: CalendarDoseRow[] = [];
 
-  // Difference in days between start and protocol start
-  let diffDays = Math.floor(
-    (start.getTime() - protocolStart.getTime()) / DAY_MS
-  );
-
-  for (
-    let d = new Date(start);
-    d <= end;
-    d.setUTCDate(d.getUTCDate() + 1), diffDays++
-  ) {
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
     const iso = d.toISOString().slice(0, 10);
 
     for (const it of items) {
-      const onWeeks = Number(it.cycle_on_weeks || 0);
-      const offWeeks = Number(it.cycle_off_weeks || 0);
-      const cycleLen = (onWeeks + offWeeks) * 7;
-      if (cycleLen > 0 && diffDays % cycleLen >= onWeeks * 7) continue;
-
-      const itemForSchedule = {
-        ...it,
-        protocol_start_date: protocolStartISO,
-      };
-      if (!isDoseDayUTC(d, itemForSchedule)) continue;
+      if (!isDoseDayUTC(d, it, protocolStart)) continue;
 
       const key = `${iso}_${it.peptide_id}`;
       const existing = statusMap.get(key);

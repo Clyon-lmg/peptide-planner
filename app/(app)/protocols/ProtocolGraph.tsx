@@ -65,7 +65,9 @@ export default function ProtocolGraph({
         d.setUTCDate(start.getUTCDate() + i);
         level = level * decay;
         const dailyDose = its.reduce((sum, item) => {
-          return isDoseDayUTC(d, item) ? sum + item.dose_mg_per_administration : sum;
+          return isDoseDayUTC(d, item, start)
+            ? sum + item.dose_mg_per_administration
+            : sum;
         }, 0);
         level += dailyDose;
         points.push(level);
