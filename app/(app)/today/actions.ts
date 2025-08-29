@@ -44,24 +44,24 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
   if (!protocol?.id) return [];
 
   // Protocol items joined with peptide names
-  const { data: rawItems } = await sa
+  const { data: items } = await sa
     .from('protocol_items')
     .select(
       'peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,peptides(canonical_name)'
     )
     .eq('protocol_id', protocol.id);
-  if (!rawItems?.length) return [];
+  if (!items?.length) return [];
 
-  const protocolItems: ProtocolItem[] = rawItems.map((r: any) => ({
-    peptide_id: Number(r.peptide_id),
-    canonical_name: r.peptides?.canonical_name || `Peptide #${r.peptide_id}`,
-    dose_mg_per_administration: Number(r.dose_mg_per_administration || 0),
-    schedule: String(r.schedule || 'EVERYDAY') as Schedule,
-    custom_days: (r.custom_days as number[] | null) ?? null,
-    cycle_on_weeks: Number(r.cycle_on_weeks || 0),
-    cycle_off_weeks: Number(r.cycle_off_weeks || 0),
-    every_n_days: (r.every_n_days as number | null) ?? null,
-  }));
+  const protocolItems: ProtocolItem[] = items.map((it: any) => ({
+    peptide_id: Number(it.peptide_id),
+    canonical_name: it.peptides?.canonical_name || `Peptide #${it.peptide_id}`,
+    dose_mg_per_administration: Number(it.dose_mg_per_administration || 0),
+    schedule: it.schedule as Schedule,
+    custom_days: (it.custom_days as number[] | null) ?? null,
+    cycle_on_weeks: Number(it.cycle_on_weeks || 0),
+    cycle_off_weeks: Number(it.cycle_off_weeks || 0),
+    every_n_days: (it.every_n_days as number | null) ?? null,
+}));
 
   const dayRows = generateDailyDoses(
     dateISO,
