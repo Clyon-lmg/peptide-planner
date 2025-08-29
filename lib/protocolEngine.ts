@@ -23,8 +23,11 @@ function localDateStr(d = new Date()) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-const DAY_MS = 24 * 60 * 60 * 1000;
-function addDays(d: Date, n: number) { return new Date(d.getTime() + n * DAY_MS); }
+function addDays(d: Date, n: number) {
+  const x = new Date(d);
+  x.setUTCDate(x.getUTCDate() + n);
+  return x;
+}
 function isWeekend(d: Date) { const x = d.getDay(); return x===0 || x===6; }
 function* dateRangeDays(start: Date, days: number) { for (let i=0;i<days;i++) yield addDays(start,i); }
 function isCustomDay(d: Date, custom: number[]) { return custom.includes(d.getDay()); }

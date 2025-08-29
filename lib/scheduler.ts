@@ -12,9 +12,6 @@ export interface ProtocolItem {
   cycle_off_weeks?: number | null;
   every_n_days?: number | null;
 }
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /**
  * Determine if a given UTC date is a dose day for an item.
  * @param date Date being checked (assumed UTC midnight or any time)
@@ -26,7 +23,9 @@ export function isDoseDayUTC(
   item: ProtocolItem,
   protocolStart: Date
 ): boolean {
-  const diffDays = Math.floor((date.getTime() - protocolStart.getTime()) / DAY_MS);
+  const diffDays = Math.floor(
+    (date.getTime() - protocolStart.getTime()) / (24 * 60 * 60 * 1000)
+  );
   if (diffDays < 0) return false;
 
   const onWeeks = Number(item.cycle_on_weeks || 0);
