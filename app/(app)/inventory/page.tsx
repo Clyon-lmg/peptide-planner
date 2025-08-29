@@ -1,5 +1,5 @@
 // app/(app)/inventory/page.tsx
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
 import Link from "next/link";
 
 import AddRow from "./ui/AddRow";
@@ -26,7 +26,7 @@ import { forecastRemainingDoses, type Schedule } from "@/lib/forecast";
 export const dynamic = "force-dynamic";
 
 async function getUser() {
-  const supabase = createServerSupabase();
+  const supabase = createServerComponentSupabase();
   const { data } = await supabase.auth.getUser();
   return { supabase, user: data?.user ?? null };
 }
@@ -112,7 +112,7 @@ export default async function InventoryPage() {
   // ---------- Partial update server actions (no overwriting!) ----------
   const saveVial = async (p: SaveVialPayload) => {
     "use server";
-    const sa = createServerSupabase();
+    const sa = createServerActionSupabase();
     const { data: auth } = await sa.auth.getUser();
     const uid = auth.user?.id;
     if (!uid) throw new Error("Not signed in");
@@ -137,7 +137,7 @@ export default async function InventoryPage() {
 
   const saveCapsule = async (p: SaveCapsPayload) => {
     "use server";
-    const sa = createServerSupabase();
+    const sa = createServerActionSupabase();
     const { data: auth } = await sa.auth.getUser();
     const uid = auth.user?.id;
     if (!uid) throw new Error("Not signed in");

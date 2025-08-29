@@ -1,7 +1,7 @@
 ﻿// app/(app)/calendar/actions.ts
 'use server';
 
-import { createServerSupabase } from '@/lib/supabaseServer';
+import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { isDoseDayUTC, type ScheduleItem } from '@/lib/scheduleEngine';
 import type { DoseStatus } from '../today/actions';
 
@@ -21,7 +21,7 @@ export async function getDosesForRange(
   startIso: string,
   endIso: string
 ): Promise<CalendarDoseRow[]> {
-    const supabase = createServerSupabase();
+    const supabase = createServerActionSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();

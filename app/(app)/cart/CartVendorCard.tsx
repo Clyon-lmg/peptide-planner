@@ -1,5 +1,5 @@
 ﻿// app/(app)/cart/CartVendorCard.tsx
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { createServerComponentSupabase } from "@/lib/supabaseServer";
 import CouponSelect from "./components/CouponSelect";
 import PlaceOrderLink from "./PlaceOrderLink";
 
@@ -13,7 +13,7 @@ function applyCouponToPrice(unit: number, percent_off?: number | null, amount_of
 }
 
 export default async function CartVendorCard({ vendorId }: { vendorId: number }) {
-  const supabase = createServerSupabase();
+import { createServerComponentSupabase } from "@/lib/supabaseServer";
 
   const { data: ures } = await supabase.auth.getUser();
   if (!ures?.user) {

@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { createServerActionSupabase } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,7 +25,7 @@ export default function SignUpPage({ searchParams }: PageProps) {
       redirect("/sign-up?error=" + encodeURIComponent("Email and password are required."));
     }
 
-    const supabase = createServerSupabase();
+    const supabase = createServerActionSupabase();
     const redirectBase = process.env.NEXT_PUBLIC_SITE_URL;
     if (!redirectBase) {
       console.error("NEXT_PUBLIC_SITE_URL is undefined");

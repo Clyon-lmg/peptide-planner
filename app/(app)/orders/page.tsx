@@ -1,6 +1,6 @@
 // app/(app)/orders/page.tsx
 import Link from "next/link";
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +61,7 @@ function buildAffiliateUrl(vendorHomepage: string | null | undefined, aff?: Affi
 }
 
 async function getUser() {
-  const supabase = createServerSupabase();
+  const supabase = createServerComponentSupabase();
   const { data } = await supabase.auth.getUser();
   return { supabase, user: data?.user ?? null };
 }
@@ -125,7 +125,7 @@ export default async function OrdersPage() {
     const next = String(formData.get("status") || "");
     if (!orderId || !["DRAFT", "PLACED", "RECEIVED"].includes(next)) return;
 
-    const sb = createServerSupabase();
+    const sb = createServerActionSupabase();
     const { data: auth } = await sb.auth.getUser();
     const uid = auth?.user?.id;
     if (!uid) return;
@@ -151,7 +151,7 @@ export default async function OrdersPage() {
     const orderId = Number(formData.get("order_id") || 0);
     if (!orderId) return;
 
-    const sb = createServerSupabase();
+    const sb = createServerActionSupabase();
     const { data: auth } = await sb.auth.getUser();
     const uid = auth?.user?.id;
     if (!uid) return;

@@ -1,13 +1,13 @@
-﻿// app/(app)/cart/actions.ts
+﻿﻿// app/(app)/cart/actions.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { createServerActionSupabase } from "@/lib/supabaseServer";
 
 type ActionResult = { ok: boolean; message?: string };
 
 async function getAuthed() {
-  const supabase = createServerSupabase();
+  const supabase = createServerActionSupabase();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) throw new Error("Not authenticated");
   return { supabase, userId: data.user.id as string };

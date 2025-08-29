@@ -1,8 +1,8 @@
-﻿import { NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabaseServer';
+﻿﻿import { NextResponse } from 'next/server';
+import { createServerActionSupabase } from '@/lib/supabaseServer';
 
 export async function GET() {
-  const supabase = createServerSupabase();
+  const supabase = createServerActionSupabase();
 
   const {
     data: { user },

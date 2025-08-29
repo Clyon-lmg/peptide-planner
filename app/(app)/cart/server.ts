@@ -1,12 +1,12 @@
-﻿"use server";
+﻿﻿"use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { createServerActionSupabase } from "@/lib/supabaseServer";
 
 type Kind = "vial" | "capsule";
 
 async function authed() {
-  const supabase = createServerSupabase();
+  const supabase = createServerActionSupabase();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) throw new Error("Not authenticated");
   return { supabase, userId: data.user.id as string };

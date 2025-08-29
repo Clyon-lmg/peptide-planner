@@ -1,5 +1,5 @@
 ﻿// app/(app)/today/server.ts
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { createServerActionSupabase } from "@/lib/supabaseServer";
 import { unitsFromDose, forecastRemainingDoses, type Schedule } from "@/lib/forecast";
 
 export type DoseStatus = "PENDING" | "TAKEN" | "SKIPPED";
@@ -18,7 +18,7 @@ export type TodayDoseRow = {
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
   "use server";
-  const sa = createServerSupabase();
+  const sa = createServerActionSupabase();
   const { data: { user } } = await sa.auth.getUser();
   const uid = user?.id;
   if (!uid) return [];
@@ -110,7 +110,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 }
 
 async function upsertDoseStatus(peptide_id: number, dateISO: string, status: DoseStatus) {
-  const sa = createServerSupabase();
+  const sa = createServerActionSupabase();
   const { data: { user } } = await sa.auth.getUser();
   const uid = user?.id;
   if (!uid) throw new Error("Not signed in");

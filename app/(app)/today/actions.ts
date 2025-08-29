@@ -1,6 +1,6 @@
 ﻿'use server';
 
-import { createServerSupabase } from '@/lib/supabaseServer';
+import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { unitsFromDose, forecastRemainingDoses } from '@/lib/forecast';
 import {
   generateDailyDoses,
@@ -28,7 +28,7 @@ interface CapsInv { bottles: number; caps_per_bottle: number; mg_per_cap: number
 
 // ---------- Queries ----------
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
-  const sa = createServerSupabase();
+  const sa = createServerActionSupabase();
   const { data: auth } = await sa.auth.getUser();
   const uid = auth.user?.id;
   if (!uid) return [];
@@ -168,7 +168,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
 // ---------- Mutations ----------
 async function upsertDoseStatus(peptide_id: number, dateISO: string, status: DoseStatus) {
-  const sa = createServerSupabase();
+  const sa = createServerActionSupabase();
   const { data: auth } = await sa.auth.getUser();
   const uid = auth.user?.id;
   if (!uid) throw new Error('Not signed in');

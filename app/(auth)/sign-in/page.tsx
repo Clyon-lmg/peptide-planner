@@ -2,7 +2,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createServerSupabase } from "@/lib/supabaseServer";
+import { createServerActionSupabase } from "@/lib/supabaseServer";
 import SignInForm from "./SignInForm";
 
 export const dynamic = "force-dynamic"; // avoid static pre-render
@@ -20,7 +20,7 @@ export default function SignInPage({ searchParams }: PageProps) {
     const email = String(formData.get("email") || "").trim();
     if (!email) return;
 
-    const supabase = createServerSupabase();
+    const supabase = createServerActionSupabase();
     const hdrs = headers();
     const protocol = hdrs.get("x-forwarded-proto") || "http";
     const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "localhost:3000";
@@ -46,7 +46,7 @@ export default function SignInPage({ searchParams }: PageProps) {
     const password = String(formData.get("password") || "");
     const next = String(formData.get("redirect") || "") || "/today";
 
-    const supabase = createServerSupabase();
+    const supabase = createServerActionSupabase();
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

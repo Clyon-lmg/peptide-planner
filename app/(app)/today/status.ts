@@ -1,10 +1,10 @@
-﻿'use server';
+﻿﻿'use server';
 
-import { createServerSupabase } from '@/lib/supabaseServer';
+import { createServerComponentSupabase } from '@/lib/supabaseServer';
 
 export async function getStatus(peptide_id: number) {
   // READ during Server Component render -> use component client
-  const supabase = createServerSupabase();
+  const supabase = createServerComponentSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();

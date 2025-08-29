@@ -1,12 +1,12 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/supabaseServer";
+﻿﻿import { NextRequest, NextResponse } from "next/server";
+import { createServerActionSupabase } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerSupabase();
+    const supabase = createServerActionSupabase();
     const url = new URL(req.url);
     const vendor_id = Number(url.searchParams.get("vendor_id") || 0);
     if (!vendor_id) {
