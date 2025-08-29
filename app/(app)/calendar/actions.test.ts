@@ -392,6 +392,89 @@ describe('getDosesForRange', () => {
       ['2024-03-09', '2024-03-10', '2024-03-11', '2024-03-12']
     );
   });
+   
+  it('includes recorded doses on scheduled days', async () => {
+    const supabase = createSupabaseMock({
+      user: { id: 'user1' },
+      protocol: { id: 1, start_date: '2024-01-01' },
+      items: [
+        {
+          peptide_id: 10,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERY_N_DAYS',
+          every_n_days: 2,
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+        },
+      ],
+      peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
+      doses: [
+        {
+          date_for: '2024-01-05',
+          peptide_id: 10,
+          dose_mg: 1,
+          status: 'TAKEN',
+        },
+      ],
+    });
+
+    (globalThis as any).__supabaseMock = supabase;
+    const rows = await getDosesForRange('2024-01-01', '2024-01-07');
+
+    assert.ok(rows.length);
+    const taken = rows.find((r: any) => r.date_for === '2024-01-05');
+    assert.deepEqual(taken, {
+      date_for: '2024-01-05',
+      peptide_id: 10,
+      canonical_name: 'Test Peptide',
+      dose_mg: 1,
+      status: 'TAKEN',
+    });
+  });
+
+  for (const tzOffset of [120, -420]) {
+    it(`handles cycle on/off weeks with timezone offset ${tzOffset}`, async () => {
+      const supabase = createSupabaseMock({
+        user: { id: 'user1' },
+        protocol: { id: 1, start_date: '2024-01-01' },
+        items: [
+          {
+            peptide_id: 10,
+            dose_mg_per_administration: 1,
+            schedule: 'EVERY_N_DAYS',
+            every_n_days: 2,
+            custom_days: null,
+            cycle_on_weeks: 1,
+            cycle_off_weeks: 1,
+          },
+        ],
+        peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
+        doses: [],
+      });
+
+      (globalThis as any).__supabaseMock = supabase;
+      const originalOffset = Date.prototype.getTimezoneOffset;
+      Date.prototype.getTimezoneOffset = () => tzOffset;
+      const rows = await getDosesForRange('2024-01-01', '2024-01-28');
+      Date.prototype.getTimezoneOffset = originalOffset;
+
+      assert.ok(rows.length);
+      assert.deepEqual(
+        rows.map((r: any) => r.date_for),
+        [
+          '2024-01-01',
+          '2024-01-03',
+          '2024-01-05',
+          '2024-01-07',
+          '2024-01-15',
+          '2024-01-17',
+          '2024-01-19',
+          '2024-01-21',
+        ]
+      );
+    });
+  }
 
   it('throws when user is unauthenticated', async () => {
     const supabase = createSupabaseMock({ user: null });
