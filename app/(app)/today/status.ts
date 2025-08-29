@@ -8,7 +8,12 @@ export async function getStatus(peptide_id: number) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return 'PENDING';
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (!user) {
+    console.warn('getStatus: auth.getUser() returned null', authError);
+    return 'PENDING';
+  }
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const { data } = await supabase

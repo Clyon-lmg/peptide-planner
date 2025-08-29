@@ -19,9 +19,12 @@ export type TodayDoseRow = {
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
   "use server";
   const sa = createServerActionSupabase();
-  const { data: { user } } = await sa.auth.getUser();
+  const { data: { user }, error: authError } = await sa.auth.getUser();
   const uid = user?.id;
-  if (!uid) return [];
+  if (!uid) {
+    console.error('getTodayDosesWithUnits(server): auth.getUser() returned null', authError);
+    throw new Error('Session missing or expired');
+  }
 
   const { data: protocol } = await sa
     .from("protocols")

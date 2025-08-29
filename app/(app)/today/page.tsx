@@ -31,6 +31,8 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
 
+  const [error, setError] = useState<string | null>(null);
+
   const today = useMemo(localISODate, []); // freeze to page-load day
 
   const load = useCallback(async () => {
@@ -38,6 +40,11 @@ export default function TodayPage() {
     try {
       const data = await getTodayDosesWithUnits(today);
       setRows(data as Row[]);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load doses', err);
+      setError(err instanceof Error ? err.message : 'Failed to load doses');
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -76,8 +83,11 @@ export default function TodayPage() {
       <h1 className="text-2xl font-semibold">Today</h1>
 
       {loading && <div>Loading…</div>}
-      {!loading && (rows?.length ?? 0) === 0 && (
-        <div className="text-sm text-muted-foreground">No doses scheduled for today.</div>
+      {!loading && error && (
+        <div className="text-sm text-red-600">{error}</div>
+      )}
+      {!loading && !error && (rows?.length ?? 0) === 0 && (
+          <div className="text-sm text-muted-foreground">No doses scheduled for today.</div>
       )}
 
       {!loading && rows && rows.length > 0 && (

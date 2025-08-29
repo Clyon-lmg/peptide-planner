@@ -29,9 +29,12 @@ interface CapsInv { bottles: number; caps_per_bottle: number; mg_per_cap: number
 // ---------- Queries ----------
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
   const sa = createServerActionSupabase();
-  const { data: auth } = await sa.auth.getUser();
+  const { data: auth, error: authError } = await sa.auth.getUser();
   const uid = auth.user?.id;
-  if (!uid) return [];
+  if (!uid) {
+    console.error('getTodayDosesWithUnits: auth.getUser() returned null', authError);
+    throw new Error('Session missing or expired');
+  }
 
   // Active protocol
   const { data: protocol } = await sa

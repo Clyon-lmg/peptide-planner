@@ -15,7 +15,7 @@ function createSupabaseMock({
 }: any) {
   return {
     auth: {
-      getUser: async () => ({ data: { user } }),
+      getUser: async () => ({ data: { user }, error: user ? null : new Error('no user') }),
     },
     from(table: string) {
       if (table === 'protocols') {
@@ -63,6 +63,15 @@ function createSupabaseMock({
 describe('getTodayDosesWithUnits', () => {
   beforeEach(() => {
     delete (globalThis as any).__supabaseMock;
+  });
+
+    it('throws when session missing', async () => {
+    const supabase = createSupabaseMock({});
+    (globalThis as any).__supabaseMock = supabase;
+    await assert.rejects(
+      () => getTodayDosesWithUnits('2024-01-01'),
+      /Session missing or expired/
+    );
   });
 
   it('returns rows only on scheduled days', async () => {
