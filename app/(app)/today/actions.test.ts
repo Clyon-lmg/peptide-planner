@@ -86,8 +86,20 @@ describe('getTodayDosesWithUnits', () => {
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
         },
+                {
+          peptide_id: 11,
+          dose_mg_per_administration: 1,
+          schedule: 'CUSTOM',
+          every_n_days: null,
+          custom_days: [1],
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+        },
       ],
-      peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
+      peptides: [
+        { id: 10, canonical_name: 'Test Peptide' },
+        { id: 11, canonical_name: 'Unsched Peptide' },
+      ],
       invVials: [],
       invCaps: [],
       doses: [],
@@ -97,6 +109,7 @@ describe('getTodayDosesWithUnits', () => {
     const yes = await getTodayDosesWithUnits('2024-01-03');
     assert.equal(yes.length, 1);
     assert.equal(yes[0].peptide_id, 10);
+    assert.ok(!yes.find((r) => r.peptide_id === 11));
 
     const no = await getTodayDosesWithUnits('2024-01-02');
     assert.equal(no.length, 0);

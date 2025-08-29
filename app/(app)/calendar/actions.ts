@@ -3,7 +3,7 @@
 
 import { cookies } from 'next/headers';
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
-import { isDoseDayUTC } from '@/lib/scheduleEngine';
+import { isDoseDayUTC } from '@/lib/scheduler';
 import type { DoseStatus } from '../today/actions';
 
 export type CalendarDoseRow = {
