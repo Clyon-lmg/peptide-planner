@@ -3,7 +3,7 @@
 
 import { cookies } from 'next/headers';
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
-import { isDoseDayUTC } from '@/lib/scheduler';
+import { isDoseDayUTC, type ProtocolItem } from '@/lib/scheduler';
 import type { DoseStatus } from '../today/actions';
 
 export type CalendarDoseRow = {
@@ -89,7 +89,12 @@ export async function getDosesForRange(
     const iso = d.toISOString().slice(0, 10);
 
     for (const it of items) {
-      if (!isDoseDayUTC(d, it, protocolStart)) continue;
+      const itemForSchedule: ProtocolItem = {
+        canonical_name: '',
+        ...it,
+        protocol_start_date: protocolStartISO,
+      };
+      if (!isDoseDayUTC(d, itemForSchedule, protocolStart)) continue;
 
       const key = `${iso}_${it.peptide_id}`;
       const existing = statusMap.get(key);
