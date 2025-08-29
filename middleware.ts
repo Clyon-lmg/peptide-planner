@@ -1,7 +1,7 @@
-﻿// middleware.ts
+﻿﻿// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createMiddlewareClient } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PATHS = [
   "/",
@@ -31,7 +31,19 @@ export async function middleware(req: NextRequest) {
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
   const res = NextResponse.next();
 
-  const supabase = createMiddlewareClient({ req, res });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get: (name) => req.cookies.get(name)?.value,
+        set: (name, value, options) =>
+          res.cookies.set({ name, value, ...options }),
+        remove: (name, options) =>
+          res.cookies.set({ name, value: "", ...options, maxAge: 0 }),
+      },
+    }
+  );
 
   // refresh session if needed
   const {
@@ -57,14 +69,3 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = "/today";
     return NextResponse.redirect(url);
-  }
-
-  return res;
-}
-
-export const config = {
-  // Run middleware for all routes except static files that Next handles itself.
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|images|icons).*)",
-  ],
-};
