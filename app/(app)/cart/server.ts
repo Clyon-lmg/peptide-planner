@@ -1,13 +1,12 @@
 ﻿"use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createServerSupabase } from "@/lib/supabaseServer";
 
 type Kind = "vial" | "capsule";
 
 async function authed() {
-  const supabase = createServerComponentClient({ cookies });
+  const supabase = createServerSupabase();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) throw new Error("Not authenticated");
   return { supabase, userId: data.user.id as string };

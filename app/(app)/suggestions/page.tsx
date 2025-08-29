@@ -1,8 +1,7 @@
-import { cookies } from "next/headers"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerSupabase } from "@/lib/supabaseServer";
 export const dynamic = "force-dynamic"
 export default async function SuggestionsPage(){
-  const supabase=createServerComponentClient({ cookies })
+  const supabase = createServerSupabase();
   const { data:{ user } }=await supabase.auth.getUser()
   if(!user) return <div className="pp-card">Please sign in.</div>
   const { data: suggestions, error } = await supabase.from("suggestions").select("id, title, note, status, created_at").eq("user_id", user.id).order("id", { ascending:false })

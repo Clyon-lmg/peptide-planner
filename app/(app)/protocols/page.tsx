@@ -1,7 +1,7 @@
 // app/(app)/protocols/page.tsx
 "use client";
 import React from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import ProtocolEditor from "./ProtocolEditor";
 
 type Protocol = {
@@ -42,7 +42,7 @@ function RowButton({
 }
 
 export default function ProtocolsPage() {
-  const supabase = React.useMemo(() => createClientComponentClient(), []);
+  const supabase = React.useMemo(() => getSupabaseBrowser(), []);
   const [protocols, setProtocols] = React.useState<Protocol[]>([]);
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [creating, setCreating] = React.useState(false);

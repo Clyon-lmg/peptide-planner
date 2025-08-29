@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 // Minimal toast helpers (no extra deps)
 function notify(msg: string) {
@@ -49,7 +49,7 @@ type Coupon = {
 };
 
 export default function CartPage() {
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseBrowser();
   const [rows, setRows] = useState<CartRow[]>([]);
   const [isPending, startTransition] = useTransition();
 

@@ -1,7 +1,6 @@
-﻿// components/NavCartButton.tsx
+﻿﻿// components/NavCartButton.tsx
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createServerSupabase } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +13,7 @@ export const dynamic = "force-dynamic";
  * - Safe if user is not signed in (no badge).
  */
 export default async function NavCartButton() {
-  const supabase = createServerComponentClient({ cookies });
+  const supabase = createServerSupabase();
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth?.user?.id;
 

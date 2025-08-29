@@ -1,8 +1,7 @@
 ﻿// app/(app)/calendar/actions.ts
 'use server';
 
-import { cookies } from 'next/headers';
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
+import { createServerSupabase } from '@/lib/supabaseServer';
 import { isDoseDayUTC, type ScheduleItem } from '@/lib/scheduleEngine';
 import type { DoseStatus } from '../today/actions';
 
@@ -22,7 +21,7 @@ export async function getDosesForRange(
   startIso: string,
   endIso: string
 ): Promise<CalendarDoseRow[]> {
-    const supabase = createServerActionClient({ cookies });
+    const supabase = createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();

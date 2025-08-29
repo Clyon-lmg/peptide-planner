@@ -1,13 +1,12 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerSupabase } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = createServerSupabase();
     const url = new URL(req.url);
     const vendor_id = Number(url.searchParams.get("vendor_id") || 0);
     if (!vendor_id) {

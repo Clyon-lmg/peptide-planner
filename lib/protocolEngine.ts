@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type Schedule = "EVERYDAY" | "WEEKDAYS" | "CUSTOM" | "EVERY_N_DAYS";
 
@@ -33,7 +33,7 @@ function* dateRangeDays(start: Date, days: number) { for (let i=0;i<days;i++) yi
 function isCustomDay(d: Date, custom: number[]) { return custom.includes(d.getDay()); }
 
 export async function onProtocolUpdated(protocolId: number, _userId: string) {
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseBrowser();
   const todayStr = localDateStr();
   const { error: delErr } = await supabase
     .from("doses")
@@ -44,7 +44,7 @@ export async function onProtocolUpdated(protocolId: number, _userId: string) {
 }
 
 export async function setActiveProtocolAndRegenerate(protocolId: number, _userId: string) {
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseBrowser();
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess?.session?.user?.id;
   if (!uid) throw new Error("No session");

@@ -1,9 +1,8 @@
 ﻿import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerSupabase } from '@/lib/supabaseServer';
 
 export async function GET() {
-  const supabase = createRouteHandlerClient({ cookies });
+  const supabase = createServerSupabase();
 
   const {
     data: { user },

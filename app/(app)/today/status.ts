@@ -1,11 +1,10 @@
 ﻿'use server';
 
-import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createServerSupabase } from '@/lib/supabaseServer';
 
 export async function getStatus(peptide_id: number) {
   // READ during Server Component render -> use component client
-  const supabase = createServerComponentClient({ cookies });
+  const supabase = createServerSupabase();
   const {
     data: { user },
   } = await supabase.auth.getUser();

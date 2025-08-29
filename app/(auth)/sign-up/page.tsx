@@ -1,8 +1,7 @@
-﻿﻿import { cookies, headers } from "next/headers";
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
+import { createServerSupabase } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,7 +25,7 @@ export default function SignUpPage({ searchParams }: PageProps) {
       redirect("/sign-up?error=" + encodeURIComponent("Email and password are required."));
     }
 
-    const supabase = createServerActionClient({ cookies });
+    const supabase = createServerSupabase();
     const redirectBase = process.env.NEXT_PUBLIC_SITE_URL;
     if (!redirectBase) {
       console.error("NEXT_PUBLIC_SITE_URL is undefined");

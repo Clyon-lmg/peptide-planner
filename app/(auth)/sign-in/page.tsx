@@ -1,8 +1,8 @@
 ﻿// app/(auth)/sign-in/page.tsx
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
+import { createServerSupabase } from "@/lib/supabaseServer";
 import SignInForm from "./SignInForm";
 
 export const dynamic = "force-dynamic"; // avoid static pre-render
@@ -20,7 +20,7 @@ export default function SignInPage({ searchParams }: PageProps) {
     const email = String(formData.get("email") || "").trim();
     if (!email) return;
 
-    const supabase = createServerActionClient({ cookies });
+    const supabase = createServerSupabase();
     const hdrs = headers();
     const protocol = hdrs.get("x-forwarded-proto") || "http";
     const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "localhost:3000";
@@ -46,7 +46,7 @@ export default function SignInPage({ searchParams }: PageProps) {
     const password = String(formData.get("password") || "");
     const next = String(formData.get("redirect") || "") || "/today";
 
-    const supabase = createServerActionClient({ cookies });
+    const supabase = createServerSupabase();
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -62,7 +62,7 @@ export default function SignInPage({ searchParams }: PageProps) {
   const err = decodeURIComponent((searchParams?.error as string) || "");
   const msg = decodeURIComponent(
     (searchParams?.message as string) ||
-"Enter your email and we’ll send you a sign-in link."
+      "Enter your email and we’ll send you a sign-in link."
   );
   const redirectTo = (searchParams?.redirect as string) || "";
   return (
@@ -70,7 +70,7 @@ export default function SignInPage({ searchParams }: PageProps) {
       <div className="rounded-xl border p-6 space-y-4">
         <h1 className="text-2xl font-semibold">Sign in</h1>
 
-<SignInForm
+        <SignInForm
           sendMagicLink={sendMagicLink}
           signInWithPassword={signInWithPassword}
           err={err}

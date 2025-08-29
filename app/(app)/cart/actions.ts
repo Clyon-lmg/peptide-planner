@@ -1,14 +1,13 @@
 ﻿// app/(app)/cart/actions.ts
 "use server";
 
-import { cookies } from "next/headers";
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
 import { revalidatePath } from "next/cache";
+import { createServerSupabase } from "@/lib/supabaseServer";
 
 type ActionResult = { ok: boolean; message?: string };
 
 async function getAuthed() {
-  const supabase = createServerActionClient({ cookies });
+  const supabase = createServerSupabase();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) throw new Error("Not authenticated");
   return { supabase, userId: data.user.id as string };

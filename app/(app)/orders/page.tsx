@@ -1,10 +1,6 @@
 // app/(app)/orders/page.tsx
-import { cookies } from "next/headers";
 import Link from "next/link";
-import {
-  createServerComponentClient,
-  createServerActionClient,
-} from "@supabase/auth-helpers-nextjs";
+import { createServerSupabase } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +61,7 @@ function buildAffiliateUrl(vendorHomepage: string | null | undefined, aff?: Affi
 }
 
 async function getUser() {
-  const supabase = createServerComponentClient({ cookies });
+  const supabase = createServerSupabase();
   const { data } = await supabase.auth.getUser();
   return { supabase, user: data?.user ?? null };
 }
@@ -129,7 +125,7 @@ export default async function OrdersPage() {
     const next = String(formData.get("status") || "");
     if (!orderId || !["DRAFT", "PLACED", "RECEIVED"].includes(next)) return;
 
-    const sb = createServerActionClient({ cookies });
+    const sb = createServerSupabase();
     const { data: auth } = await sb.auth.getUser();
     const uid = auth?.user?.id;
     if (!uid) return;
@@ -155,7 +151,7 @@ export default async function OrdersPage() {
     const orderId = Number(formData.get("order_id") || 0);
     if (!orderId) return;
 
-    const sb = createServerActionClient({ cookies });
+    const sb = createServerSupabase();
     const { data: auth } = await sb.auth.getUser();
     const uid = auth?.user?.id;
     if (!uid) return;

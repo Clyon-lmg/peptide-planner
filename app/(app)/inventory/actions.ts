@@ -1,14 +1,13 @@
 ﻿// app/(app)/inventory/actions.ts
 "use server";
 
-import { cookies } from "next/headers";
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
 import { revalidatePath } from "next/cache";
+import { createServerSupabase } from "@/lib/supabaseServer";
 
 type ActionResult = { ok: boolean; message?: string };
 
 async function getAuthed() {
-  const supabase = createServerActionClient({ cookies });
+  const supabase = createServerSupabase();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user) throw new Error("Not authenticated");
   return { supabase, userId: data.user.id as string };
@@ -24,7 +23,7 @@ export async function getKnownListsFiltered(): Promise<{
   peptidesForVials: KnownItem[];
   peptidesForCapsules: KnownItem[];
 }> {
-  const supabase = createServerActionClient({ cookies });
+  const supabase = createServerSupabase();
 
   // peptide ids with VIAL offers
   const { data: vialProd } = await supabase
@@ -186,7 +185,7 @@ export type OfferCaps = {
 };
 
 export async function getOffersForVials(peptideIds: number[]) {
-  const supabase = createServerActionClient({ cookies });
+  const supabase = createServerSupabase();
   if (peptideIds.length === 0) return new Map<number, OfferVial[]>();
 
   const { data } = await supabase
@@ -219,7 +218,7 @@ export async function getOffersForVials(peptideIds: number[]) {
 }
 
 export async function getOffersForCaps(peptideIds: number[]) {
-  const supabase = createServerActionClient({ cookies });
+  const supabase = createServerSupabase();
   if (peptideIds.length === 0) return new Map<number, OfferCaps[]>();
 
   const { data } = await supabase

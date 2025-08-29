@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import ProtocolItemRow, { ProtocolItemState, InventoryPeptide } from "./ProtocolItemRow";
 import ProtocolGraph from "./ProtocolGraph";
 import { onProtocolUpdated, setActiveProtocolAndRegenerate } from "@/lib/protocolEngine";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 const COLOR_PALETTE = [
   "#f87171",
@@ -27,7 +27,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
   protocol: Protocol;
   onReload: () => void;
 }) {
-  const supabase = React.useMemo(() => createClientComponentClient(), []);
+  const supabase = React.useMemo(() => getSupabaseBrowser(), []);
   const [items, setItems] = useState<ProtocolItemState[]>([]);
   const [peptides, setPeptides] = useState<InventoryPeptide[]>([]);
   const [saving, setSaving] = useState(false);

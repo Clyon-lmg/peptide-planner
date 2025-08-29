@@ -1,11 +1,11 @@
 "use client"
 import { useState } from "react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 export default function SignInClient(){
   const [email,setEmail]=useState(""); const [msg,setMsg]=useState<string|null>(null); const [loading,setLoading]=useState(false)
   async function sendLink(e:React.FormEvent){ e.preventDefault(); setLoading(true); setMsg(null);
     try{
-      const supabase=createClientComponentClient()
+      const supabase = getSupabaseBrowser();
       const { error } = await supabase.auth.signInWithOtp({
         email, options:{ emailRedirectTo: typeof window!=='undefined' ? `${window.location.origin}/auth/callback` : undefined }
       })

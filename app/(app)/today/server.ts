@@ -1,6 +1,5 @@
 ﻿// app/(app)/today/server.ts
-import { cookies } from "next/headers";
-import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
+import { createServerSupabase } from "@/lib/supabaseServer";
 import { unitsFromDose, forecastRemainingDoses, type Schedule } from "@/lib/forecast";
 
 export type DoseStatus = "PENDING" | "TAKEN" | "SKIPPED";
@@ -19,7 +18,7 @@ export type TodayDoseRow = {
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
   "use server";
-  const sa = createServerActionClient({ cookies });
+  const sa = createServerSupabase();
   const { data: auth } = await sa.auth.getUser();
   const uid = auth.user?.id;
   if (!uid) return [];
@@ -112,7 +111,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
 async function upsertDoseStatus(peptide_id: number, dateISO: string, status: DoseStatus) {
   const sa = createServerActionClient({ cookies });
-  const { data: auth } = await sa.auth.getUser();
+  const sa = createServerSupabase();
   const uid = auth.user?.id;
   if (!uid) throw new Error("Not signed in");
 

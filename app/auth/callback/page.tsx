@@ -1,16 +1,16 @@
-﻿// app/auth/callback/page.tsx
+﻿﻿// app/auth/callback/page.tsx
 "use client";
 
 import * as React from "react";
 import { Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 // Keep this route fully dynamic (no prerender/caching)
 export const dynamic = "force-dynamic";
 
 function CallbackInner() {
-  const supabase = createClientComponentClient();
+  const supabase = getSupabaseBrowser();
   const searchParams = useSearchParams();
   const router = useRouter();
 
