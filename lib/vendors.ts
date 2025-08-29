@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+
+const supabase = getSupabaseBrowser();
 
 export type Offer = {
     vendor_id: number;

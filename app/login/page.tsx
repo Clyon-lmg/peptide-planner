@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useEffect, useMemo, useState } from 'react';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 export default function LoginPage() {
+  const supabase = useMemo(() => getSupabaseBrowser(), []);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);

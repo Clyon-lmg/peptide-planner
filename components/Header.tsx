@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Menu } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { ThemeToggle } from '@/components/ThemeToggle';
+
+const supabase = getSupabaseBrowser();
 
 export default function Header() {
     const [cartCount, setCartCount] = useState<number>(0);

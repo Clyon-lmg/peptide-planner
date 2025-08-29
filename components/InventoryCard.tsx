@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { concentrationMgPerMl, projectedRunoutDate, freqPerWeek } from '@/lib/calc';
 import { topOffersForPeptide, Offer } from '@/lib/vendors';
 
@@ -18,6 +18,8 @@ type Props = {
     consumed_doses?: number; // all-time LOGGED
     onDeleted?: () => void;
 };
+
+const supabase = getSupabaseBrowser();
 
 export default function InventoryCard(p: Props) {
     const [state, setState] = useState(p);

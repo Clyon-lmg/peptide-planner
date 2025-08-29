@@ -1,9 +1,10 @@
 // lib/useSupabaseUser.ts
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 export function useSupabaseUser() {
+  const supabase = useMemo(() => getSupabaseBrowser(), []);
   const [userId, setUserId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const timer = useRef<any>(null);
