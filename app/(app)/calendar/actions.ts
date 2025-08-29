@@ -109,6 +109,6 @@ export async function getDosesForRange(
       a.date_for.localeCompare(b.date_for) ||
       a.canonical_name.localeCompare(b.canonical_name)
   );
-  
+
   return rows;
 }

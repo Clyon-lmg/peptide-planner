@@ -29,7 +29,7 @@ type Row = TodayDoseRow & {
 export default function TodayPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  the [busyId, setBusyId] = useState<number | null>(null);
 
   const today = useMemo(localISODate, []); // freeze to page-load day
 
@@ -99,10 +99,8 @@ export default function TodayPage() {
 
                     {/* Bold numbers for dose and syringe */}
                     <div className="text-xs text-muted-foreground">
-                      Dose:{" "}
-                      <span className="font-mono font-bold">{fmt(r.dose_mg)}</span>{" "}
-                      mg{"  "}•{"  "}
-                      Syringe:{" "}
+                      Dose: <span className="font-mono font-bold">{fmt(r.dose_mg)}</span>{" "}
+                      mg  •  Syringe:{" "}
                       <span className="font-mono font-bold">{fmt(r.syringe_units, 2)}</span>{" "}
                       units
                     </div>

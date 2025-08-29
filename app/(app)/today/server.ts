@@ -91,7 +91,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         Number(it.cycle_off_weeks || 0),
         (it.every_n_days as number | null) ?? null
       ));
-  }
+    }
 
     return {
       peptide_id: pid,

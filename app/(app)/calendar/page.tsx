@@ -66,7 +66,7 @@ export default function CalendarPage() {
       } catch (e) {
         console.error('Failed to load doses', e);
         setError(e instanceof Error ? e : new Error(String(e)));
-    } finally {
+      } finally {
         setLoading(false);
       }
     })();
@@ -81,14 +81,14 @@ export default function CalendarPage() {
 
   // Month navigation
   function prevMonth() {
-    setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
+      setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
   }
   function nextMonth() {
-    setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
+      setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
   }
   function thisMonth() {
-    const now = new Date();
-    setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
+      const now = new Date();
+      setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
   }
 
   const todayIso = isoDate(new Date());
@@ -105,7 +105,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify_between mb-1">
         <div className="text-lg font-medium">{monthLabel}</div>
         {loading ? (
           <div className="text-sm text-muted-foreground">Loading…</div>
