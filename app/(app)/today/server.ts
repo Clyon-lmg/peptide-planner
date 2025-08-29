@@ -111,7 +111,8 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
 async function upsertDoseStatus(peptide_id: number, dateISO: string, status: DoseStatus) {
   const sa = createServerSupabase();
-  const uid = auth.user?.id;
+  const { data: { user } } = await sa.auth.getUser();
+  const uid = user?.id;
   if (!uid) throw new Error("Not signed in");
 
   const { data: protocol } = await sa
