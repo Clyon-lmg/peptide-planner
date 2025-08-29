@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { isDoseDayUTC } from "@/lib/scheduler";
+import { isDoseDayUTC } from "@/lib/scheduleEngine";
 import type { ProtocolItemState, InventoryPeptide } from "./ProtocolItemRow";
 
 ChartJS.register(
@@ -35,6 +35,7 @@ export default function ProtocolGraph({
   const data = useMemo(() => {
     const N = 60;
     const start = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
+    const startISO = start.toISOString().slice(0, 10);
     const labels: string[] = [];
     for (let i = 0; i < N; i++) {
       const d = new Date(start);
@@ -65,7 +66,7 @@ export default function ProtocolGraph({
         d.setUTCDate(start.getUTCDate() + i);
         level = level * decay;
         const dailyDose = its.reduce((sum, item) => {
-          return isDoseDayUTC(d, item, start)
+          return isDoseDayUTC(d, { ...item, start_date: startISO })
             ? sum + item.dose_mg_per_administration
             : sum;
         }, 0);

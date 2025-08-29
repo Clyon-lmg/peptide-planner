@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers';
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
 import { unitsFromDose, forecastRemainingDoses, type Schedule } from '@/lib/forecast';
-import { generateDailyDoses } from '@/lib/scheduler';
+import { generateDailyDoses } from '@/lib/scheduleEngine';
 
 export type DoseStatus = 'PENDING' | 'TAKEN' | 'SKIPPED';
 
