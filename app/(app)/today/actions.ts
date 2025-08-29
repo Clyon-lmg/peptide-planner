@@ -2,8 +2,12 @@
 
 import { cookies } from 'next/headers';
 import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
-import { unitsFromDose, forecastRemainingDoses, type Schedule } from '@/lib/forecast';
-import { generateDailyDoses } from '@/lib/scheduleEngine';
+import { unitsFromDose, forecastRemainingDoses } from '@/lib/forecast';
+import {
+  generateDailyDoses,
+  type ProtocolItem,
+  type Schedule,
+} from '@/lib/scheduleEngine';
 
 export type DoseStatus = 'PENDING' | 'TAKEN' | 'SKIPPED';
 
@@ -48,11 +52,11 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     .eq('protocol_id', protocol.id);
   if (!rawItems?.length) return [];
 
-  const items = rawItems.map((r: any) => ({
+  const protocolItems: ProtocolItem[] = rawItems.map((r: any) => ({
     peptide_id: Number(r.peptide_id),
     canonical_name: r.peptides?.canonical_name || `Peptide #${r.peptide_id}`,
     dose_mg_per_administration: Number(r.dose_mg_per_administration || 0),
-    schedule: String(r.schedule || 'EVERYDAY'),
+    schedule: String(r.schedule || 'EVERYDAY') as Schedule,
     custom_days: (r.custom_days as number[] | null) ?? null,
     cycle_on_weeks: Number(r.cycle_on_weeks || 0),
     cycle_off_weeks: Number(r.cycle_off_weeks || 0),
@@ -62,7 +66,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
   const dayRows = generateDailyDoses(
     dateISO,
     protocol.start_date ?? dateISO,
-    items
+    protocolItems
   );
   if (!dayRows.length) return [];
 
@@ -112,7 +116,9 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     statusByPeptide.set(Number(d.peptide_id), d.status as DoseStatus)
   );
 
-  const itemById = new Map<number, any>(items.map((it) => [it.peptide_id, it]));
+  const itemById = new Map<number, ProtocolItem>(
+    protocolItems.map((it) => [it.peptide_id, it])
+  );
 
   const rows: TodayDoseRow[] = dayRows.map((dr) => {
     const pid = Number(dr.peptide_id);
@@ -132,11 +138,11 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
       ({ remainingDoses, reorderDateISO } = forecastRemainingDoses(
         totalMg,
         dr.dose_mg,
-        String(item?.schedule || 'EVERYDAY') as Schedule,
-        (item?.custom_days as number[] | null) ?? null,
+        (item?.schedule ?? 'EVERYDAY') as Schedule,
+        item?.custom_days ?? null,
         Number(item?.cycle_on_weeks || 0),
         Number(item?.cycle_off_weeks || 0),
-        (item?.every_n_days as number | null) ?? null
+        item?.every_n_days ?? null
       ));
     }
 
