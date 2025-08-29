@@ -4,8 +4,7 @@
 import { cookies } from "next/headers";
 import { createServerActionClient } from "@supabase/auth-helpers-nextjs";
 import { unitsFromDose, forecastRemainingDoses, type Schedule } from "@/lib/forecast";
-import { isDoseDayUTC } from "@/lib/scheduler";
-import { generateDoses } from "@/lib/scheduler";
+import { isDoseDayUTC, generateDoses } from "@/lib/scheduler";
 
 export type DoseStatus = "PENDING" | "TAKEN" | "SKIPPED";
 export type { Schedule };
