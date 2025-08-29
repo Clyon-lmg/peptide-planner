@@ -29,7 +29,6 @@ export async function middleware(req: NextRequest) {
 
   // Consider sign-in and public routes as open
   const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  const res = NextResponse.next();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,10 +36,11 @@ export async function middleware(req: NextRequest) {
     {
       cookies: {
         getAll: () => req.cookies.getAll(),
-        setAll: (cookies) => {
-          cookies.forEach((cookie) => res.cookies.set(cookie));
+        setAll: () => {
+          // Middleware cannot set cookies. Session refresh should occur in
+          // an API route or Server Action where cookies can be modified.
         },
-        },
+      },
     }
   );
 
@@ -70,7 +70,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return res;
+  return NextResponse.next();
 }
 
 export const config = {
