@@ -9,7 +9,6 @@ function createSupabaseMock({
   user = null,
   protocol = null,
   items = [],
-  peptides = [],
   invVials = [],
   invCaps = [],
   doses = [],
@@ -30,12 +29,6 @@ function createSupabaseMock({
         return {
           select() { return this; },
           eq: async () => ({ data: items }),
-        } as any;
-      }
-      if (table === 'peptides') {
-        return {
-          select() { return this; },
-          in: async () => ({ data: peptides }),
         } as any;
       }
       if (table === 'inventory_items') {
@@ -85,8 +78,9 @@ describe('getTodayDosesWithUnits', () => {
           custom_days: null,
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
+          peptides: { canonical_name: 'Test Peptide' },
         },
-                {
+        {
           peptide_id: 11,
           dose_mg_per_administration: 1,
           schedule: 'CUSTOM',
@@ -94,11 +88,8 @@ describe('getTodayDosesWithUnits', () => {
           custom_days: [1],
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
+          peptides: { canonical_name: 'Unsched Peptide' },
         },
-      ],
-      peptides: [
-        { id: 10, canonical_name: 'Test Peptide' },
-        { id: 11, canonical_name: 'Unsched Peptide' },
       ],
       invVials: [],
       invCaps: [],
@@ -128,9 +119,9 @@ describe('getTodayDosesWithUnits', () => {
           custom_days: null,
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
+          peptides: { canonical_name: 'Test Peptide' },
         },
       ],
-      peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
       invVials: [],
       invCaps: [],
       doses: [],
