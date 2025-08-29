@@ -103,7 +103,7 @@ export async function getDosesForRange(
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1), diffDays++) {
     const offset = d.getTimezoneOffset() * 60000;
-    const dLocal = new Date(d.getTime() - offset);
+    const dLocal = new Date(d.getTime() + offset);
     const iso = dLocal.toISOString().slice(0, 10);
 
     for (const it of items) {
