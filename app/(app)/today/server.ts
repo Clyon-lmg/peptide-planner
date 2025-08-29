@@ -19,8 +19,8 @@ export type TodayDoseRow = {
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
   "use server";
   const sa = createServerSupabase();
-  const { data: auth } = await sa.auth.getUser();
-  const uid = auth.user?.id;
+  const { data: { user } } = await sa.auth.getUser();
+  const uid = user?.id;
   if (!uid) return [];
 
   const { data: protocol } = await sa
