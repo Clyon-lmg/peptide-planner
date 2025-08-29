@@ -29,7 +29,7 @@ type Row = TodayDoseRow & {
 export default function TodayPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [loading, setLoading] = useState(true);
-  the [busyId, setBusyId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
   const today = useMemo(localISODate, []); // freeze to page-load day
 
