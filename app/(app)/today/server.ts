@@ -110,7 +110,6 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 }
 
 async function upsertDoseStatus(peptide_id: number, dateISO: string, status: DoseStatus) {
-  const sa = createServerActionClient({ cookies });
   const sa = createServerSupabase();
   const uid = auth.user?.id;
   if (!uid) throw new Error("Not signed in");
