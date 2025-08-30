@@ -7,7 +7,6 @@ export async function getStatus(peptide_id: number) {
   const supabase = createServerComponentSupabase();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
     error: authError,
   } = await supabase.auth.getUser();
   if (!user) {
