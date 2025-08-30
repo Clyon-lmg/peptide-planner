@@ -2,6 +2,7 @@
 import { createServerComponentSupabase } from "@/lib/supabaseServer";
 import CouponSelect from "./components/CouponSelect";
 import PlaceOrderLink from "./PlaceOrderLink";
+import Card from "@/components/layout/Card";
 
 type Kind = "vial" | "capsule";
 
@@ -18,14 +19,9 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
   const { data: ures } = await supabase.auth.getUser();
   if (!ures?.user) {
     return (
-      <div
-        className="
-          rounded-2xl border border-border bg-card text-card-foreground
-          shadow-sm p-6
-        "
-      >
+        <Card className="text-card-foreground p-6">
         <p className="text-sm text-muted-foreground">Please sign in to view your cart.</p>
-      </div>
+      </Card>
     );
   }
   const user_id = ures.user.id as string;
@@ -40,12 +36,12 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
 
   if (!cartRows?.length) {
     return (
-      <div className="rounded-2xl border border-border bg-card shadow-sm p-6">
+        <Card className="p-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Vendor #{vendorId}</h3>
         </div>
         <p className="mt-2 text-sm text-muted-foreground">No items for this vendor.</p>
-      </div>
+      </Card>
     );
   }
 
@@ -121,13 +117,8 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
   const subtotal = lines.reduce((s, l) => s + l.total, 0);
 
   return (
-    <section
-      className="
-        rounded-2xl border border-border bg-card text-card-foreground
-        shadow-sm p-5 space-y-4
-      "
-    >
-      <header className="flex items-center justify-between">
+      <Card className="text-card-foreground p-5 space-y-4">
+       <header className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">{vendor?.name ?? `Vendor #${vendorId}`}</h3>
           {vendor?.homepage ? (
@@ -157,13 +148,9 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
 
       <div className="space-y-3">
         {lines.map((l) => (
-          <div
+            <Card
             key={l.id}
-            className="
-              flex items-start justify-between
-              rounded-xl border border-border bg-background shadow-sm
-              p-3
-            "
+                className="flex items-start justify-between rounded-xl bg-background p-3"
           >
             <div>
               <div className="font-medium">
@@ -192,7 +179,7 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
               </div>
               <div className="font-semibold">${l.total.toFixed(2)}</div>
             </div>
-          </div>
+            </Card>
         ))}
       </div>
 
@@ -201,9 +188,9 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
         <div className="text-lg font-semibold">${subtotal.toFixed(2)}</div>
       </div>
 
-      <div className="flex justify-end">
+          <div className="text-right">
         <PlaceOrderLink vendorId={vendorId} />
       </div>
-    </section>
+      </Card>
   );
 }

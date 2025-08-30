@@ -11,6 +11,7 @@ import {
   getCapsInventory,
   getOffersForVials,
   getOffersForCaps,
+  getKnownListsFiltered,
   // keep using your existing actions for add/delete/offer
   deleteVialItemAction,
   deleteCapsuleItemAction,
@@ -52,7 +53,12 @@ export default async function InventoryPage() {
   }
 
   // Load inventory rows
-  const [vialRows, capsRows] = await Promise.all([getVialInventory(), getCapsInventory()]);
+    const [vialRows, capsRows, knownLists] = await Promise.all([
+        getVialInventory(),
+        getCapsInventory(),
+        getKnownListsFiltered(),
+    ]);
+    const { peptidesForVials, peptidesForCapsules } = knownLists;
 
   // Get active protocol items for only the peptides we care about
   const peptideIds = [
@@ -260,8 +266,11 @@ export default async function InventoryPage() {
         </Link>
       </header>
 
-      {/* Adders row (server component) */}
-      <AddRow />
+          {/* Adders row (client component) */}
+          <AddRow
+              peptidesForVials={peptidesForVials}
+              peptidesForCapsules={peptidesForCapsules}
+          />
 
       {/* Inventory cards (client component) */}
       <InventoryList

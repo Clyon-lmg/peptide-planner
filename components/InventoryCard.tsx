@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { concentrationMgPerMl, projectedRunoutDate, freqPerWeek } from '@/lib/calc';
 import { topOffersForPeptide, Offer } from '@/lib/vendors';
+import Card from './layout/Card';
 
 type Props = {
     id: number;
@@ -104,7 +105,7 @@ export default function InventoryCard(p: Props) {
     };
 
     return (
-        <div className="rounded border border-neutral-200 dark:border-neutral-800 p-3 space-y-3">
+        <Card className="space-y-3">
             <div className="flex items-center justify-between">
                 <div className="font-medium">{p.name}</div>
                 <button onClick={del} className="text-xs underline text-red-600">Delete</button>
@@ -148,7 +149,7 @@ export default function InventoryCard(p: Props) {
                 <div className="col-span-2">Projected run‑out: <b>{runout ?? '—'}</b></div>
             </div>
 
-            <div className="rounded border border-neutral-200 dark:border-neutral-800 p-2">
+            <Card className="p-2">
                 <div className="text-xs mb-2">Top offers</div>
                 {!offers && <div className="text-xs text-neutral-500">Loading offers…</div>}
                 {offers && offers.length === 0 && <div className="text-xs text-neutral-500">No offers available.</div>}
@@ -170,7 +171,7 @@ export default function InventoryCard(p: Props) {
                         ))}
                     </div>
                 )}
-            </div>
-        </div>
+            </Card>
+        </Card>
     );
 }
