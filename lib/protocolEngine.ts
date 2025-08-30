@@ -49,9 +49,12 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
   const uid = sess?.session?.user?.id;
   if (!uid) throw new Error("No session");
 
+  const startDateStr = localDateStr();
+
   // Deactivate others; activate this protocol
   let r = await supabase.from("protocols").update({ is_active: false }).neq("id", protocolId); if (r.error) throw r.error;
   r = await supabase.from("protocols").update({ is_active: true }).eq("id", protocolId); if (r.error) throw r.error;
+  r = await supabase.from("protocols").update({ start_date: startDateStr }).eq("id", protocolId); if (r.error) throw r.error;
 
   // Fetch items
   const itemsRes = await supabase
@@ -62,12 +65,12 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
   const items = itemsRes.data || [];
 
   // Clear ALL user future doses including today
-  const todayStr = localDateStr();
+  const todayStr = startDateStr;
   const del = await supabase.from("doses").delete().gte("date_for", todayStr).eq("user_id", uid);
   if (del.error) throw del.error;
 
   // Generate 12 months
-  const start = new Date();
+  const start = new Date(startDateStr + "T00:00:00");
   const days = 365;
   const inserts: any[] = [];
 
