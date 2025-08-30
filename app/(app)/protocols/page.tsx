@@ -9,6 +9,7 @@ type Protocol = {
   user_id: string;
   is_active: boolean;
   name: string;
+  start_date: string;
 };
 
 /** Button-like row wrapper that isn't a <button> (avoids nested button hydration issues) */

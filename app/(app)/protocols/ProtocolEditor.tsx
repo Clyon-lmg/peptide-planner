@@ -21,6 +21,7 @@ type Protocol = {
   user_id: string;
   is_active: boolean;
   name: string;
+  start_date: string;
 };
 
 export default function ProtocolEditor({ protocol, onReload }: {
