@@ -1,6 +1,7 @@
 // app/(app)/inventory/page.tsx
 import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
 import Link from "next/link";
+import { revalidatePath } from "next/cache";
 
 import AddRow from "./ui/AddRow";
 import InventoryList from "./ui/InventoryList";
@@ -132,7 +133,9 @@ export default async function InventoryPage() {
       .eq("id", p.id)
       .eq("user_id", uid);
 
-    if (error) throw error;
+      if (error) throw error;
+      revalidatePath("/inventory");
+      return;
   };
 
   const saveCapsule = async (p: SaveCapsPayload) => {
@@ -157,7 +160,9 @@ export default async function InventoryPage() {
       .eq("id", p.id)
       .eq("user_id", uid);
 
-    if (error) throw error;
+      if (error) throw error;
+      revalidatePath("/inventory");
+      return;
   };
 
   const deleteVial = async (id: number) => {
