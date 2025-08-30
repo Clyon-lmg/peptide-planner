@@ -13,7 +13,7 @@ function applyCouponToPrice(unit: number, percent_off?: number | null, amount_of
 }
 
 export default async function CartVendorCard({ vendorId }: { vendorId: number }) {
-import { createServerComponentSupabase } from "@/lib/supabaseServer";
+  const supabase = createServerComponentSupabase();
 
   const { data: ures } = await supabase.auth.getUser();
   if (!ures?.user) {
