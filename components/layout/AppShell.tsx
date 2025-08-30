@@ -3,7 +3,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { Calendar, Package, Notebook, Home, ShoppingCart, ClipboardList } from "lucide-react"
-import { ThemeToggle } from "../ThemeToggle"
 const nav = [
   { href: "/today", label: "Today", icon: Home },
   { href: "/calendar", label: "Calendar", icon: Calendar },
@@ -35,7 +34,6 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
             })}
           </nav>
 <p className="text-xs opacity-70">For research purposes only</p>
-          <div className="mt-8"><ThemeToggle /></div>
         </div>
         </aside>
       <main className="p-5 md:p-8">
