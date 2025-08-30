@@ -288,51 +288,53 @@ export default function CartPage() {
       {[...byVendor.entries()].map(([vendorId, lines]) => {
         const vendorName = lines[0]?.vendor_name ?? `Vendor ${vendorId}`;
         return (
-            <section key={vendorId}>
-                <Card className="shadow-sm">
-                    <div className="p-4 border-b flex items-center justify-between">
-                        <div className="pp-h2">{vendorName}</div>
-                        <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={() => onVisitSite(vendorId)}
-                                disabled={isPending}
-                                className="btn text-sm"
-                            >
-                                Visit site (affiliate)
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onPlaceOrder(vendorId, lines)}
-                                disabled={isPending}
-                                className="btn bg-blue-600 hover:bg-blue-700 text-sm text-white"
-                            >
-                                Place order
-                            </button>
-                        </div>
-                    </div>
+              <section key={vendorId}>
+                  <Card className="shadow-sm">
+                      <div className="p-4 border-b flex items-center justify-between">
+                          <div className="pp-h2">{vendorName}</div>
+                          <div className="flex gap-2">
+                              <button
+                                  type="button"
+                                  onClick={() => onVisitSite(vendorId)}
+                                  disabled={isPending}
+                                  className="btn text-sm"
+                              >
+                                  Visit site (affiliate)
+                              </button>
+                              <button
+                                  type="button"
+                                  onClick={() => onPlaceOrder(vendorId, lines)}
+                                  disabled={isPending}
+                                  className="btn bg-blue-600 hover:bg-blue-700 text-sm text-white"
+                              >
+                                  Place order
+                              </button>
+                          </div>
+                      </div>
 
-                    <div className="p-4 space-y-2">
-                        {lines.map((l) => (
-                            <div
-                                key={l.id}
-                                className="flex items-center justify-between border rounded-md px-3 py-2 bg-card"
-                            >
-                                <div className="flex flex-col">
-                                    <span className="font-medium">{l.peptide_name}</span>
-                                    <span className="text-sm opacity-70">
-                                        {l.kind ?? 'vial'} • qty {l.quantity_vials}
-                                        {l.quantity_units ? ` • units ${l.quantity_units}` : ''}
-                                    </span>
-                                </div>
-                                <div className="text-sm opacity-70">
-                                    Vendor #{l.vendor_id}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </Card>        );
+                      <div className="p-4 space-y-2">
+                          {lines.map((l) => (
+                              <div
+                                  key={l.id}
+                                  className="flex items-center justify-between border rounded-md px-3 py-2 bg-card"
+                              >
+                                  <div className="flex flex-col">
+                                      <span className="font-medium">{l.peptide_name}</span>
+                                      <span className="text-sm opacity-70">
+                                          {l.kind ?? 'vial'} • qty {l.quantity_vials}
+                                          {l.quantity_units ? ` • units ${l.quantity_units}` : ''}
+                                      </span>
+                                  </div>
+                                  <div className="text-sm opacity-70">
+                                      Vendor #{l.vendor_id}
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </Card>
+              </section>
+          );
       })}
-    </main>
-  );
+        </main>
+    );
 }

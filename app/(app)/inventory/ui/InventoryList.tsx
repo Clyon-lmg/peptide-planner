@@ -417,7 +417,7 @@ export default function InventoryList({
                     >
                       {saving ? "…" : "Delete"}
                     </button>
-                  </Card>
+                      </div>
 
                   <div className="flex gap-2 text-xs" aria-live="polite">
                     <Pill>
@@ -538,7 +538,7 @@ export default function InventoryList({
                       </div>
                     </div>
                   )}
-                </div>
+                  </Card>
               );
             })}
           </div>
