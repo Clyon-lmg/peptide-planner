@@ -37,9 +37,9 @@ export default async function InventoryPage() {
   const { supabase, user } = await getUser();
   if (!user) {
     return (
-      <div className="mx-auto max-w-4xl p-6">
-        <div className="rounded-xl border p-6">
-          <h1 className="text-2xl font-semibold">Inventory</h1>
+        <div className="mx-auto max-w-4xl p-4">
+            <div className="rounded-xl border p-4">
+                <h1 className="text-2xl font-semibold">Inventory</h1>
           <p className="mt-2 text-sm">
             You’re not signed in.{" "}
             <Link href="/sign-in" className="underline">
@@ -258,7 +258,7 @@ export default async function InventoryPage() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-8">
+      <div className="mx-auto max-w-6xl p-4 space-y-8">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Inventory</h1>
         <Link href="/cart" className="text-sm underline">

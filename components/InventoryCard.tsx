@@ -105,13 +105,13 @@ export default function InventoryCard(p: Props) {
     };
 
     return (
-        <Card className="space-y-3">
+        <Card className="space-y-4">
             <div className="flex items-center justify-between">
                 <div className="font-medium">{p.name}</div>
                 <button onClick={del} className="text-xs underline text-red-600">Delete</button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                 <div>
                     <label className="block text-xs mb-1">Vials (entered)</label>
                     <input
@@ -141,7 +141,7 @@ export default function InventoryCard(p: Props) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>Concentration: <b>{conc ? conc.toFixed(2) : '—'} mg/ml</b></div>
                 <div>Units per dose: <b>{units ?? '—'}</b></div>
                 <div>Remaining doses: <b>{remainingDoses ?? '—'}</b></div>

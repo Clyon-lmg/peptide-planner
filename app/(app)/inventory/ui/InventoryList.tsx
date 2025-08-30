@@ -239,7 +239,7 @@ export default function InventoryList({
         {vials.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">No peptides yet.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+           <div className="grid-cards p-4">
             {vials.map((item) => {
               const dirty = isVialDirty(item);
               const saving = savingIds.has(`vial-${item.id}`);
@@ -247,7 +247,7 @@ export default function InventoryList({
               return (
                 <div
                   key={item.id}
-                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm space-y-3 text-gray-900 dark:text-gray-100"
+                      className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm space-y-4 text-gray-900 dark:text-gray-100"
                 >
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold">{item.canonical_name}</h3>
@@ -272,7 +272,7 @@ export default function InventoryList({
                     </Pill>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                     <label className="text-sm">
                       Vials
                       <input
@@ -357,7 +357,7 @@ export default function InventoryList({
                   {offers.length > 0 && (
                     <div className="pt-1">
                       <div className="text-sm font-medium mb-1">Offers</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {offers.map((o) => (
                          <div
                             key={o.id}
@@ -396,16 +396,15 @@ export default function InventoryList({
           <p className="text-sm text-gray-500 dark:text-gray-400">No capsules yet.</p>
 
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <div className="grid-cards p-4">
             {capsules.map((item) => {
               const dirty = isCapsDirty(item);
               const saving = savingIds.has(`cap-${item.id}`);
               const offers = offersCapsules[item.peptide_id] ?? [];
               return (
-                              <div
-                  key={item.id}
-                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm space-y-3 text-gray-900 dark:text-gray-100"
-                >
+                  <div
+                      key={item.id}
+                      className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm space-y-4 text-gray-900 dark:text-gray-100"                >
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold">{item.canonical_name}</h3>
                     <button
@@ -429,7 +428,7 @@ export default function InventoryList({
                     </Pill>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                     <label className="text-sm">
                       Bottles
                       <input
@@ -513,7 +512,7 @@ export default function InventoryList({
                   {offers.length > 0 && (
                     <div className="pt-1">
                       <div className="text-sm font-medium mb-1">Offers</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                         {offers.map((o) => (
                           <div
                             key={o.id}

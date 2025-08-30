@@ -23,7 +23,7 @@ export function InlineEditInventory({
   const [state, formAction] = useFormState(action, { ok: false } as ActionState);
 
   return (
-    <form action={formAction} className={`grid grid-cols-3 gap-2 ${className ?? ""}`}>
+      <form action={formAction} className={`grid grid-cols-1 sm:grid-cols-3 gap-2 ${className ?? ""}`}>
       <input type="hidden" name="id" value={itemId} />
 
       <label className="text-sm">

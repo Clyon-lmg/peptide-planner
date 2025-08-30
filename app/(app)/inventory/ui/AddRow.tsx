@@ -58,7 +58,7 @@ export default function AddRow({
     };
 
     return (
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
             {/* Add Peptide (filtered to vial-capable items) */}
             <div className="rounded-xl border p-4">
                 <h2 className="font-medium mb-3">Add Peptide</h2>
@@ -152,7 +152,7 @@ export default function AddRow({
             </div>
 
             {addedItems.length > 0 && (
-                <div className="md:col-span-3 text-sm text-gray-600">
+                <div className="sm:col-span-2 md:col-span-3 text-sm text-gray-600">
                     <h3 className="font-medium mb-1">Recently added</h3>
                     <ul className="list-disc list-inside">
                         {addedItems.map((name, idx) => (

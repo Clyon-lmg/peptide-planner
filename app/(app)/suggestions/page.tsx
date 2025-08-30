@@ -7,13 +7,13 @@ export default async function SuggestionsPage() {
     if (!user) return <Card>Please sign in.</Card>
     const { data: suggestions, error } = await supabase.from("suggestions").select("id, title, note, status, created_at").eq("user_id", user.id).order("id", { ascending: false })
     if (error) return <Card>Error: {error.message}</Card>
-    return <div className="grid gap-6">
+    return <div className="grid gap-6 p-4">
         <Card>
             <div className="pp-h2">New Suggestion</div>
             <form action={async (fd) => {
                 "use server"; const a = await import("./server");
                 await a.createSuggestion(String(fd.get('title') || ''), String(fd.get('note') || ''))
-            }} className="grid md:grid-cols-3 gap-2 mt-3">
+            }} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-3">
                 <input className="input" name="title" placeholder="Title" />
                 <input className="input" name="note" placeholder="Note" />
                 <button className="btn">Add</button>
