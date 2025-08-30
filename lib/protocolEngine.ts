@@ -64,10 +64,23 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
   if (itemsRes.error) throw itemsRes.error;
   const items = itemsRes.data || [];
 
-  // Clear ALL user future doses including today
-  const todayStr = startDateStr;
-  const del = await supabase.from("doses").delete().gte("date_for", todayStr).eq("user_id", uid);
+  // Clear future doses for this protocol, ensuring uniqueness on (user_id, protocol_id, peptide_id, date)
+  const del = await supabase
+    .from("doses")
+    .delete()
+    .gte("date", startDateStr)
+    .eq("protocol_id", protocolId)
+    .eq("user_id", uid);
   if (del.error) throw del.error;
+
+  const { count: remaining, error: remErr } = await supabase
+    .from("doses")
+    .select("*", { head: true, count: "exact" })
+    .gte("date", startDateStr)
+    .eq("protocol_id", protocolId)
+    .eq("user_id", uid);
+  if (remErr) throw remErr;
+  if (remaining) throw new Error("Existing doses remain after cleanup");
 
   // Generate 12 months
   const start = new Date(startDateStr + "T00:00:00");
