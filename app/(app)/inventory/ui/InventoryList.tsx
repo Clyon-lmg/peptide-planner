@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import AddOfferButton from "../AddOfferButton";
 import type { SaveVialPayload, SaveCapsPayload } from "../actions";
 
@@ -78,6 +79,7 @@ export default function InventoryList({
   const [vialEdits, setVialEdits] = React.useState<Record<number, SaveVialPayload>>({});
   const [capsEdits, setCapsEdits] = React.useState<Record<number, SaveCapsPayload>>({});
   const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
+  const router = useRouter();
 
   const currentVialValue = (
     item: VialItem,
@@ -173,7 +175,8 @@ export default function InventoryList({
 
     await saveWrapper(`vial-${item.id}`, async () => {
       await onSaveVial(payload);
-      clearVial(item.id);
+        clearVial(item.id);
+        router.refresh();
     });
   };
 
@@ -199,7 +202,8 @@ export default function InventoryList({
 
     await saveWrapper(`cap-${item.id}`, async () => {
       await onSaveCapsule(payload);
-      clearCaps(item.id);
+        clearCaps(item.id);
+        router.refresh();
     });
   };
 
@@ -207,7 +211,8 @@ export default function InventoryList({
     if (!onDeleteVial) return;
     await saveWrapper(`vial-${id}`, async () => {
       await onDeleteVial(id);
-      clearVial(id);
+        clearVial(id);
+        router.refresh();
     });
   };
 
@@ -215,7 +220,8 @@ export default function InventoryList({
     if (!onDeleteCapsule) return;
     await saveWrapper(`cap-${id}`, async () => {
       await onDeleteCapsule(id);
-      clearCaps(id);
+        clearCaps(id);
+        router.refresh();
     });
   };
 
