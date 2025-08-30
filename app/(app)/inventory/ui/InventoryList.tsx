@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import Card from "@/components/layout/Card";
 import AddOfferButton from "../AddOfferButton";
 import type { SaveVialPayload, SaveCapsPayload } from "../actions";
 
@@ -226,7 +227,7 @@ export default function InventoryList({
   };
 
   const Pill = ({ children }: { children: React.ReactNode }) => (
-    <span className="inline-flex items-center rounded-full border border-gray-300 dark:border-gray-700 px-2 py-0.5 text-xs">
+      <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">
       {children}
     </span>
   );
@@ -235,27 +236,26 @@ export default function InventoryList({
     <div className="space-y-8">
       {/* Vials */}
       <section className="space-y-4">
-        <h2 className="text-lg font-medium">Peptides (vials)</h2>
-        {vials.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No peptides yet.</p>
-        ) : (
-           <div className="grid-cards p-4">
-            {vials.map((item) => {
-              const dirty = isVialDirty(item);
-              const saving = savingIds.has(`vial-${item.id}`);
-              const offers = offersVials[item.peptide_id] ?? [];
-              return (
-                <div
-                  key={item.id}
-                      className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm space-y-4 text-gray-900 dark:text-gray-100"
-                >
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-semibold">{item.canonical_name}</h3>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteVial(item.id)}
-                      className="text-xs rounded px-2 py-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"
-                      disabled={saving}
+              <h2 className="pp-h2">Peptides (vials)</h2>
+              {vials.length === 0 ? (
+                  <p className="pp-subtle">No peptides yet.</p>
+              ) : (
+                  <div className="grid-cards p-4">
+                      {vials.map((item) => {
+                          const dirty = isVialDirty(item);
+                          const saving = savingIds.has(`vial-${item.id}`);
+                          const offers = offersVials[item.peptide_id] ?? [];
+                          return (
+                              <Card
+                                  key={item.id}
+                                  className="shadow-sm space-y-4"
+                              >
+                                  <div className="flex items-start justify-between">
+                                      <h3 className="font-semibold">{item.canonical_name}</h3>
+                                      <button
+                                          type="button"
+                                          onClick={() => handleDeleteVial(item.id)}
+                                          className="btn text-xs bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"                      disabled={saving}
                       title="Delete from inventory"
                     >
                       {saving ? "…" : "Delete"}
@@ -282,7 +282,7 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "vials") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "vials", parseNum(e.target.value))}
                         disabled={saving}
-                       className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                       className="mt-1 input"
                        aria-label={`Vials for ${item.canonical_name}`}
                       />
                     </label>
@@ -296,7 +296,7 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "mg_per_vial") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "mg_per_vial", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                                              className="mt-1 input"
                         aria-label={`mg per vial for ${item.canonical_name}`}
                       />
                     </label>
@@ -310,7 +310,7 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "bac_ml") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "bac_ml", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                                              className="mt-1 input"
                         aria-label={`BAC mL for ${item.canonical_name}`}
                       />
                     </label>
@@ -324,7 +324,7 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "half_life_hours") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "half_life_hours", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                                              className="mt-1 input"
                         aria-label={`Half-life hours for ${item.canonical_name}`}
                         />
                     </label>
@@ -335,7 +335,7 @@ export default function InventoryList({
                       type="button"
                       onClick={() => handleSaveVial(item)}
                       disabled={!dirty || saving}
-                      className="rounded px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                                          className="mt-1 input"
                       title="Save changes"
                       aria-busy={saving}
                       aria-label={`Save ${item.canonical_name}`}
@@ -346,7 +346,7 @@ export default function InventoryList({
                       <button
                         type="button"
                         onClick={() => clearVial(item.id)}
-                        className="rounded px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                                              className="mt-1 input"
                         title="Discard changes"
                       >
                         Discard
@@ -361,7 +361,7 @@ export default function InventoryList({
                         {offers.map((o) => (
                          <div
                             key={o.id}
-                            className="rounded-md border border-gray-200 dark:border-gray-700 p-2 text-xs space-y-1 bg-gray-50 dark:bg-gray-800"
+                                className="pp-card p-2 text-xs space-y-1"
                           >
                             <div className="font-semibold truncate">{o.vendor_name}</div>
                             <div>Price: ${o.price.toFixed(2)}</div>
@@ -375,14 +375,14 @@ export default function InventoryList({
                                 quantity: 1,
                               }}
                               label="Add"
-                              className="w-full rounded px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                    className="w-full btn text-xs bg-green-600 hover:bg-green-700 text-white"
                             />
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-                </div>
+                              </Card>
               );
             })}
           </div>
@@ -391,9 +391,9 @@ export default function InventoryList({
 
       {/* Capsules */}
       <section className="space-y-4">
-        <h2 className="text-lg font-medium">Capsules</h2>
+              <h2 className="pp-h2">Capsules</h2>
         {capsules.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">No capsules yet.</p>
+                  <p className="pp-subtle">No capsules yet.</p>
 
         ) : (
                       <div className="grid-cards p-4">
@@ -402,22 +402,22 @@ export default function InventoryList({
               const saving = savingIds.has(`cap-${item.id}`);
               const offers = offersCapsules[item.peptide_id] ?? [];
               return (
-                  <div
+                  <Card
                       key={item.id}
-                      className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 shadow-sm space-y-4 text-gray-900 dark:text-gray-100"                >
+                      className="shadow-sm space-y-4"                >
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold">{item.canonical_name}</h3>
                     <button
                       type="button"
                       onClick={() => handleDeleteCaps(item.id)}
-                      className="text-xs rounded px-2 py-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"
+                              className="btn text-xs bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"
                       disabled={saving}
                       title="Delete from inventory"
                       aria-label={`Delete ${item.canonical_name}`}
                     >
                       {saving ? "…" : "Delete"}
                     </button>
-                  </div>
+                  </Card>
 
                   <div className="flex gap-2 text-xs" aria-live="polite">
                     <Pill>
@@ -438,7 +438,7 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "bottles") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "bottles", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                        className="mt-1 input"
                         aria-label={`Bottles for ${item.canonical_name}`}
                       />
                     </label>
@@ -451,7 +451,7 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "caps_per_bottle") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "caps_per_bottle", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-2 py-1"
+                        className="mt-1 input"
                         aria-label={`Caps per bottle for ${item.canonical_name}`}
                       />
                     </label>
@@ -465,7 +465,7 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "mg_per_cap") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "mg_per_cap", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border px-2 py-1"
+                        className="mt-1 input"
                         aria-label={`mg per cap for ${item.canonical_name}`}
                       />
                     </label>
@@ -479,7 +479,7 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "half_life_hours") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "half_life_hours", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 w-full rounded border px-2 py-1"
+                        className="mt-1 input"
                         aria-label={`Half-life hours for ${item.canonical_name}`}
                       />
                     </label>
@@ -490,7 +490,7 @@ export default function InventoryList({
                       type="button"
                       onClick={() => handleSaveCaps(item)}
                       disabled={!dirty || saving}
-                      className="rounded px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                      className="btn bg-blue-600 hover:bg-blue-700 text-sm text-white disabled:opacity-50"
                       title="Save changes"
                       aria-busy={saving}
                       aria-label={`Save ${item.canonical_name}`}
@@ -501,7 +501,7 @@ export default function InventoryList({
                       <button
                         type="button"
                         onClick={() => clearCaps(item.id)}
-                        className="rounded px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                        className="btn text-sm"
                         title="Discard changes"
                       >
                         Discard
@@ -516,7 +516,7 @@ export default function InventoryList({
                         {offers.map((o) => (
                           <div
                             key={o.id}
-                            className="rounded-md border border-gray-200 dark:border-gray-700 p-2 text-xs space-y-1 bg-gray-50 dark:bg-gray-800"
+                                className="pp-card p-2 text-xs space-y-1"
                           >
                           <div className="font-semibold truncate">{o.vendor_name}</div>
                             <div>Price: ${o.price.toFixed(2)}</div>
@@ -531,7 +531,7 @@ export default function InventoryList({
                                 quantity: 1,
                               }}
                               label="Add"
-                              className="w-full rounded px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                    className="w-full btn text-xs bg-green-600 hover:bg-green-700 text-white"
                             />
                           </div>
                         ))}

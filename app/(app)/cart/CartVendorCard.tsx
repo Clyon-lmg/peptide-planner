@@ -20,7 +20,7 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
   if (!ures?.user) {
     return (
         <Card className="text-card-foreground p-6">
-        <p className="text-sm text-muted-foreground">Please sign in to view your cart.</p>
+            <p className="text-sm text-muted">Please sign in to view your cart.</p>
       </Card>
     );
   }
@@ -40,7 +40,7 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Vendor #{vendorId}</h3>
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">No items for this vendor.</p>
+            <p className="mt-2 text-sm text-muted">No items for this vendor.</p>
       </Card>
     );
   }
@@ -155,13 +155,13 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
             <div>
               <div className="font-medium">
                 {l.name}{" "}
-                <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted">
                   {l.kind === "vial"
                     ? `${l.mg_per_vial ?? 0} mg / ${l.bac_ml ?? 0} ml`
                     : `${l.caps_per_bottle ?? 0} caps • ${l.mg_per_cap ?? 0} mg/cap`}
                 </span>
               </div>
-              <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted">
                 {l.kind === "vial" ? "Vials" : "Bottles"}: {l.qty}
               </div>
               {selected ? (
@@ -175,7 +175,7 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
             <div className="text-right">
               <div className="text-sm">
                 ${l.effectiveUnit.toFixed(2)}{" "}
-                <span className="text-xs text-muted-foreground">ea</span>
+                        <span className="text-xs text-muted">ea</span>
               </div>
               <div className="font-semibold">${l.total.toFixed(2)}</div>
             </div>
@@ -184,7 +184,7 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
       </div>
 
       <div className="flex items-center justify-between pt-2">
-        <div className="text-sm text-muted-foreground">Subtotal</div>
+              <div className="text-sm text-muted">Subtotal</div>
         <div className="text-lg font-semibold">${subtotal.toFixed(2)}</div>
       </div>
 

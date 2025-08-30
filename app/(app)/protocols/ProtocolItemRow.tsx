@@ -29,52 +29,52 @@ export default function ProtocolItemRow({
   const v = value;
 
   return (
-    <div className="border rounded-xl p-3 mb-2">
-      <div className="grid grid-cols-12 gap-3 items-end">
-        {/* Peptide */}
-        <div className="col-span-12 md:col-span-4">
-          <label className="block text-xs text-gray-600 mb-1">Peptide</label>
-          <select
-            className="w-full border rounded-lg px-3 py-2"
-            value={v.peptide_id ?? ""}
-            onChange={(e) => onChange({ ...v, peptide_id: e.target.value ? Number(e.target.value) : null })}
-          >
-            <option value="">Select peptide…</option>
-            {peptides.map(p => (
-              <option key={p.id} value={p.id}>{p.canonical_name}</option>
-            ))}
-          </select>
-        </div>
+      <div className="pp-card p-3 mb-2">
+          <div className="grid grid-cols-12 gap-3 items-end">
+              {/* Peptide */}
+              <div className="col-span-12 md:col-span-4">
+                  <label className="block text-xs text-muted mb-1">Peptide</label>
+                  <select
+                      className="input"
+                      value={v.peptide_id ?? ""}
+                      onChange={(e) => onChange({ ...v, peptide_id: e.target.value ? Number(e.target.value) : null })}
+                  >
+                      <option value="">Select peptide…</option>
+                      {peptides.map(p => (
+                          <option key={p.id} value={p.id}>{p.canonical_name}</option>
+                      ))}
+                  </select>
+              </div>
 
-                {/* Color */}
-        <div className="col-span-6 md:col-span-1">
-          <label className="block text-xs text-gray-600 mb-1">Color</label>
-          <input
-            type="color"
-            className="w-full border rounded-lg px-3 py-2 h-10"
-            value={v.color}
-            onChange={(e) => onChange({ ...v, color: e.target.value })}
-          />
-        </div>
+              {/* Color */}
+              <div className="col-span-6 md:col-span-1">
+                  <label className="block text-xs text-muted mb-1">Color</label>
+                  <input
+                      type="color"
+                      className="input h-10"
+                      value={v.color}
+                      onChange={(e) => onChange({ ...v, color: e.target.value })}
+                  />
+              </div>
 
-        {/* Dose (mg) */}
-        <div className="col-span-6 md:col-span-2">
-          <label className="block text-xs text-gray-600 mb-1">Dose (mg)</label>
-          <input
-            type="number"
-            step="0.01"
-            className="w-full border rounded-lg px-3 py-2"
-            value={v.dose_mg_per_administration}
-            onChange={(e) => onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })}
-          />
-        </div>
+              {/* Dose (mg) */}
+              <div className="col-span-6 md:col-span-2">
+                  <label className="block text-xs text-muted mb-1">Dose (mg)</label>
+                  <input
+                      type="number"
+                      step="0.01"
+                      className="input"
+                      value={v.dose_mg_per_administration}
+                      onChange={(e) => onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })}
+                  />
+              </div>
 
-        {/* Schedule */}
-        <div className="col-span-6 md:col-span-3">
-          <label className="block text-xs text-gray-600 mb-1">Schedule</label>
-          <select
-            className="w-full border rounded-lg px-3 py-2"
-            value={v.schedule}
+              {/* Schedule */}
+              <div className="col-span-6 md:col-span-3">
+                  <label className="block text-xs text-muted mb-1">Schedule</label>
+                  <select
+                      className="input"
+                      value={v.schedule}
             onChange={(e) => onChange({ ...v, schedule: e.target.value as any })}
           >
             <option value="EVERYDAY">Every day</option>
@@ -86,29 +86,29 @@ export default function ProtocolItemRow({
             <input
               type="number"
               min={1}
-              className="w-full border rounded-lg px-3 py-2 mt-2"
-              value={v.every_n_days ?? 1}
-              onChange={(e) => onChange({ ...v, every_n_days: Number(e.target.value || 1) })}
-            />
-          )}
-        </div>
+                          className="input mt-2"
+                          value={v.every_n_days ?? 1}
+                          onChange={(e) => onChange({ ...v, every_n_days: Number(e.target.value || 1) })}
+                      />
+                  )}
+              </div>
 
-        {/* Delete button aligned far right */}
-        <div className="col-span-12 md:col-span-2 flex md:justify-end">
-          <button
-            type="button"
-            className="mt-6 px-3 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-            onClick={onDelete}
-          >
-            Delete
-          </button>
-        </div>
+              {/* Delete button aligned far right */}
+              <div className="col-span-12 md:col-span-2 flex md:justify-end">
+                  <button
+                      type="button"
+                      className="btn mt-6 bg-red-600 hover:bg-red-700 text-white"
+                      onClick={onDelete}
+                  >
+                      Delete
+                  </button>
+              </div>
 
-        {/* Custom days */}
-        {v.schedule === "CUSTOM" && (
-          <div className="col-span-12">
-            <label className="block text-xs text-gray-600 mb-1">Custom days</label>
-            <div className="flex flex-wrap gap-2">
+              {/* Custom days */}
+              {v.schedule === "CUSTOM" && (
+                  <div className="col-span-12">
+                      <label className="block text-xs text-muted mb-1">Custom days</label>
+                      <div className="flex flex-wrap gap-2">
               {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((label, idx) => {
                 const checked = v.custom_days?.includes(idx) ?? false;
                 return (
@@ -133,20 +133,19 @@ export default function ProtocolItemRow({
 
         {/* Cycles */}
         <div className="col-span-6 md:col-span-3">
-          <label className="block text-xs text-gray-600 mb-1">On (weeks)</label>
-          <input
-            type="number"
-            className="w-full border rounded-lg px-3 py-2"
-            value={v.cycle_on_weeks}
-            onChange={(e) => onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })}
-          />
-        </div>
-        <div className="col-span-6 md:col-span-3">
-          <label className="block text-xs text-gray-600 mb-1">Off (weeks)</label>
-          <input
-            type="number"
-            className="w-full border rounded-lg px-3 py-2"
-            value={v.cycle_off_weeks}
+                  <label className="block text-xs text-muted mb-1">On (weeks)</label>
+                  <input
+                      type="number"
+                      className="input"
+                      value={v.cycle_on_weeks}
+                      onChange={(e) => onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })}
+                  />
+              </div>
+              <div className="col-span-6 md:col-span-3">
+                  <label className="block text-xs text-muted mb-1">Off (weeks)</label>
+                  <input
+                      type="number"
+                      className="input"            value={v.cycle_off_weeks}
             onChange={(e) => onChange({ ...v, cycle_off_weeks: Number(e.target.value || 0) })}
           />
         </div>

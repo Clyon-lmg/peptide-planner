@@ -2,6 +2,7 @@
 "use client";
 import React from "react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import Card from "@/components/layout/Card";
 import ProtocolEditor from "./ProtocolEditor";
 
 type Protocol = {
@@ -132,51 +133,51 @@ export default function ProtocolsPage() {
   return (
     <div className="max-w-5xl mx-auto p-4">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Protocols</h1>
-        <button
-          className="px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-          onClick={createProtocol}
-          disabled={creating}
-        >
-          {creating ? "Creating…" : "New Protocol"}
-        </button>
-      </div>
+              <h1 className="pp-h1">Protocols</h1>
+              <button
+                  className="btn bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60"
+                  onClick={createProtocol}
+                  disabled={creating}
+              >
+                  {creating ? "Creating…" : "New Protocol"}
+              </button>
+          </div>
 
-      <div className="grid grid-cols-12 gap-4">
-        <aside className="col-span-12 md:col-span-4 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-          <h2 className="font-semibold mb-2">Your Protocols</h2>
-          <ul className="space-y-1">
-            {protocols.map((p) => (
-              <li key={p.id}>
-                <RowButton
-                  className={
-                    "w-full text-left px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 " +
-                    (selectedId === p.id ? "bg-gray-100 dark:bg-gray-800" : "")
-                }
-                  onClick={() => setSelectedId(p.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{p.name}</div>
-                      {p.is_active && (
-                        <div className="text-xs text-emerald-600">Active</div>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="text-xs px-2 py-1 rounded bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          renameProtocol(p);
-                        }}
-                      >
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700"
-                        onClick={(e) => {
+          <div className="grid grid-cols-12 gap-4">
+              <aside className="col-span-12 md:col-span-4 pp-card p-3">
+                  <h2 className="font-semibold mb-2">Your Protocols</h2>
+                  <ul className="space-y-1">
+                      {protocols.map((p) => (
+                          <li key={p.id}>
+                              <RowButton
+                                  className={
+                                      "w-full text-left px-2 py-2 rounded hover:bg-card " +
+                                      (selectedId === p.id ? "bg-card" : "")
+                                  }
+                                  onClick={() => setSelectedId(p.id)}
+                              >
+                                  <div className="flex items-center justify-between">
+                                      <div>
+                                          <div className="font-medium">{p.name}</div>
+                                          {p.is_active && (
+                                              <div className="text-xs text-emerald-600">Active</div>
+                                          )}
+                                      </div>
+                                      <div className="flex gap-2">
+                                          <button
+                                              type="button"
+                                              className="btn text-xs"
+                                              onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  renameProtocol(p);
+                                              }}
+                                          >
+                                              Rename
+                                          </button>
+                                          <button
+                                              type="button"
+                                              className="btn text-xs bg-red-600 text-white hover:bg-red-700"
+                                              onClick={(e) => {
                           e.stopPropagation();
                           deleteProtocol(p);
                         }}
@@ -198,7 +199,7 @@ export default function ProtocolsPage() {
               onReload={reload}
             />
           ) : (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900">
+                          <div className="pp-card p-6 text-muted">
               Select or create a protocol to begin.
             </div>
           )}

@@ -87,7 +87,7 @@ export default function TodayPage() {
         <div className="text-sm text-red-600">{error}</div>
       )}
       {!loading && !error && (rows?.length ?? 0) === 0 && (
-          <div className="text-sm text-muted-foreground">No doses scheduled for today.</div>
+              <div className="text-sm text-muted">No doses scheduled for today.</div>
       )}
 
       {!loading && rows && rows.length > 0 && (
@@ -108,7 +108,7 @@ export default function TodayPage() {
                     <div className="text-lg font-medium truncate">{r.canonical_name}</div>
 
                     {/* Bold numbers for dose and syringe */}
-                    <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-muted">
                       Dose: <span className="font-mono font-bold">{fmt(r.dose_mg)}</span>{" "}
                       mg  •  Syringe:{" "}
                       <span className="font-mono font-bold">{fmt(r.syringe_units, 2)}</span>{" "}
@@ -118,7 +118,7 @@ export default function TodayPage() {
                 </div>
 
                 {/* Inventory mix line */}
-                <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted">
                   Inventory mix: {fmt(r.mg_per_vial)} mg/vial • {fmt(r.bac_ml)} mL BAC
                 </div>
                 {needsSetup && (

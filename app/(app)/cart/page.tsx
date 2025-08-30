@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import Card from '@/components/layout/Card';
 
 // Minimal toast helpers (no extra deps)
 function notify(msg: string) {
@@ -274,7 +275,7 @@ export default function CartPage() {
   if (!rows.length) {
     return (
       <main className="p-6">
-        <h1 className="text-2xl font-semibold mb-4">Cart</h1>
+            <h1 className="pp-h1 mb-4">Cart</h1>
         <p>Your cart is empty.</p>
       </main>
     );
@@ -282,58 +283,55 @@ export default function CartPage() {
 
   return (
     <main className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Cart</h1>
+          <h1 className="pp-h1">Cart</h1>
 
       {[...byVendor.entries()].map(([vendorId, lines]) => {
         const vendorName = lines[0]?.vendor_name ?? `Vendor ${vendorId}`;
         return (
-          <section
-            key={vendorId}
-            className="rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm"
-          >
-            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <div className="text-lg font-medium">{vendorName}</div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => onVisitSite(vendorId)}
-                  disabled={isPending}
-                  className="px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900"
-                >
-                  Visit site (affiliate)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onPlaceOrder(vendorId, lines)}
-                  disabled={isPending}
-                  className="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  Place order
-                </button>
-              </div>
-            </div>
+            <section key={vendorId}>
+                <Card className="shadow-sm">
+                    <div className="p-4 border-b flex items-center justify-between">
+                        <div className="pp-h2">{vendorName}</div>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => onVisitSite(vendorId)}
+                                disabled={isPending}
+                                className="btn text-sm"
+                            >
+                                Visit site (affiliate)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onPlaceOrder(vendorId, lines)}
+                                disabled={isPending}
+                                className="btn bg-blue-600 hover:bg-blue-700 text-sm text-white"
+                            >
+                                Place order
+                            </button>
+                        </div>
+                    </div>
 
-            <div className="p-4 space-y-2">
-              {lines.map((l) => (
-                <div
-                  key={l.id}
-                  className="flex items-center justify-between border border-gray-200 dark:border-gray-800 rounded-md px-3 py-2"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">{l.peptide_name}</span>
-                    <span className="text-sm opacity-70">
-                      {l.kind ?? 'vial'} • qty {l.quantity_vials}
-                      {l.quantity_units ? ` • units ${l.quantity_units}` : ''}
-                    </span>
-                  </div>
-                  <div className="text-sm opacity-70">
-                    Vendor #{l.vendor_id}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        );
+                    <div className="p-4 space-y-2">
+                        {lines.map((l) => (
+                            <div
+                                key={l.id}
+                                className="flex items-center justify-between border rounded-md px-3 py-2 bg-card"
+                            >
+                                <div className="flex flex-col">
+                                    <span className="font-medium">{l.peptide_name}</span>
+                                    <span className="text-sm opacity-70">
+                                        {l.kind ?? 'vial'} • qty {l.quantity_vials}
+                                        {l.quantity_units ? ` • units ${l.quantity_units}` : ''}
+                                    </span>
+                                </div>
+                                <div className="text-sm opacity-70">
+                                    Vendor #{l.vendor_id}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </Card>        );
       })}
     </main>
   );

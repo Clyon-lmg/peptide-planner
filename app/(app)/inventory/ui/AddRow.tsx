@@ -3,6 +3,7 @@
 // app/(app)/inventory/ui/AddRow.tsx
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import Card from "@/components/layout/Card";
 import {
     addPeptideByIdAction,
     addCapsuleByIdAction,
@@ -60,12 +61,12 @@ export default function AddRow({
     return (
         <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
             {/* Add Peptide (filtered to vial-capable items) */}
-            <div className="rounded-xl border p-4">
-                <h2 className="font-medium mb-3">Add Peptide</h2>
+            <Card className="p-4">
+                <h2 className="pp-h2 mb-3">Add Peptide</h2>
                 <form action={handlePeptide} className="grid grid-cols-[1fr_auto] gap-3">
                     <select
                         name="peptide_id"
-                        className="rounded border px-2 py-2 w-full max-w-full"
+                        className="input w-full max-w-full"
                         defaultValue=""
                         required
                     >
@@ -79,22 +80,22 @@ export default function AddRow({
                         ))}
                     </select>
                     <button
-                        className="rounded-lg px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+                        className="btn bg-green-600 hover:bg-green-700 text-sm text-white"
                         type="submit"
                         disabled={isPending}
                     >
                         {isPending ? "Adding..." : "Add"}
                     </button>
                 </form>
-            </div>
+            </Card>
 
             {/* Add Capsule (filtered to capsule-capable items) */}
-            <div className="rounded-xl border p-4">
-                <h2 className="font-medium mb-3">Add Capsule</h2>
+            <Card className="p-4">
+                <h2 className="pp-h2 mb-3">Add Capsule</h2>
                 <form action={handleCapsule} className="grid grid-cols-[1fr_auto] gap-3">
                     <select
                         name="peptide_id"
-                        className="rounded border px-2 py-2 w-full max-w-full"
+                        className="input w-full max-w-full"
                         defaultValue=""
                         required
                     >
@@ -108,18 +109,18 @@ export default function AddRow({
                         ))}
                     </select>
                     <button
-                        className="rounded-lg px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+                        className="btn bg-green-600 hover:bg-green-700 text-sm text-white"
                         type="submit"
                         disabled={isPending}
                     >
                         {isPending ? "Adding..." : "Add"}
                     </button>
                 </form>
-            </div>
+            </Card>
 
             {/* Add Custom (radio: peptide or capsule) */}
-            <div className="rounded-xl border p-4">
-                <h2 className="font-medium mb-3">Add Custom</h2>
+            <Card className="p-4">
+                <h2 className="pp-h2 mb-3">Add Custom</h2>
                 <form action={handleCustom} className="space-y-3">
                     <label className="block text-sm">
                         Name
@@ -127,7 +128,7 @@ export default function AddRow({
                             name="name"
                             type="text"
                             placeholder="e.g., BPC-157"
-                            className="mt-1 w-full rounded border px-2 py-2"
+                            className="mt-1 input"
                             required
                         />
                     </label>
@@ -142,17 +143,17 @@ export default function AddRow({
                         </label>
                     </div>
                     <button
-                        className="rounded-lg px-3 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+                        className="btn bg-green-600 hover:bg-green-700 text-sm text-white"
                         type="submit"
                         disabled={isPending}
                     >
                         {isPending ? "Adding..." : "Add"}
                     </button>
                 </form>
-            </div>
+            </Card>
 
             {addedItems.length > 0 && (
-                <div className="sm:col-span-2 md:col-span-3 text-sm text-gray-600">
+                <div className="sm:col-span-2 md:col-span-3 pp-subtle">
                     <h3 className="font-medium mb-1">Recently added</h3>
                     <ul className="list-disc list-inside">
                         {addedItems.map((name, idx) => (

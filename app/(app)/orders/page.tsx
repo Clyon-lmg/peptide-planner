@@ -1,5 +1,6 @@
 // app/(app)/orders/page.tsx
 import Link from "next/link";
+import Card from "@/components/layout/Card";
 import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
@@ -71,17 +72,17 @@ export default async function OrdersPage() {
   if (!user) {
     return (
       <div className="mx-auto max-w-4xl p-6">
-        <div className="rounded-xl border p-6">
-          <h1 className="text-2xl font-semibold">Orders</h1>
-          <p className="mt-2 text-sm">
-            You’re not signed in.{" "}
-            <Link href="/sign-in" className="underline">
-              Sign in
-            </Link>{" "}
-            to view orders.
-          </p>
+            <Card className="p-6">
+                <h1 className="pp-h1">Orders</h1>
+                <p className="mt-2 text-sm">
+                    You’re not signed in.{" "}
+                    <Link href="/sign-in" className="underline">
+                        Sign in
+                    </Link>{" "}
+                    to view orders.
+                </p>
+            </Card>
         </div>
-      </div>
     );
   }
 
@@ -164,30 +165,29 @@ export default async function OrdersPage() {
   return (
     <div className="mx-auto max-w-5xl p-6 space-y-8">
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Orders</h1>
-        <Link href="/cart" className="text-sm underline">
-          Back to Cart
-        </Link>
-      </header>
+              <h1 className="pp-h1">Orders</h1>
+              <Link href="/cart" className="text-sm underline">
+                  Back to Cart
+              </Link>
+          </header>
 
-      {orders.length === 0 ? (
-        <p className="text-sm text-gray-500">No orders yet.</p>
-      ) : (
-        <div className="space-y-4">
-          {orders.map((o) => {
-            const shipment = shipByOrder.get(o.id) ?? null;
-            const aff = affByVendor.get(o.vendor_id);
-            const visitUrl = buildAffiliateUrl(o.vendor?.homepage, aff);
+          {orders.length === 0 ? (
+              <p className="pp-subtle">No orders yet.</p>
+          ) : (
+              <div className="space-y-4">
+                  {orders.map((o) => {
+                      const shipment = shipByOrder.get(o.id) ?? null;
+                      const aff = affByVendor.get(o.vendor_id);
+                      const visitUrl = buildAffiliateUrl(o.vendor?.homepage, aff);
 
-            return (
-              <section key={o.id} className="rounded-xl border p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold">
-                      {o.vendor?.name ?? "Vendor"} — Order #{o.id}
-                    </h2>
-                    <div className="mt-1 text-xs text-gray-500">
-                      Created: {o.created_at ? new Date(o.created_at).toLocaleString() : "—"}
+                      return (
+                          <Card key={o.id} className="space-y-3">
+                              <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                      <h2 className="pp-h2">
+                                          {o.vendor?.name ?? "Vendor"} — Order #{o.id}
+                                      </h2>
+                                      <div className="mt-1 text-xs text-muted">                      Created: {o.created_at ? new Date(o.created_at).toLocaleString() : "—"}
                       {" · "}Placed: {o.placed_at ? new Date(o.placed_at).toLocaleString() : "—"}
                       {" · "}Received: {o.received_at ? new Date(o.received_at).toLocaleString() : "—"}
                     </div>
@@ -206,12 +206,13 @@ export default async function OrdersPage() {
                       </a>
                     )}
 
+
                     {/* Delete button (top-right near status selector) */}
                     <form action={deleteOrder}>
                       <input type="hidden" name="order_id" value={o.id} />
                       <button
                         type="submit"
-                        className="rounded px-2 py-1 text-xs bg-red-600 hover:bg-red-700 text-white"
+                                              className="btn text-xs bg-red-600 hover:bg-red-700 text-white"
                         title="Delete order"
                       >
                         Delete
@@ -229,7 +230,7 @@ export default async function OrdersPage() {
                           ? "text-green-700"
                           : o.status === "PLACED"
                           ? "text-blue-700"
-                          : "text-gray-700"
+                                                      : "text-muted"
                       }
                     >
                       {o.status}
@@ -243,7 +244,7 @@ export default async function OrdersPage() {
                       <select
                         name="status"
                         defaultValue=""
-                        className="ml-2 rounded border px-2 py-1"
+                                              className="ml-2 input"
                       >
                         <option value="">Select…</option>
                         {o.status !== "DRAFT" && <option value="DRAFT">Draft</option>}
@@ -253,7 +254,7 @@ export default async function OrdersPage() {
                     </label>
                     <button
                       type="submit"
-                      className="rounded px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white"
+                                          className="btn bg-blue-600 hover:bg-blue-700 text-sm text-white"
                     >
                       Save
                     </button>
@@ -261,36 +262,36 @@ export default async function OrdersPage() {
                 </div>
 
                 {/* Shipment block */}
-                <div className="rounded-lg border p-3 text-sm">
-                  <div className="font-medium mb-1">Shipment</div>
-                  {shipment ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                      <div>
-                        <div className="text-xs text-gray-500">Carrier</div>
-                        <div>{shipment.carrier || "—"}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">Tracking #</div>
-                        <div>{shipment.tracking_number || "—"}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">ETA</div>
-                        <div>{shipment.eta ? new Date(shipment.eta).toLocaleDateString() : "—"}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">Status</div>
-                        <div>{shipment.status || "—"}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-gray-500">No shipment info.</div>
-                  )}
+                              <div className="pp-card p-3 text-sm">
+                                  <div className="font-medium mb-1">Shipment</div>
+                                  {shipment ? (
+                                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                                          <div>
+                                              <div className="text-xs text-muted">Carrier</div>
+                                              <div>{shipment.carrier || "—"}</div>
+                                          </div>
+                                          <div>
+                                              <div className="text-xs text-muted">Tracking #</div>
+                                              <div>{shipment.tracking_number || "—"}</div>
+                                          </div>
+                                          <div>
+                                              <div className="text-xs text-muted">ETA</div>
+                                              <div>{shipment.eta ? new Date(shipment.eta).toLocaleDateString() : "—"}</div>
+                                          </div>
+                                          <div>
+                                              <div className="text-xs text-muted">Status</div>
+                                              <div>{shipment.status || "—"}</div>
+                                          </div>
+                                      </div>
+                                  ) : (
+                                      <div className="text-muted">No shipment info.</div>
+                                  )}
+                              </div>
+                          </Card>
+                      );
+                  })}
                 </div>
-              </section>
-            );
-          })}
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 }

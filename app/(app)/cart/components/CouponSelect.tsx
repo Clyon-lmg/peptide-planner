@@ -38,7 +38,7 @@ export default function CouponSelect({
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-sm text-muted-foreground">Coupon</label>
+          <label className="text-sm text-muted">Coupon</label>
       <select
         value={value === "" ? "" : String(value)}
         onChange={(e) => onChange(e.target.value)}

@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { Line } from "react-chartjs-2";
+import Card from "@/components/layout/Card";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -89,14 +90,14 @@ export default function ProtocolGraph({
   if (!data.datasets.length) return null;
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900">
-      <Line
-        data={data}
-        options={{
-          responsive: true,
-          plugins: { legend: { position: "bottom" as const } },
-        }}
-      />
-    </div>
-  );
+        <Card>
+            <Line
+                data={data}
+                options={{
+                    responsive: true,
+                    plugins: { legend: { position: "bottom" as const } },
+                }}
+            />
+        </Card>
+    );
 }

@@ -108,14 +108,14 @@ export default function CalendarPage() {
       <div className="flex items-center justify_between mb-1">
         <div className="text-lg font-medium">{monthLabel}</div>
         {loading ? (
-          <div className="text-sm text-muted-foreground">Loading…</div>
+                  <div className="text-sm text-muted">Loading…</div>
         ) : error ? (
           <div className="text-sm text-red-600">Unable to load doses.</div>
         ) : null}
       </div>
 
       {/* Weekday headers (Sun..Sat) */}
-      <div className="flex md:grid md:grid-cols-7 text-[11px] font-medium text-muted-foreground mb-1">
+          <div className="flex md:grid md:grid-cols-7 text-[11px] font-medium text-muted mb-1">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
           <div key={d} className="px-2 py-1 flex-1 text-center md:text-left">
             {d}
@@ -144,7 +144,7 @@ export default function CalendarPage() {
               {/* Doses list (READ-ONLY; color = status) */}
               <div className="mt-2 flex flex-col gap-2">
                 {dayDoses.length === 0 ? (
-                  <div className="text-[12px] text-muted-foreground">No doses</div>
+                          <div className="text-[12px] text-muted">No doses</div>
                 ) : (
                   dayDoses.map((r) => <DoseBlock key={r.peptide_id} r={r} />)
                 )}
@@ -155,7 +155,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Legend */}
-      <div className="text-xs text-muted-foreground mt-2 flex gap-4">
+          <div className="text-xs text-muted mt-2 flex gap-4">
         <Legend className="border-l-4 border-green-600" label="Taken" />
         <Legend className="border-l-4 border-red-600" label="Skipped" />
         <Legend className="border-l-4 border-blue-600" label="Pending" />

@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import Card from "@/components/layout/Card";
 import ProtocolItemRow, { ProtocolItemState, InventoryPeptide } from "./ProtocolItemRow";
 import ProtocolGraph from "./ProtocolGraph";
 import { onProtocolUpdated, setActiveProtocolAndRegenerate } from "@/lib/protocolEngine";
@@ -163,12 +164,12 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <Card>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold">{protocol.name}</h3>
+        <h3 className="pp-h2">{protocol.name}</h3>
         <div className="flex gap-2">
           <button
-            className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+            className="btn bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
             onClick={save}
             disabled={saving}
             type="button"
@@ -176,7 +177,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
             {saving ? "Saving…" : "Save"}
           </button>
           <button
-            className="px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+            className="btn bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60"
             onClick={activate}
             disabled={activating}
             type="button"
@@ -207,14 +208,14 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
       </div>
 
       <button
-        className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
-        onClick={addItem}
-        type="button"
-      >
-        + Add peptide
-      </button>
-            </div>
-      <ProtocolGraph items={items} peptides={peptides} />
-    </div>
-  );
+                    className="btn"
+                    onClick={addItem}
+                    type="button"
+                >
+                    + Add peptide
+                </button>
+            </Card>
+            <ProtocolGraph items={items} peptides={peptides} />
+        </div>
+    );
 }
