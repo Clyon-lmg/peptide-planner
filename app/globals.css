@@ -27,8 +27,8 @@ html.dark {
 }
 
 body {
-    background-color: rgb(var(--bg));
-    color: rgb(var(--fg));
+    background-color: rgb(var(--background));
+    color: rgb(var(--foreground));
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
