@@ -58,7 +58,7 @@ function CallbackInner() {
     <div className="mx-auto max-w-md p-6">
       <div className="rounded-xl border p-6 space-y-3">
         <h1 className="text-2xl font-semibold">Signing you in…</h1>
-        <p className="text-sm text-gray-600">Please wait while we complete authentication.</p>
+              <p className="text-sm text-muted">Please wait while we complete authentication.</p>
       </div>
     </div>
   );
@@ -72,7 +72,7 @@ export default function CallbackPage() {
         <div className="mx-auto max-w-md p-6">
           <div className="rounded-xl border p-6 space-y-3">
             <h1 className="text-2xl font-semibold">Loading…</h1>
-            <p className="text-sm text-gray-600">Preparing authentication callback.</p>
+                      <p className="text-sm text-muted">Preparing authentication callback.</p>
           </div>
         </div>
       }

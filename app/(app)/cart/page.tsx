@@ -305,7 +305,7 @@ export default function CartPage() {
                                   type="button"
                                   onClick={() => onPlaceOrder(vendorId, lines)}
                                   disabled={isPending}
-                                  className="btn bg-blue-600 hover:bg-blue-700 text-sm text-white"
+                                className="btn bg-info hover:bg-info/90 text-sm text-white"
                               >
                                   Place order
                               </button>

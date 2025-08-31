@@ -97,7 +97,7 @@ export default function ProtocolItemRow({
               <div className="col-span-12 md:col-span-2 flex md:justify-end">
                   <button
                       type="button"
-                      className="btn mt-6 bg-red-600 hover:bg-red-700 text-white"
+                      className="btn mt-6 bg-destructive hover:bg-destructive/90 text-white"
                       onClick={onDelete}
                   >
                       Delete
@@ -112,7 +112,7 @@ export default function ProtocolItemRow({
               {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((label, idx) => {
                 const checked = v.custom_days?.includes(idx) ?? false;
                 return (
-                  <label key={idx} className={"px-3 py-2 rounded border cursor-pointer " + (checked ? "bg-emerald-50 border-emerald-300" : "")}>
+                    <label key={idx} className={"px-3 py-2 rounded border cursor-pointer " + (checked ? "bg-success/10 border-success/20" : "")}>
                     <input
                       type="checkbox"
                       className="mr-2"

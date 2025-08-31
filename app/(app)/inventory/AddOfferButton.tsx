@@ -11,7 +11,7 @@ export default function AddOfferButton({
   action,
   payload,
   label = "Add",
-  className = "rounded px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white",
+    className = "rounded px-3 py-1 text-xs bg-success hover:bg-success/90 text-white",
 }: {
   action: (formData: FormData) => Promise<{ ok: boolean; message?: string } | any>;
   payload: Record<string, string | number | boolean | null | undefined>;

@@ -84,7 +84,7 @@ export default function TodayPage() {
 
       {loading && <div>Loading…</div>}
       {!loading && error && (
-        <div className="text-sm text-red-600">{error}</div>
+              <div className="text-sm text-destructive">{error}</div>
       )}
       {!loading && !error && (rows?.length ?? 0) === 0 && (
               <div className="text-sm text-muted">No doses scheduled for today.</div>
@@ -122,7 +122,7 @@ export default function TodayPage() {
                   Inventory mix: {fmt(r.mg_per_vial)} mg/vial • {fmt(r.bac_ml)} mL BAC
                 </div>
                 {needsSetup && (
-                  <div className="text-xs text-amber-600">Set mg/vial &amp; BAC in Inventory</div>
+                        <div className="text-xs text-warning">Set mg/vial &amp; BAC in Inventory</div>
                 )}
 
                 {/* Forecast pills */}
@@ -142,7 +142,7 @@ export default function TodayPage() {
                     onClick={() => mutateStatus(r.peptide_id, logDose)}
                     className={`rounded-lg border px-3 py-2 text-sm ${
                       r.status === "TAKEN"
-                        ? "bg-green-600 text-white border-green-700"
+                        ? "bg-success text-white border-success/90"
                         : "hover:bg-accent"
                     }`}
                   >
@@ -155,7 +155,7 @@ export default function TodayPage() {
                     onClick={() => mutateStatus(r.peptide_id, skipDose)}
                     className={`rounded-lg border px-3 py-2 text-sm ${
                       r.status === "SKIPPED"
-                        ? "bg-red-600 text-white border-red-700"
+                        ? "bg-destructive text-white border-destructive/90"
                         : "hover:bg-accent"
                     }`}
                   >
@@ -182,7 +182,7 @@ export default function TodayPage() {
 
 function StatusBadge({ status }: { status: TodayDoseRow["status"] }) {
   const base = "text-xs px-2 py-1 rounded-full border";
-  if (status === "TAKEN") return <span className={`${base} border-green-600 text-green-700`}>Taken</span>;
-  if (status === "SKIPPED") return <span className={`${base} border-red-600 text-red-700`}>Skipped</span>;
-  return <span className={`${base} border-slate-400 text-slate-600`}>Pending</span>;
+    if (status === "TAKEN") return <span className={`${base} border-success text-success`}>Taken</span>;
+    if (status === "SKIPPED") return <span className={`${base} border-destructive text-destructive`}>Skipped</span>;
+    return <span className={`${base} border-muted text-muted`}>Pending</span>;
 }

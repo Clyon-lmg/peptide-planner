@@ -255,7 +255,7 @@ export default function InventoryList({
                                       <button
                                           type="button"
                                           onClick={() => handleDeleteVial(item.id)}
-                                          className="btn text-xs bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"                      disabled={saving}
+                                          className="btn text-xs bg-destructive hover:bg-destructive/90 text-white disabled:opacity-60" disabled={saving}
                       title="Delete from inventory"
                     >
                       {saving ? "…" : "Delete"}
@@ -375,7 +375,7 @@ export default function InventoryList({
                                 quantity: 1,
                               }}
                               label="Add"
-                                    className="w-full btn text-xs bg-green-600 hover:bg-green-700 text-white"
+                                    className="w-full btn text-xs bg-success hover:bg-success/90 text-white"
                             />
                           </div>
                         ))}
@@ -410,7 +410,7 @@ export default function InventoryList({
                     <button
                       type="button"
                       onClick={() => handleDeleteCaps(item.id)}
-                              className="btn text-xs bg-red-600 hover:bg-red-700 text-white disabled:opacity-60"
+                              className="btn text-xs bg-destructive hover:bg-destructive/90 text-white disabled:opacity-60"
                       disabled={saving}
                       title="Delete from inventory"
                       aria-label={`Delete ${item.canonical_name}`}
@@ -490,7 +490,7 @@ export default function InventoryList({
                       type="button"
                       onClick={() => handleSaveCaps(item)}
                       disabled={!dirty || saving}
-                      className="btn bg-blue-600 hover:bg-blue-700 text-sm text-white disabled:opacity-50"
+                              className="btn bg-info hover:bg-info/90 text-sm text-white disabled:opacity-50"
                       title="Save changes"
                       aria-busy={saving}
                       aria-label={`Save ${item.canonical_name}`}
@@ -531,7 +531,7 @@ export default function InventoryList({
                                 quantity: 1,
                               }}
                               label="Add"
-                                    className="w-full btn text-xs bg-green-600 hover:bg-green-700 text-white"
+                                    className="w-full btn text-xs bg-success hover:bg-success/90 text-white"
                             />
                           </div>
                         ))}

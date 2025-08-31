@@ -53,8 +53,8 @@ export function InlineAddCustomCard({
 
                 <button className="rounded-xl border px-3 py-2">Add</button>
 
-                {state.message && <div className="text-sm text-red-600">{state.message}</div>}
-                {state.ok && <div className="text-sm text-green-600">Added.</div>}
+                {state.message && <div className="text-sm text-destructive">{state.message}</div>}
+                {state.ok && <div className="text-sm text-success">Added.</div>}
             </form>
         </Card>
     );

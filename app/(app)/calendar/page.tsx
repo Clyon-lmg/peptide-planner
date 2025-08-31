@@ -110,7 +110,7 @@ export default function CalendarPage() {
         {loading ? (
                   <div className="text-sm text-muted">Loading…</div>
         ) : error ? (
-          <div className="text-sm text-red-600">Unable to load doses.</div>
+                      <div className="text-sm text-destructive">Unable to load doses.</div>
         ) : null}
       </div>
 
@@ -136,7 +136,7 @@ export default function CalendarPage() {
               key={dIso}
               className={`min-h-[160px] rounded-xl border p-2 bg-card relative
                 ${inMonth ? '' : 'opacity-60'}
-                ${isToday ? 'ring-2 ring-blue-500' : ''}`}
+                ${isToday ? 'ring-2 ring-info' : ''}`}
             >
               {/* Date number top-left */}
               <div className="text-xs font-semibold">{d.getDate()}</div>
@@ -156,10 +156,10 @@ export default function CalendarPage() {
 
       {/* Legend */}
           <div className="text-xs text-muted mt-2 flex gap-4">
-        <Legend className="border-l-4 border-green-600" label="Taken" />
-        <Legend className="border-l-4 border-red-600" label="Skipped" />
-        <Legend className="border-l-4 border-blue-600" label="Pending" />
-      </div>
+              <Legend className="border-l-4 border-success" label="Taken" />
+              <Legend className="border-l-4 border-destructive" label="Skipped" />
+              <Legend className="border-l-4 border-info" label="Pending" />
+          </div>
     </div>
   );
 }
@@ -177,25 +177,24 @@ function Legend({ className, label }: { className: string; label: string }) {
 function DoseBlock({ r }: { r: CalendarDoseRow }) {
   const border =
     r.status === 'TAKEN'
-      ? 'border-green-600'
-      : r.status === 'SKIPPED'
-      ? 'border-red-600'
-      : 'border-blue-600';
+            ? 'border-success'
+            : r.status === 'SKIPPED'
+                ? 'border-destructive'
+                : 'border-info';
 
-  const bg =
-    r.status === 'TAKEN'
-      ? 'bg-green-50 dark:bg-white/5'
-      : r.status === 'SKIPPED'
-      ? 'bg-red-50 dark:bg-white/5'
-      : 'bg-blue-50 dark:bg-white/5';
+    const bg =
+        r.status === 'TAKEN'
+            ? 'bg-success/10 dark:bg-white/5'
+            : r.status === 'SKIPPED'
+                ? 'bg-destructive/10 dark:bg-white/5'
+                : 'bg-info/10 dark:bg-white/5';
 
-  const text =
-    r.status === 'TAKEN'
-      ? 'text-green-800'
-      : r.status === 'SKIPPED'
-      ? 'text-red-800'
-      : 'text-blue-800';
-
+    const text =
+        r.status === 'TAKEN'
+            ? 'text-success'
+            : r.status === 'SKIPPED'
+                ? 'text-destructive'
+                : 'text-info';
   return (
     <div className={`rounded-lg border ${border} border-l-4 ${bg} ${text} p-2`}>
       <div className="text-[13px] font-medium leading-5 break-words whitespace-normal">

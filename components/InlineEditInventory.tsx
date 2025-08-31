@@ -63,9 +63,9 @@ export function InlineEditInventory({
 
       <div className="col-span-3">
         <button className="rounded-xl border px-3 py-2">Save</button>
-        {state.message && <span className="ml-2 text-sm text-red-600">{state.message}</span>}
-        {state.ok && <span className="ml-2 text-sm text-green-600">Saved.</span>}
-      </div>
+              {state.message && <span className="ml-2 text-sm text-destructive">{state.message}</span>}
+              {state.ok && <span className="ml-2 text-sm text-success">Saved.</span>}
+          </div>
     </form>
   );
 }

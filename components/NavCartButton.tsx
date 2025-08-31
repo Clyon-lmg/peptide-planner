@@ -28,7 +28,7 @@ export default async function NavCartButton() {
   return (
     <Link
       href="/cart"
-      className="relative inline-flex items-center rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50"
+          className="relative inline-flex items-center rounded-lg border px-3 py-1.5 text-sm hover:bg-muted/20"
       title="Cart"
     >
       {/* Simple cart glyph */}
@@ -40,7 +40,7 @@ export default async function NavCartButton() {
           className="
             absolute -top-2 -right-2
             inline-flex min-w-[20px] items-center justify-center
-            rounded-full bg-green-600 px-1.5 py-0.5
+            rounded-full bg-success px-1.5 py-0.5
             text-xs font-semibold leading-none text-white
           "
           aria-label={`${count} items in cart`}

@@ -35,11 +35,11 @@ export default function SignInForm({
       {method === 'magic' ? (
         <>
           {err ? (
-            <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                      <div className="rounded border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
               {err}
             </div>
           ) : (
-            <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                          <div className="rounded border border-info/20 bg-info/10 p-3 text-sm text-info">
               {msg}
             </div>
           )}
@@ -57,7 +57,7 @@ export default function SignInForm({
             </label>
             <button
               type="submit"
-              className="rounded px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+                          className="rounded px-4 py-2 text-sm bg-success hover:bg-success/90 text-white"
             >
               Send magic link
             </button>
@@ -66,11 +66,11 @@ export default function SignInForm({
       ) : (
         <>
           {state.error ? (
-            <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                          <div className="rounded border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
               {state.error}
             </div>
           ) : (
-            <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                              <div className="rounded border border-info/20 bg-info/10 p-3 text-sm text-info">
               Enter your email and password to sign in.
             </div>
           )}
@@ -97,14 +97,14 @@ export default function SignInForm({
             </label>
             <button
               type="submit"
-              className="rounded px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+                              className="rounded px-4 py-2 text-sm bg-success hover:bg-success/90 text-white"
             >
               Sign in
             </button>
           </form>
         </>
       )}
-      <div className="text-xs text-gray-600">
+          <div className="text-xs text-muted">
         {method === 'magic' ? (
           <button
             type="button"

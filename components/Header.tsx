@@ -66,7 +66,7 @@ export default function Header() {
             <Link href="/cart" className="relative hover:underline">
                 Cart
                 {cartCount > 0 && (
-                    <span className="ml-1 inline-flex items-center justify-center min-w-5 h-5 px-1 text-xs rounded-full border border-neutral-300 dark:border-neutral-700">
+                     <span className="ml-1 inline-flex items-center justify-center min-w-5 h-5 px-1 text-xs rounded-full border border-border">
                         {cartCount}
                     </span>
                 )}
@@ -76,10 +76,10 @@ export default function Header() {
             {authReady ? (
                 email ? (
                     <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700">
+                         <span className="text-xs px-2 py-1 rounded border border-border">
                             {email}
                         </span>
-                        <button onClick={signOut} className="px-2 py-1 rounded border border-neutral-300 dark:border-neutral-700">
+                         <button onClick={signOut} className="px-2 py-1 rounded border border-border">
                             Sign out
                         </button>
                     </div>
@@ -87,14 +87,14 @@ export default function Header() {
                     <Link href="/login" className="ml-2 underline">Sign in</Link>
                 )
             ) : (
-                <span className="text-xs text-neutral-500">Checking session…</span>
+                     <span className="text-xs text-muted">Checking session…</span>
             )}
             <span className="text-xs opacity-60">For research purposes only</span>
         </>
     );
 
     return (
-        <header className="w-full border-b border-neutral-200 dark:border-neutral-800">
+        <header className="w-full border-b border-border">
             <div className="mx-auto max-w-6xl p-4">
                 <div className="flex items-center justify-between">
                     <Link href="/" className="font-semibold">Peptide Planner</Link>

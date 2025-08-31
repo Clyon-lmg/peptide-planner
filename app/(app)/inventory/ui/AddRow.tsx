@@ -80,7 +80,7 @@ export default function AddRow({
                         ))}
                     </select>
                     <button
-                        className="btn bg-green-600 hover:bg-green-700 text-sm text-white"
+                        className="btn bg-success hover:bg-success/90 text-sm text-white"
                         type="submit"
                         disabled={isPending}
                     >
@@ -109,7 +109,7 @@ export default function AddRow({
                         ))}
                     </select>
                     <button
-                        className="btn bg-green-600 hover:bg-green-700 text-sm text-white"
+                        className="btn bg-success hover:bg-success/90 text-sm text-white"
                         type="submit"
                         disabled={isPending}
                     >
@@ -143,7 +143,7 @@ export default function AddRow({
                         </label>
                     </div>
                     <button
-                        className="btn bg-green-600 hover:bg-green-700 text-sm text-white"
+                        className="btn bg-success hover:bg-success/90 text-sm text-white"
                         type="submit"
                         disabled={isPending}
                     >

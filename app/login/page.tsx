@@ -48,9 +48,9 @@ export default function LoginPage() {
             required
           />
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {notice && <p className="text-sm text-green-600">{notice}</p>}
-        <button
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              {notice && <p className="text-sm text-success">{notice}</p>}
+              <button
           type="submit"
           disabled={busy}
           className="w-full rounded border px-3 py-2 disabled:opacity-50"

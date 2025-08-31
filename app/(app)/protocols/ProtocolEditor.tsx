@@ -169,7 +169,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
         <h3 className="pp-h2">{protocol.name}</h3>
         <div className="flex gap-2">
           <button
-            className="btn bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
+                          className="btn bg-info hover:bg-info/90 text-white disabled:opacity-60"
             onClick={save}
             disabled={saving}
             type="button"
@@ -177,7 +177,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
             {saving ? "Saving…" : "Save"}
           </button>
           <button
-            className="btn bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60"
+                          className="btn bg-success hover:bg-success/90 text-white disabled:opacity-60"
             onClick={activate}
             disabled={activating}
             type="button"

@@ -165,7 +165,7 @@ export default async function CartVendorCard({ vendorId }: { vendorId: number })
                 {l.kind === "vial" ? "Vials" : "Bottles"}: {l.qty}
               </div>
               {selected ? (
-                <div className="text-xs text-emerald-600 dark:text-emerald-400">
+                        <div className="text-xs text-success">
                   Coupon <span className="font-mono">{selected.code}</span>{" "}
                   {selected.percent_off ? `(-${selected.percent_off}% )` : ""}
                   {selected.amount_off ? `(-$${Number(selected.amount_off).toFixed(2)} ea)` : ""}

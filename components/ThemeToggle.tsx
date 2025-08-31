@@ -23,7 +23,7 @@ export function ThemeToggle() {
   };
 
   return (
-    <button onClick={toggle} className="px-3 py-2 rounded border border-neutral-300 dark:border-neutral-700 text-sm">
+      <button onClick={toggle} className="px-3 py-2 rounded border border-border text-sm">
       {dark ? 'Dark' : 'Light'} mode
     </button>
   );

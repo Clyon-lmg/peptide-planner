@@ -58,7 +58,7 @@ export default function SignUpPage({ searchParams }: PageProps) {
       <div className="rounded-xl border p-6 space-y-4">
         <h1 className="text-2xl font-semibold">Create account</h1>
         {err && (
-          <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                  <div className="rounded border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
             {decodeURIComponent(err)}
           </div>
         )}
@@ -92,12 +92,12 @@ export default function SignUpPage({ searchParams }: PageProps) {
           </label>
           <button
             type="submit"
-            className="rounded px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white"
+                      className="rounded px-4 py-2 text-sm bg-success hover:bg-success/90 text-white"
           >
             Sign up
           </button>
         </form>
-        <div className="text-xs text-gray-600">
+              <div className="text-xs text-muted">
           Already have an account?{" "}
           <Link href="/sign-in" className="underline">
             Sign in

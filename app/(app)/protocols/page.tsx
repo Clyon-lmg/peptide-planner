@@ -135,7 +135,7 @@ export default function ProtocolsPage() {
       <div className="flex items-center justify-between mb-4">
               <h1 className="pp-h1">Protocols</h1>
               <button
-                  className="btn bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-60"
+                  className="btn bg-success hover:bg-success/90 text-white disabled:opacity-60"
                   onClick={createProtocol}
                   disabled={creating}
               >
@@ -160,7 +160,7 @@ export default function ProtocolsPage() {
                                       <div>
                                           <div className="font-medium">{p.name}</div>
                                           {p.is_active && (
-                                              <div className="text-xs text-emerald-600">Active</div>
+                                              <div className="text-xs text-success">Active</div>
                                           )}
                                       </div>
                                       <div className="flex gap-2">
@@ -176,7 +176,7 @@ export default function ProtocolsPage() {
                                           </button>
                                           <button
                                               type="button"
-                                              className="btn text-xs bg-red-600 text-white hover:bg-red-700"
+                                              className="btn text-xs bg-destructive text-white hover:bg-destructive/90"
                                               onClick={(e) => {
                           e.stopPropagation();
                           deleteProtocol(p);

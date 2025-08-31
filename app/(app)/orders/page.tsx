@@ -212,7 +212,7 @@ export default async function OrdersPage() {
                       <input type="hidden" name="order_id" value={o.id} />
                       <button
                         type="submit"
-                                              className="btn text-xs bg-red-600 hover:bg-red-700 text-white"
+                                              className="btn text-xs bg-destructive hover:bg-destructive/90 text-white"
                         title="Delete order"
                       >
                         Delete
@@ -227,9 +227,9 @@ export default async function OrdersPage() {
                     <span
                       className={
                         o.status === "RECEIVED"
-                          ? "text-green-700"
-                          : o.status === "PLACED"
-                          ? "text-blue-700"
+                                                  ? "text-success"
+                                                  : o.status === "PLACED"
+                                                      ? "text-info"
                                                       : "text-muted"
                       }
                     >
@@ -254,7 +254,7 @@ export default async function OrdersPage() {
                     </label>
                     <button
                       type="submit"
-                                          className="btn bg-blue-600 hover:bg-blue-700 text-sm text-white"
+                                          className="btn bg-info hover:bg-info/90 text-sm text-white"
                     >
                       Save
                     </button>

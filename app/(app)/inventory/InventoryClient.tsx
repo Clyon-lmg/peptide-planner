@@ -13,7 +13,7 @@ import { toast } from "sonner";
  *     action={addPeptideByIdAction}        // a server action imported where you use the button
  *     payload={{ peptide_id: 123 }}
  *     label="Add"
- *     className="rounded px-3 py-2 bg-green-600 hover:bg-green-700 text-white"
+ *     className="rounded px-3 py-2 bg-success hover:bg-success/90 text-white"
  *   />
  *
  * NOTE: This file intentionally does NOT import any actions.
@@ -24,7 +24,7 @@ export function InventoryActionButton({
   action,
   payload,
   label = "Save",
-  className = "rounded px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white",
+    className = "rounded px-3 py-2 bg-info hover:bg-info/90 text-white",
   successMessage = "Done",
   errorMessage = "Action failed",
 }: {
@@ -75,7 +75,7 @@ export function AddToCartButton(props: Omit<React.ComponentProps<typeof Inventor
   return (
     <InventoryActionButton
       label="Add"
-      className="w-full rounded px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white"
+          className="w-full rounded px-2 py-1 text-xs bg-success hover:bg-success/90 text-white"
       successMessage="Added to cart"
       errorMessage="Could not add to cart"
       {...props}

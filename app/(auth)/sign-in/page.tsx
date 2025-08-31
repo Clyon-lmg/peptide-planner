@@ -77,7 +77,7 @@ export default function SignInPage({ searchParams }: PageProps) {
           msg={msg}
           redirect={redirectTo}
         />
-        <div className="text-xs text-gray-600">
+              <div className="text-xs text-muted">
           Having trouble?{" "}
           <Link href="/" className="underline">
             Go home

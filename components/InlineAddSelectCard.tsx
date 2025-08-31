@@ -49,8 +49,8 @@ export function InlineAddSelectCard({
                     Add
                 </button>
 
-                {state.message && <div className="text-sm text-red-600">{state.message}</div>}
-                {state.ok && <div className="text-sm text-green-600">Added.</div>}
+                {state.message && <div className="text-sm text-destructive">{state.message}</div>}
+                {state.ok && <div className="text-sm text-success">Added.</div>}
             </form>
         </Card>
     );
