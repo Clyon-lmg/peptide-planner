@@ -325,9 +325,7 @@ export default function CartPage() {
                                           {l.quantity_units ? ` • units ${l.quantity_units}` : ''}
                                       </span>
                                   </div>
-                                  <div className="text-sm opacity-70">
-                                      Vendor #{l.vendor_id}
-                                  </div>
+                                  <div className="text-sm opacity-70">Vendor #{l.vendor_id}</div>
                               </div>
                           ))}
                       </div>
