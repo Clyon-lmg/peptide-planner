@@ -5,8 +5,8 @@ module.exports = {
     theme: {
         extend: {
             colors: {
-                bg: 'rgb(var(--bg))',
-                fg: 'rgb(var(--fg))',
+                background: 'rgb(var(--bg))',
+                foreground: 'rgb(var(--fg))',
                 card: 'rgb(var(--card))',
                 border: 'rgb(var(--border))',
                 ring: 'rgb(var(--ring))',
