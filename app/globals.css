@@ -1,7 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+"@tailwindcss/postcss": {
+}
 
+,
 :root {
     --bg: 255 255 255;
     --fg: 15 23 42;
