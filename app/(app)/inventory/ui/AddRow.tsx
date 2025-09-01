@@ -128,7 +128,8 @@ export default function AddRow({
                             name="name"
                             type="text"
                             placeholder="e.g., BPC-157"
-                            className="mt-1 input"
+                            className="mt-1 input max-w-[75ch]"
+                            maxLength={75}
                             required
                         />
                     </label>
