@@ -442,8 +442,9 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "bottles") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "bottles", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 input"
-                        aria-label={`Bottles for ${item.canonical_name}`}
+                                  maxLength={10}
+                                  className="mt-1 input !max-w-[10ch]"
+                                  aria-label={`Bottles for ${item.canonical_name}`}
                       />
                     </label>
                           <label className="flex flex-col w-full min-w-0 text-sm">
@@ -455,8 +456,9 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "caps_per_bottle") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "caps_per_bottle", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 input"
-                        aria-label={`Caps per bottle for ${item.canonical_name}`}
+                                  maxLength={10}
+                                  className="mt-1 input !max-w-[10ch]"
+                                  aria-label={`Caps per bottle for ${item.canonical_name}`}
                       />
                     </label>
                           <label className="flex flex-col w-full min-w-0 text-sm">
@@ -469,8 +471,9 @@ export default function InventoryList({
                         value={String(currentCapsValue(item, "mg_per_cap") ?? "")}
                         onChange={(e) => onChangeCaps(item.id, "mg_per_cap", parseNum(e.target.value))}
                         disabled={saving}
-                        className="mt-1 input"
-                        aria-label={`mg per cap for ${item.canonical_name}`}
+                                  maxLength={10}
+                                  className="mt-1 input !max-w-[10ch]"
+                                  aria-label={`mg per cap for ${item.canonical_name}`}
                       />
                     </label>
                           <label className="flex flex-col w-full min-w-0 text-sm">
@@ -483,7 +486,8 @@ export default function InventoryList({
                                   value={String(currentCapsValue(item, "half_life_hours") ?? "")}
                                   onChange={(e) => onChangeCaps(item.id, "half_life_hours", parseNum(e.target.value))}
                                   disabled={saving}
-                                  className="mt-1 input"
+                                  maxLength={10}
+                                  className="mt-1 input !max-w-[10ch]"
                                   aria-label={`Half-life hours for ${item.canonical_name}`}
                               />
                           </label>
