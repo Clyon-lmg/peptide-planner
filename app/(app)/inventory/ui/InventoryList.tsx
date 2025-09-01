@@ -273,7 +273,7 @@ export default function InventoryList({
                   </div>
 
                                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 min-w-0">
-                                      <label className="text-sm min-w-0">
+                                      <label className="flex flex-col w-full min-w-0 text-sm">
                                           Vials
                       <input
                         type="number"
@@ -286,7 +286,7 @@ export default function InventoryList({
                        aria-label={`Vials for ${item.canonical_name}`}
                       />
                     </label>
-                                      <label className="text-sm min-w-0">
+                                      <label className="flex flex-col w-full min-w-0 text-sm">
                       mg / vial
                       <input
                         type="number"
@@ -300,7 +300,7 @@ export default function InventoryList({
                         aria-label={`mg per vial for ${item.canonical_name}`}
                       />
                     </label>
-                                      <label className="text-sm min-w-0">
+                                      <label className="flex flex-col w-full min-w-0 text-sm">
                       mL BAC
                       <input
                         type="number"
@@ -314,7 +314,7 @@ export default function InventoryList({
                         aria-label={`BAC mL for ${item.canonical_name}`}
                       />
                     </label>
-                    <label className="text-sm min-w-0">
+                                      <label className="flex flex-col w-full min-w-0 text-sm">
                       Half-life (hrs)
                       <input
                         type="number"
@@ -429,7 +429,7 @@ export default function InventoryList({
                   </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 min-w-0">
-                          <label className="text-sm min-w-0">
+                          <label className="flex flex-col w-full min-w-0 text-sm">
                               Bottles
                       <input
                         type="number"
@@ -442,7 +442,7 @@ export default function InventoryList({
                         aria-label={`Bottles for ${item.canonical_name}`}
                       />
                     </label>
-                          <label className="text-sm min-w-0">
+                          <label className="flex flex-col w-full min-w-0 text-sm">
                       Caps / bottle
                       <input
                         type="number"
@@ -455,7 +455,7 @@ export default function InventoryList({
                         aria-label={`Caps per bottle for ${item.canonical_name}`}
                       />
                     </label>
-                          <label className="text-sm min-w-0">
+                          <label className="flex flex-col w-full min-w-0 text-sm">
                       mg / cap
                       <input
                         type="number"
@@ -469,7 +469,7 @@ export default function InventoryList({
                         aria-label={`mg per cap for ${item.canonical_name}`}
                       />
                     </label>
-                          <label className="text-sm min-w-0">
+                          <label className="flex flex-col w-full min-w-0 text-sm">
                               Half-life (hrs)
                               <input
                                   type="number"
