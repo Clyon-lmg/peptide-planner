@@ -314,7 +314,7 @@ export default function InventoryList({
                         aria-label={`BAC mL for ${item.canonical_name}`}
                       />
                     </label>
-                    <label className="text-sm">
+                    <label className="text-sm min-w-0">
                       Half-life (hrs)
                       <input
                         type="number"
@@ -469,21 +469,21 @@ export default function InventoryList({
                         aria-label={`mg per cap for ${item.canonical_name}`}
                       />
                     </label>
-                                        <label className="text-sm">
-                      Half-life (hrs)
-                      <input
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        inputMode="decimal"
-                        value={String(currentCapsValue(item, "half_life_hours") ?? "")}
-                        onChange={(e) => onChangeCaps(item.id, "half_life_hours", parseNum(e.target.value))}
-                        disabled={saving}
-                        className="mt-1 input"
-                        aria-label={`Half-life hours for ${item.canonical_name}`}
-                      />
-                    </label>
-                  </div>
+                          <label className="text-sm min-w-0">
+                              Half-life (hrs)
+                              <input
+                                  type="number"
+                                  step="0.01"
+                                  min={0}
+                                  inputMode="decimal"
+                                  value={String(currentCapsValue(item, "half_life_hours") ?? "")}
+                                  onChange={(e) => onChangeCaps(item.id, "half_life_hours", parseNum(e.target.value))}
+                                  disabled={saving}
+                                  className="mt-1 input"
+                                  aria-label={`Half-life hours for ${item.canonical_name}`}
+                              />
+                          </label>
+                      </div>
 
                   <div className="flex items-center gap-2">
                     <button
