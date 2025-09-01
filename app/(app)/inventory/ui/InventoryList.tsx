@@ -282,9 +282,10 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "vials") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "vials", parseNum(e.target.value))}
                         disabled={saving}
-                       className="mt-1 input"
-                       aria-label={`Vials for ${item.canonical_name}`}
-                      />
+                                              maxLength={10}
+                                              className="mt-1 input !max-w-[10ch]"
+                                              aria-label={`Vials for ${item.canonical_name}`}
+                                          />
                     </label>
                                       <label className="flex flex-col w-full min-w-0 text-sm">
                       mg / vial
@@ -296,8 +297,9 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "mg_per_vial") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "mg_per_vial", parseNum(e.target.value))}
                         disabled={saving}
-                                              className="mt-1 input"
-                        aria-label={`mg per vial for ${item.canonical_name}`}
+                                              maxLength={10}
+                                              className="mt-1 input !max-w-[10ch]"
+                                              aria-label={`mg per vial for ${item.canonical_name}`}
                       />
                     </label>
                                       <label className="flex flex-col w-full min-w-0 text-sm">
@@ -310,8 +312,9 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "bac_ml") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "bac_ml", parseNum(e.target.value))}
                         disabled={saving}
-                                              className="mt-1 input"
-                        aria-label={`BAC mL for ${item.canonical_name}`}
+                                              maxLength={10}
+                                              className="mt-1 input !max-w-[10ch]"
+                                              aria-label={`BAC mL for ${item.canonical_name}`}
                       />
                     </label>
                                       <label className="flex flex-col w-full min-w-0 text-sm">
@@ -324,8 +327,9 @@ export default function InventoryList({
                         value={String(currentVialValue(item, "half_life_hours") ?? "")}
                         onChange={(e) => onChangeVial(item.id, "half_life_hours", parseNum(e.target.value))}
                         disabled={saving}
-                                              className="mt-1 input"
-                        aria-label={`Half-life hours for ${item.canonical_name}`}
+                                              maxLength={10}
+                                              className="mt-1 input !max-w-[10ch]"
+                                              aria-label={`Half-life hours for ${item.canonical_name}`}
                         />
                     </label>
                   </div>
