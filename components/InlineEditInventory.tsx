@@ -33,7 +33,7 @@ export function InlineEditInventory({
           type="number"
           min={0}
           defaultValue={vials}
-          className="mt-1 w-full rounded-lg border px-2 py-1"
+                  className="mt-1 w-full rounded-lg border px-2 py-1 text-foreground"
         />
       </label>
 
@@ -45,7 +45,7 @@ export function InlineEditInventory({
           step="0.01"
           min={0}
           defaultValue={mg_per_vial}
-          className="mt-1 w-full rounded-lg border px-2 py-1"
+                  className="mt-1 w-full rounded-lg border px-2 py-1 text-foreground"
         />
       </label>
 
@@ -57,7 +57,7 @@ export function InlineEditInventory({
           step="0.01"
           min={0}
           defaultValue={bac_ml}
-          className="mt-1 w-full rounded-lg border px-2 py-1"
+                  className="mt-1 w-full rounded-lg border px-2 py-1 text-foreground"
         />
       </label>
 

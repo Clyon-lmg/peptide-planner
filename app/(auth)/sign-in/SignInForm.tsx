@@ -52,7 +52,7 @@ export default function SignInForm({
                 type="email"
                 required
                 placeholder="you@example.com"
-                className="mt-1 w-full rounded border px-3 py-2"
+                              className="mt-1 w-full rounded border px-3 py-2 text-foreground"
               />
             </label>
             <button
@@ -83,7 +83,7 @@ export default function SignInForm({
                 type="email"
                 required
                 placeholder="you@example.com"
-                className="mt-1 w-full rounded border px-3 py-2"
+                                  className="mt-1 w-full rounded border px-3 py-2 text-foreground"
               />
             </label>
             <label className="block text-sm">
@@ -92,7 +92,7 @@ export default function SignInForm({
                 name="password"
                 type="password"
                 required
-                className="mt-1 w-full rounded border px-3 py-2"
+                                  className="mt-1 w-full rounded border px-3 py-2 text-foreground"
               />
             </label>
             <button

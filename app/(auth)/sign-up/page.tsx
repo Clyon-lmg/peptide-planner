@@ -69,7 +69,7 @@ export default function SignUpPage({ searchParams }: PageProps) {
               name="email"
               type="email"
               required
-              className="mt-1 w-full rounded border px-3 py-2"
+                          className="mt-1 w-full rounded border px-3 py-2 text-foreground"
             />
           </label>
           <label className="block text-sm">
@@ -79,7 +79,7 @@ export default function SignUpPage({ searchParams }: PageProps) {
               type="password"
               required
               minLength={6}
-              className="mt-1 w-full rounded border px-3 py-2"
+                          className="mt-1 w-full rounded border px-3 py-2 text-foreground"
             />
           </label>
           <label className="block text-sm">
@@ -87,7 +87,7 @@ export default function SignUpPage({ searchParams }: PageProps) {
             <input
               name="username"
               type="text"
-              className="mt-1 w-full rounded border px-3 py-2"
+                          className="mt-1 w-full rounded border px-3 py-2 text-foreground"
             />
           </label>
           <button

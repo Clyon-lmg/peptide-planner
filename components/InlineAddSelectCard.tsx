@@ -30,7 +30,7 @@ export function InlineAddSelectCard({
                 <div className="font-medium">{title}</div>
 
                 <select
-                    className="w-full rounded-lg border px-3 py-2"
+                    className="w-full rounded-lg border px-3 py-2 text-foreground"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                 >

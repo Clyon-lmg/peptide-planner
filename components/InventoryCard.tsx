@@ -116,7 +116,7 @@ export default function InventoryCard(p: Props) {
                     <label className="block text-xs mb-1">Vials (entered)</label>
                     <input
                         type="number" min={0}
-                        className="w-full px-2 py-1 rounded border border-border bg-transparent"
+                        className="w-full px-2 py-1 rounded border border-border bg-transparent text-foreground"
                         value={state.vials}
                         onChange={e => updateField({ vials: parseInt(e.target.value || '0', 10) })}
                     />
@@ -125,7 +125,7 @@ export default function InventoryCard(p: Props) {
                     <label className="block text-xs mb-1">mg / vial</label>
                     <input
                         type="number" step="0.01" min={0}
-                        className="w-full px-2 py-1 rounded border border-border bg-transparent"
+                        className="w-full px-2 py-1 rounded border border-border bg-transparent text-foreground"
                         value={state.mg_per_vial}
                         onChange={e => updateField({ mg_per_vial: parseFloat(e.target.value || '0') })}
                     />
@@ -134,7 +134,7 @@ export default function InventoryCard(p: Props) {
                     <label className="block text-xs mb-1">BAC ml</label>
                     <input
                         type="number" step="0.01" min={0}
-                        className="w-full px-2 py-1 rounded border border-border bg-transparent"
+                        className="w-full px-2 py-1 rounded border border-border bg-transparent text-foreground"
                         value={state.bac_ml}
                         onChange={e => updateField({ bac_ml: parseFloat(e.target.value || '0') })}
                     />

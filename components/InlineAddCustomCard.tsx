@@ -24,7 +24,7 @@ export function InlineAddCustomCard({
                 <input
                     name="custom_name"
                     placeholder="Custom item name"
-                    className="w-full rounded-lg border px-3 py-2 !max-w-[22ch]"
+                    className="w-full rounded-lg border px-3 py-2 !max-w-[22ch] text-foreground"
                     maxLength={22}
                 />
 

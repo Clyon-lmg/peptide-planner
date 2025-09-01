@@ -28,7 +28,7 @@ export function InlineAddCard({
                 <input
                     name={name}
                     placeholder={placeholder}
-                    className="w-full rounded-lg border px-3 py-2"
+                    className="w-full rounded-lg border px-3 py-2 text-foreground"
                 />
                 <button className="rounded-xl border px-3 py-2">Add</button>
                 {state.message && <div className="text-sm text-destructive">{state.message}</div>}

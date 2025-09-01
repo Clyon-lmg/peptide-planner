@@ -51,7 +51,7 @@ export function AddToCartButton({
         min={1}
         value={qty}
         onChange={(e) => setQty(Number(e.target.value))}
-        className="w-20 rounded-lg border px-2 py-1"
+              className="w-20 rounded-lg border px-2 py-1 text-foreground"
         aria-label="Quantity"
       />
 

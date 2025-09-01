@@ -44,7 +44,7 @@ export default function CouponSelect({
         onChange={(e) => onChange(e.target.value)}
         disabled={isPending}
         className="
-          text-sm rounded-lg border
+          text-sm rounded-lg border text-foreground
           border-border bg-background
           px-2 py-1
           focus:outline-none focus:ring-2 focus:ring-primary/30
