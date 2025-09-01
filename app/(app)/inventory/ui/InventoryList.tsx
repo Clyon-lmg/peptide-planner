@@ -248,7 +248,7 @@ export default function InventoryList({
                           return (
                               <Card
                                   key={item.id}
-                                  className="shadow-sm space-y-4"
+                                  className="shadow-sm space-y-4 min-w-0"
                               >
                                   <div className="flex items-start justify-between">
                                       <h3 className="font-semibold">{item.canonical_name}</h3>
@@ -335,7 +335,7 @@ export default function InventoryList({
                       type="button"
                       onClick={() => handleSaveVial(item)}
                       disabled={!dirty || saving}
-                                          className="mt-1 input"
+                                          className="btn bg-info hover:bg-info/90 text-sm text-white disabled:opacity-50"
                       title="Save changes"
                       aria-busy={saving}
                       aria-label={`Save ${item.canonical_name}`}
@@ -346,7 +346,7 @@ export default function InventoryList({
                       <button
                         type="button"
                         onClick={() => clearVial(item.id)}
-                                              className="mt-1 input"
+                                              className="btn text-sm"
                         title="Discard changes"
                       >
                         Discard
@@ -404,7 +404,7 @@ export default function InventoryList({
               return (
                   <Card
                       key={item.id}
-                      className="shadow-sm space-y-4"                >
+                      className="shadow-sm space-y-4 min-w-0"                >
                   <div className="flex items-start justify-between">
                     <h3 className="font-semibold">{item.canonical_name}</h3>
                     <button
