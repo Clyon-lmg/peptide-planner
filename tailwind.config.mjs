@@ -12,10 +12,27 @@ export default {
         },
         extend: {
             spacing: {
+                0: "0px",               // enables `p-0`
+                1: "0.25rem",           // enables `p-1`
+                2: "0.5rem",            // enables `p-2`
+                3: "0.75rem",           // enables `p-3`
                 4: "1rem",              // enables `p-4`
+                5: "1.25rem",           // enables `p-5`
+                6: "1.5rem",            // enables `p-6`
+                8: "2rem",              // enables `p-8`
+                9: "2.25rem",           // enables `p-9`
+                10: "2.5rem",           // enables `p-10`
+                20: "5rem",             // enables `p-20`
+                24: "6rem",             // enables `p-24`
             },
             borderRadius: {
+                sm: "0.125rem",          // enables `rounded-sm`
+                DEFAULT: "0.25rem",      // enables `rounded`
+                md: "0.375rem",          // enables `rounded-md`
+                lg: "0.5rem",            // enables `rounded-lg`
+                xl: "0.75rem",           // enables `rounded-xl`
                 "2xl": "1rem",          // enables `rounded-2xl`
+                full: "9999px",          // enables `rounded-full`
             },
             colors: {
                 background: "rgb(var(--background) / <alpha-value>)",
