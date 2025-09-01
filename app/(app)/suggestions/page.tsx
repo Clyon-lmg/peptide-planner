@@ -19,7 +19,7 @@ export default async function SuggestionsPage() {
                 <button className="btn">Add</button>
             </form>
         </Card>
-        <div className="grid-cards">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {(suggestions ?? []).map((s: any) => <Card key={s.id}>
                 <div className="text-lg font-semibold">{s.title}</div>
                 <div className="pp-subtle mt-1">{s.note}</div>

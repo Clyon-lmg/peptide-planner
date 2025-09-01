@@ -240,7 +240,7 @@ export default function InventoryList({
               {vials.length === 0 ? (
                   <p className="pp-subtle">No peptides yet.</p>
               ) : (
-                  <div className="grid-cards p-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 p-4">
                       {vials.map((item) => {
                           const dirty = isVialDirty(item);
                           const saving = savingIds.has(`vial-${item.id}`);
@@ -396,7 +396,7 @@ export default function InventoryList({
                   <p className="pp-subtle">No capsules yet.</p>
 
         ) : (
-                      <div className="grid-cards p-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 p-4">
             {capsules.map((item) => {
               const dirty = isCapsDirty(item);
               const saving = savingIds.has(`cap-${item.id}`);
