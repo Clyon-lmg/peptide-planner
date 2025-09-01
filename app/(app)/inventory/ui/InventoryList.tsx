@@ -272,9 +272,9 @@ export default function InventoryList({
                     </Pill>
                   </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                    <label className="text-sm">
-                      Vials
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 min-w-0">
+                                      <label className="text-sm min-w-0">
+                                          Vials
                       <input
                         type="number"
                         min={0}
@@ -286,7 +286,7 @@ export default function InventoryList({
                        aria-label={`Vials for ${item.canonical_name}`}
                       />
                     </label>
-                    <label className="text-sm">
+                                      <label className="text-sm min-w-0">
                       mg / vial
                       <input
                         type="number"
@@ -300,7 +300,7 @@ export default function InventoryList({
                         aria-label={`mg per vial for ${item.canonical_name}`}
                       />
                     </label>
-                    <label className="text-sm">
+                                      <label className="text-sm min-w-0">
                       mL BAC
                       <input
                         type="number"
@@ -428,9 +428,9 @@ export default function InventoryList({
                     </Pill>
                   </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                    <label className="text-sm">
-                      Bottles
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 min-w-0">
+                          <label className="text-sm min-w-0">
+                              Bottles
                       <input
                         type="number"
                         min={0}
@@ -442,7 +442,7 @@ export default function InventoryList({
                         aria-label={`Bottles for ${item.canonical_name}`}
                       />
                     </label>
-                    <label className="text-sm">
+                          <label className="text-sm min-w-0">
                       Caps / bottle
                       <input
                         type="number"
@@ -455,7 +455,7 @@ export default function InventoryList({
                         aria-label={`Caps per bottle for ${item.canonical_name}`}
                       />
                     </label>
-                    <label className="text-sm">
+                          <label className="text-sm min-w-0">
                       mg / cap
                       <input
                         type="number"
