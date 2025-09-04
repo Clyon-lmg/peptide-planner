@@ -87,7 +87,10 @@ export default function WeightPage() {
               step="0.1"
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
-              className="input"
+              className="input w-[6ch]"
+              max={999999}
+              maxLength={6}
+              size={6}
               required
             />
           </label>
@@ -97,7 +100,9 @@ export default function WeightPage() {
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="input"
+              className="input w-full max-w-[200ch]"
+              maxLength={200}
+              size={200}
             />
           </label>
           <button type="submit" className="btn">
