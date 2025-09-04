@@ -14,6 +14,7 @@ export type TodayDoseRow = {
   status: DoseStatus;
   remainingDoses?: number | null;
   reorderDateISO?: string | null;
+  time_of_day: string | null;
 };
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
@@ -36,7 +37,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
   const { data: items } = await sa
     .from("protocol_items")
-    .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days")
+    .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,time_of_day")
     .eq("protocol_id", protocol.id);
 
   if (!items?.length) return [];
@@ -105,6 +106,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
       status: statusByPeptide.get(pid) || "PENDING",
       remainingDoses,
       reorderDateISO,
+      time_of_day: (it as any).time_of_day ?? null,
     };
   });
 

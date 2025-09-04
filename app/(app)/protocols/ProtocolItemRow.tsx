@@ -13,6 +13,7 @@ export type ProtocolItemState = {
   cycle_off_weeks: number;
   every_n_days?: number | null;
   color: string;
+  time_of_day?: string | null;
   };
 
 export default function ProtocolItemRow({
@@ -69,7 +70,19 @@ export default function ProtocolItemRow({
                   />
               </div>
 
+              {/* Time of day */}
+              <div className="col-span-6 md:col-span-2">
+                  <label className="block text-xs text-muted mb-1">Time</label>
+                  <input
+                      type="time"
+                      className="input"
+                      value={v.time_of_day ?? ""}
+                      onChange={(e) => onChange({ ...v, time_of_day: e.target.value || null })}
+                  />
+              </div>
+
               {/* Schedule */}
+              <div className="col-span-6 md:col-span-2">
               <div className="col-span-6 md:col-span-3">
                   <label className="block text-xs text-muted mb-1">Schedule</label>
                   <select
@@ -94,6 +107,7 @@ export default function ProtocolItemRow({
               </div>
 
               {/* Delete button aligned far right */}
+              <div className="col-span-12 md:col-span-1 flex md:justify-end">
               <div className="col-span-12 md:col-span-2 flex md:justify-end">
                   <button
                       type="button"

@@ -11,6 +11,7 @@ export interface ProtocolItem {
   cycle_on_weeks?: number | null;
   cycle_off_weeks?: number | null;
   every_n_days?: number | null;
+  time_of_day?: string | null;
 }
 
 export type ScheduleItem = {
@@ -64,6 +65,7 @@ export type DailyDoseRow = {
   peptide_id: number;
   canonical_name: string;
   dose_mg: number;
+  time_of_day: string | null;
 };
 
 /**
@@ -84,5 +86,6 @@ export function generateDailyDoses(
       peptide_id: Number(it.peptide_id),
       canonical_name: it.canonical_name,
       dose_mg: Number(it.dose_mg_per_administration || 0),
+      time_of_day: it.time_of_day ?? null,
     }));
 }

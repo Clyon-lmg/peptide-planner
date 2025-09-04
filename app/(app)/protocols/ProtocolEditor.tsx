@@ -54,6 +54,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
         cycle_off_weeks: Number(r.cycle_off_weeks || 0),
         every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
         color: r.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
+        time_of_day: r.time_of_day || null,
     }));
       setItems(mapped);
 
@@ -99,6 +100,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
           cycle_off_weeks: 0,
           every_n_days: 1,
           color: nextColor,
+          time_of_day: null,
         },
       ];
     });
@@ -125,6 +127,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
           cycle_on_weeks: i.cycle_on_weeks || 0,
           cycle_off_weeks: i.cycle_off_weeks || 0,
           color: i.color,
+          time_of_day: i.time_of_day,
        }));
 
       if (rows.length) {

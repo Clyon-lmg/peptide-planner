@@ -20,6 +20,7 @@ export type TodayDoseRow = {
   status: DoseStatus;
   remainingDoses?: number | null;
   reorderDateISO?: string | null;
+  time_of_day: string | null;
 };
 
 // ---- tiny types to avoid SWC comma/semicolon parsing issue in generics
@@ -49,7 +50,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
   const { data: items } = await sa
     .from('protocol_items')
     .select(
-      'peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,peptides(canonical_name)'
+'peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,time_of_day,peptides(canonical_name)'
     )
     .eq('protocol_id', protocol.id);
   if (!items?.length) return [];
@@ -63,7 +64,8 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     cycle_on_weeks: Number(it.cycle_on_weeks || 0),
     cycle_off_weeks: Number(it.cycle_off_weeks || 0),
     every_n_days: (it.every_n_days as number | null) ?? null,
-}));
+    time_of_day: (it.time_of_day as string | null) ?? null,
+  }));
 
   const dayRows = generateDailyDoses(
     dateISO,
@@ -162,6 +164,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
       status: statusByPeptide.get(pid) || 'PENDING',
       remainingDoses,
       reorderDateISO,
+      time_of_day: dr.time_of_day,
     };
   });
 

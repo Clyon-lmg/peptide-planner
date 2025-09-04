@@ -81,6 +81,7 @@ describe('getDosesForRange', () => {
           custom_days: null,
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
+          time_of_day: '08:00',
         },
       ],
       peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
@@ -95,6 +96,7 @@ describe('getDosesForRange', () => {
       rows.map((r: any) => r.date_for),
       ['2024-01-01', '2024-01-03', '2024-01-05', '2024-01-07']
     );
+    assert.equal(rows[0].time_of_day, '08:00');
   });
 
   it('handles non-UTC timezone offsets', async () => {
@@ -110,6 +112,7 @@ describe('getDosesForRange', () => {
           custom_days: null,
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
+          time_of_day: '08:00',
         },
       ],
       peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
@@ -142,6 +145,7 @@ describe('getDosesForRange', () => {
           custom_days: null,
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
+          time_of_day: '08:00',
         },
       ],
       peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
@@ -173,6 +177,7 @@ describe('getDosesForRange', () => {
           custom_days: null,
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
+          time_of_day: '08:00',
         },
       ],
       peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
@@ -246,6 +251,7 @@ describe('getDosesForRange', () => {
           custom_days: null,
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
+          time_of_day: '08:00',
         },
       ],
       peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
