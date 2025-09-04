@@ -80,21 +80,22 @@ export default function WeightPage() {
     <div className="space-y-4">
       <Card>
         <form onSubmit={addEntry} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <label className="flex flex-col">
+          <label className="flex flex-col flex-none">
             <span className="text-sm">Weight</span>
             <input
               type="number"
               step="0.1"
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
-              className="input w-[6ch]"
+              className="input"
+              style={{ width: "6ch" }}
               max={999999}
               maxLength={6}
               size={6}
               required
             />
           </label>
-          <label className="flex flex-col flex-1">
+          <label className="flex flex-col flex-1 min-w-0">
             <span className="text-sm">Note</span>
             <input
               type="text"
@@ -105,7 +106,7 @@ export default function WeightPage() {
               size={200}
             />
           </label>
-          <button type="submit" className="btn">
+          <button type="submit" className="btn flex-none">
             Add
           </button>
         </form>
