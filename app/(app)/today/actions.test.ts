@@ -87,9 +87,19 @@ describe('getTodayDosesWithUnits', () => {
           custom_days: null,
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
-          time_of_day: '08:00',
-          peptides: { canonical_name: 'Test Peptide' },
+          time_of_day: '09:00',
+          peptides: { canonical_name: 'Test Peptide A' },
         },
+        {
+          peptide_id: 12,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERY_N_DAYS',
+          every_n_days: 2,
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          time_of_day: '07:00',
+          peptides: { canonical_name: 'Test Peptide B' },        },
         {
           peptide_id: 11,
           dose_mg_per_administration: 1,
@@ -98,7 +108,7 @@ describe('getTodayDosesWithUnits', () => {
           custom_days: [1],
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
-          time_of_day: '09:00',
+          time_of_day: '08:00',
           peptides: { canonical_name: 'Unsched Peptide' },
         },
       ],
@@ -109,9 +119,15 @@ describe('getTodayDosesWithUnits', () => {
     (globalThis as any).__supabaseMock = supabase;
 
     const yes = await getTodayDosesWithUnits('2024-01-03');
-    assert.equal(yes.length, 1);
-    assert.equal(yes[0].peptide_id, 10);
-    assert.equal(yes[0].time_of_day, '08:00');
+    assert.equal(yes.length, 2);
+    assert.deepEqual(
+      yes.map((r) => r.time_of_day),
+      ['07:00', '09:00']
+    );
+    assert.deepEqual(
+      yes.map((r) => r.peptide_id),
+      [12, 10]
+    );
     assert.ok(!yes.find((r) => r.peptide_id === 11));
 
     const no = await getTodayDosesWithUnits('2024-01-02');

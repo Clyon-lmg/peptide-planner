@@ -57,6 +57,6 @@ describe('generateDailyDoses', () => {
   it('filters items correctly for a given date', () => {
     const rows = generateDailyDoses('2024-01-05', '2024-01-01', items); // Friday
     assert.deepEqual(rows.map(r => r.peptide_id), [1,2,3,4]);
-    assert.equal(rows[0].time_of_day, '08:00');
-});
-});
+    assert.deepEqual(rows.map(r => r.time_of_day), ['08:00', '09:00', '10:00', '11:00']);
+  });
+  });
