@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { Calendar, Package, Notebook, Home, ShoppingCart, ClipboardList } from "lucide-react"
+import { Calendar, Package, Notebook, Home, ShoppingCart, ClipboardList, Activity } from "lucide-react"
 const nav = [
   { href: "/today", label: "Today", icon: Home },
   { href: "/calendar", label: "Calendar", icon: Calendar },
@@ -10,6 +10,7 @@ const nav = [
   { href: "/protocol", label: "Protocol", icon: Notebook },
   { href: "/cart", label: "Cart", icon: ShoppingCart },
   { href: "/orders", label: "Orders", icon: ClipboardList },
+  { href: "/weight", label: "Weight", icon: Activity },
   ]
 export default function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
   const pathname = usePathname()
