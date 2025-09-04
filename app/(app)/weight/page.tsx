@@ -101,7 +101,8 @@ export default function WeightPage() {
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="input w-full max-w-[200ch]"
+              className="input"
+              style={{ width: "200ch" }}
               maxLength={200}
               size={200}
             />
