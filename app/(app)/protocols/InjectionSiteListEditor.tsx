@@ -55,7 +55,7 @@ export default function InjectionSiteListEditor({
       if (delErr) throw delErr;
 
       const rows = sites
-        .map((name, idx) => ({ list_id: list.id, name, position: idx }))
+        .map((name, idx) => ({ list_id: list.id, name, position: idx + 1 }))
         .filter((r) => r.name.trim().length > 0);
       if (rows.length) {
         const { error: insErr } = await supabase
