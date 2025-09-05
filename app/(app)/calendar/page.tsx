@@ -52,7 +52,7 @@ export default function CalendarPage() {
   function downloadIcs(e: React.FormEvent) {
     e.preventDefault();
     const url = `/api/calendar/export?start=${exportStart}&end=${exportEnd}`;
-    window.location.href = url;
+    window.location.assign(url);
   }
 
   const monthLabel = useMemo(
