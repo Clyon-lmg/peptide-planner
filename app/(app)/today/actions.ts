@@ -168,7 +168,14 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     };
   });
 
-  rows.sort((a, b) => a.canonical_name.localeCompare(b.canonical_name));
+  rows.sort((a, b) => {
+    const ta = a.time_of_day ?? '99:99';
+    const tb = b.time_of_day ?? '99:99';
+    if (ta === tb) {
+      return a.canonical_name.localeCompare(b.canonical_name);
+    }
+    return ta < tb ? -1 : 1;
+  });
   return rows;
 }
 
