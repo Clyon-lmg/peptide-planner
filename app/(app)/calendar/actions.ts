@@ -108,11 +108,13 @@ export async function getDosesForRange(
     }
   }
 
-  rows.sort(
-    (a, b) =>
-      a.date_for.localeCompare(b.date_for) ||
-      a.canonical_name.localeCompare(b.canonical_name)
-  );
-
+  rows.sort((a, b) => {
+    const da = a.date_for.localeCompare(b.date_for);
+    if (da !== 0) return da;
+    const ta = (a.time_of_day ?? '99:99');
+    const tb = (b.time_of_day ?? '99:99');
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    return a.canonical_name.localeCompare(b.canonical_name);
+  });
   return rows;
 }

@@ -99,6 +99,48 @@ describe('getDosesForRange', () => {
     assert.equal(rows[0].time_of_day, '08:00');
   });
 
+  it('sorts multiple doses on the same day by time', async () => {
+    const supabase = createSupabaseMock({
+      user: { id: 'user1' },
+      protocol: { id: 1, start_date: '2024-01-01' },
+      items: [
+        {
+          peptide_id: 10,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          every_n_days: null,
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          time_of_day: '08:00',
+        },
+        {
+          peptide_id: 11,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          every_n_days: null,
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          time_of_day: '07:00',
+        },
+      ],
+      peptides: [
+        { id: 10, canonical_name: 'A' },
+        { id: 11, canonical_name: 'B' },
+      ],
+      doses: [],
+    });
+
+    (globalThis as any).__supabaseMock = supabase;
+    const rows = await getDosesForRange('2024-01-01', '2024-01-01');
+    assert.equal(rows.length, 2);
+    assert.deepEqual(
+      rows.map((r: any) => r.time_of_day),
+      ['07:00', '08:00']
+    );
+  });
+
   it('handles non-UTC timezone offsets', async () => {
     const supabase = createSupabaseMock({
       user: { id: 'user1' },

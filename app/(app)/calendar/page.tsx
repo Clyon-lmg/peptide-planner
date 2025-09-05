@@ -62,6 +62,16 @@ export default function CalendarPage() {
           if (!map[r.date_for]) map[r.date_for] = [];
           map[r.date_for].push(r);
         }
+        Object.values(map).forEach((day) =>
+          day.sort((a, b) => {
+            const ta = a.time_of_day ?? '99:99';
+            const tb = b.time_of_day ?? '99:99';
+            if (ta === tb) {
+              return a.canonical_name.localeCompare(b.canonical_name);
+            }
+            return ta < tb ? -1 : 1;
+          })
+        );
         setByDay(map);
       } catch (e) {
         console.error('Failed to load doses', e);
@@ -130,7 +140,12 @@ export default function CalendarPage() {
           const inMonth = d.getMonth() === currentMonth;
           const isToday = dIso === todayIso;
           const dayDoses = byDay[dIso] ?? [];
-
+          const counts = new Map<string, number>();
+          dayDoses.forEach((dr) => {
+            const t = dr.time_of_day ?? '';
+            counts.set(t, (counts.get(t) ?? 0) + 1);
+          });
+          
           return (
             <div
               key={dIso}
@@ -146,7 +161,15 @@ export default function CalendarPage() {
                 {dayDoses.length === 0 ? (
                           <div className="text-[12px] text-muted">No doses</div>
                 ) : (
-                  dayDoses.map((r) => <DoseBlock key={r.peptide_id} r={r} />)
+                  dayDoses.map((r, idx) => (
+                    <DoseBlock
+                      key={`${r.peptide_id}-${r.time_of_day ?? ''}-${idx}`}
+                      r={r}
+                      duplicate={
+                        !!r.time_of_day && (counts.get(r.time_of_day) ?? 0) > 1
+                      }
+                    />
+                  ))
                 )}
               </div>
             </div>
@@ -174,7 +197,7 @@ function Legend({ className, label }: { className: string; label: string }) {
 }
 
 /** Read-only block with status color (no actions) */
-function DoseBlock({ r }: { r: CalendarDoseRow }) {
+function DoseBlock({ r, duplicate }: { r: CalendarDoseRow; duplicate?: boolean }) {
   const border =
     r.status === 'TAKEN'
             ? 'border-success'
@@ -195,12 +218,19 @@ function DoseBlock({ r }: { r: CalendarDoseRow }) {
             : r.status === 'SKIPPED'
                 ? 'text-destructive'
                 : 'text-info';
+  const info = r.time_of_day
+    ? `${r.time_of_day} • ${r.dose_mg} mg`
+    : `${r.dose_mg} mg`;
   return (
-    <div className={`rounded-lg border ${border} border-l-4 ${bg} ${text} p-2`}>
+    <div
+      className={`rounded-lg border ${border} border-l-4 ${bg} ${text} p-2 ${
+        duplicate ? 'ring-1 ring-warning' : ''
+      }`}
+    >
       <div className="text-[13px] font-medium leading-5 break-words whitespace-normal">
         {r.canonical_name}
       </div>
-      <div className="text-[12px] opacity-80">{r.dose_mg} mg</div>
+      <div className="text-[12px] opacity-80">{info}</div>
     </div>
   );
 }
