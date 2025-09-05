@@ -114,4 +114,111 @@ describe('setActiveProtocolAndRegenerate', () => {
     assert.equal(state.doses[0].dose_mg, 10);
     assert.equal(state.doses[7].dose_mg, 15);
   });
+
+  it('escalates doses on schedule and handles partial intervals', async () => {
+    const state = {
+      doses: [],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 10,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: 4,
+          titration_amount_mg: 2,
+        },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state);
+    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
+
+    await setActiveProtocolAndRegenerate(1, 'uid');
+
+    const doses = state.doses.filter(d => d.peptide_id === 1);
+    assert.equal(doses[0].dose_mg, 10); // initial
+    assert.equal(doses[3].dose_mg, 10); // before first interval completes
+    assert.equal(doses[4].dose_mg, 12); // after 4 days
+    assert.equal(doses[7].dose_mg, 12); // partial interval
+    assert.equal(doses[8].dose_mg, 14); // second escalation
+  });
+
+  it('ignores titration when interval or amount is zero', async () => {
+    const state = {
+      doses: [],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 10,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: 0,
+          titration_amount_mg: 5,
+        },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state);
+    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
+
+    await setActiveProtocolAndRegenerate(1, 'uid');
+
+    const doses = state.doses.filter(d => d.peptide_id === 1);
+    assert.equal(new Set(doses.slice(0, 10).map(d => d.dose_mg)).size, 1);
+    assert.equal(doses[0].dose_mg, 10);
+  });
+
+  it('supports multiple peptides with distinct titration plans', async () => {
+    const state = {
+      doses: [],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 10,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: 3,
+          titration_amount_mg: 2,
+        },
+        {
+          id: 2,
+          protocol_id: 1,
+          peptide_id: 2,
+          dose_mg_per_administration: 5,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: 5,
+          titration_amount_mg: 1,
+        },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state);
+    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
+
+    await setActiveProtocolAndRegenerate(1, 'uid');
+
+    const p1 = state.doses.filter(d => d.peptide_id === 1);
+    const p2 = state.doses.filter(d => d.peptide_id === 2);
+    assert.equal(p1[0].dose_mg, 10);
+    assert.equal(p1[3].dose_mg, 12);
+    assert.equal(p1[6].dose_mg, 14);
+    assert.equal(p2[4].dose_mg, 5);
+    assert.equal(p2[5].dose_mg, 6);
+  });
 });
