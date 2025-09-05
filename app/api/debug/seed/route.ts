@@ -69,6 +69,8 @@ async function seed() {
         cycle_on_weeks: 0,
         cycle_off_weeks: 0,
         every_n_days: null,
+        titration_interval_days: null,
+        titration_amount_mg: null,
         color: "#f87171",
       },
       {
@@ -80,6 +82,8 @@ async function seed() {
         cycle_on_weeks: 0,
         cycle_off_weeks: 0,
         every_n_days: null,
+        titration_interval_days: null,
+        titration_amount_mg: null,
         color: "#60a5fa",
       },
     ]);

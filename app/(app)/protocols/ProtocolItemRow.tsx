@@ -12,6 +12,8 @@ export type ProtocolItemState = {
   cycle_on_weeks: number;
   cycle_off_weeks: number;
   every_n_days?: number | null;
+  titration_interval_days?: number | null;
+  titration_amount_mg?: number | null;
   color: string;
   time_of_day?: string | null;
 };

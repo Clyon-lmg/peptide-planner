@@ -92,7 +92,7 @@ export default async function InventoryPage() {
     if (activeProto?.id) {
       const { data: protoItems } = await supabase
         .from("protocol_items")
-        .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days")
+        .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg")
         .eq("protocol_id", activeProto.id)
         .in("peptide_id", peptideIds);
 

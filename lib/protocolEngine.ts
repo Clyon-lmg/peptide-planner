@@ -21,6 +21,8 @@ type ProtocolItem = {
   cycle_on_weeks: number;
   cycle_off_weeks: number;
   every_n_days: number | null;
+  titration_interval_days: number | null;
+  titration_amount_mg: number | null;
 };
 
 function localDateStr(d = new Date()) {
@@ -65,7 +67,7 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
   // Fetch items
   const itemsRes = await supabase
     .from("protocol_items")
-    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days")
+    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, titration_interval_days, titration_amount_mg")
     .eq("protocol_id", protocolId);
   if (itemsRes.error) throw itemsRes.error;
   const items = itemsRes.data || [];

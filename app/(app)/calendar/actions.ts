@@ -40,7 +40,7 @@ export async function getDosesForRange(
   const { data: items } = await supabase
     .from('protocol_items')
     .select(
-'peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,time_of_day'
+'peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg,time_of_day'
     )
     .eq('protocol_id', protocol.id);
   if (!items?.length) return [];

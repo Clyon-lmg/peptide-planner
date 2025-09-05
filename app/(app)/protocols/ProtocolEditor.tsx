@@ -53,6 +53,8 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
         cycle_on_weeks: Number(r.cycle_on_weeks || 0),
         cycle_off_weeks: Number(r.cycle_off_weeks || 0),
         every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
+        titration_interval_days: r.titration_interval_days ? Number(r.titration_interval_days) : null,
+        titration_amount_mg: r.titration_amount_mg ? Number(r.titration_amount_mg) : null,
         color: r.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
         time_of_day: r.time_of_day || null,
     }));
@@ -99,6 +101,8 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
           cycle_on_weeks: 0,
           cycle_off_weeks: 0,
           every_n_days: 1,
+          titration_interval_days: null,
+          titration_amount_mg: null,
           color: nextColor,
           time_of_day: null,
         },
@@ -126,6 +130,8 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
           every_n_days: i.schedule === "EVERY_N_DAYS" ? i.every_n_days : null,
           cycle_on_weeks: i.cycle_on_weeks || 0,
           cycle_off_weeks: i.cycle_off_weeks || 0,
+          titration_interval_days: i.titration_interval_days,
+          titration_amount_mg: i.titration_amount_mg,
           color: i.color,
           time_of_day: i.time_of_day,
        }));

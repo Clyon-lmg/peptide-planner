@@ -37,7 +37,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
   const { data: items } = await sa
     .from("protocol_items")
-    .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,time_of_day")
+    .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg,time_of_day")
     .eq("protocol_id", protocol.id);
 
   if (!items?.length) return [];
@@ -147,7 +147,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, status: Dos
   if (!existing?.id) {
     const { data: pi } = await sa
       .from("protocol_items")
-      .select("dose_mg_per_administration,every_n_days")
+      .select("dose_mg_per_administration,every_n_days,titration_interval_days,titration_amount_mg")
       .eq("protocol_id", protocol.id)
       .eq("peptide_id", peptide_id)
       .maybeSingle();
