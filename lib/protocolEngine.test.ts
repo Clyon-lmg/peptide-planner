@@ -86,4 +86,32 @@ describe('setActiveProtocolAndRegenerate', () => {
 
     assert.equal(res.leftover, 1);
   });
+  
+  it('applies titration adjustments to doses', async () => {
+    const state = {
+      doses: [],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 10,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: 7,
+          titration_amount_mg: 5,
+        },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state);
+    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
+
+    await setActiveProtocolAndRegenerate(1, 'uid');
+
+    assert.equal(state.doses[0].dose_mg, 10);
+    assert.equal(state.doses[7].dose_mg, 15);
+  });
 });

@@ -102,32 +102,39 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
     const onWeeks = Number(it.cycle_on_weeks || 0);
     const offWeeks = Number(it.cycle_off_weeks || 0);
     const cycleLenDays = (onWeeks + offWeeks) * 7;
-    let idx = 0;
+    let elapsed = 0;
     for (const d of dateRangeDays(start, days)) {
       if (cycleLenDays > 0) {
-        const inOn = idx % cycleLenDays < onWeeks * 7;
-        if (!inOn) { idx++; continue; }
+        const inOn = elapsed % cycleLenDays < onWeeks * 7;
+        if (!inOn) { elapsed++; continue; }
       }
-      if (it.schedule === "WEEKDAYS" && isWeekend(d)) { idx++; continue; }
+      if (it.schedule === "WEEKDAYS" && isWeekend(d)) { elapsed++; continue; }
       if (it.schedule === "CUSTOM") {
         const arr = (it.custom_days || []) as number[];
-        if (!isCustomDay(d, arr)) { idx++; continue; }
+        if (!isCustomDay(d, arr)) { elapsed++; continue; }
       }
-            if (it.schedule === "EVERY_N_DAYS") {
+      if (it.schedule === "EVERY_N_DAYS") {
         const n = Number(it.every_n_days || 0);
-        if (n <= 0 || idx % n !== 0) { idx++; continue; }
+        if (n <= 0 || elapsed % n !== 0) { elapsed++; continue; }
       }
       const ds = localDateStr(d);
+      const baseDose = it.dose_mg_per_administration;
+      let dose = baseDose;
+      const interval = Number(it.titration_interval_days || 0);
+      const amount = Number(it.titration_amount_mg || 0);
+      if (interval > 0 && amount > 0) {
+        dose = baseDose + Math.floor(elapsed / interval) * amount;
+      }
       inserts.push({
         protocol_id: protocolId,
         peptide_id: it.peptide_id,
-        dose_mg: it.dose_mg_per_administration,
+        dose_mg: dose,
         date: ds,
         date_for: ds,
         status: "PENDING",
         user_id: null, // trigger will set auth.uid()
       });
-      idx++;
+      elapsed++;
     }
   });
 
