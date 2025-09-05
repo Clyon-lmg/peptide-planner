@@ -120,12 +120,10 @@ describe('getTodayDosesWithUnits', () => {
 
     const yes = await getTodayDosesWithUnits('2024-01-03');
     assert.equal(yes.length, 2);
-    assert.deepEqual(
-      yes.map((r) => r.time_of_day),
-      ['07:00', '09:00']
-    );
-    assert.deepEqual(
-      yes.map((r) => r.peptide_id),
+    const times = yes.map((r) => r.time_of_day);
+    assert.deepEqual(times, ['07:00', '09:00']);
+    assert.deepEqual(times, [...times].sort());
+    yes.map((r) => r.peptide_id),
       [12, 10]
     );
     assert.ok(!yes.find((r) => r.peptide_id === 11));

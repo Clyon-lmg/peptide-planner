@@ -56,7 +56,11 @@ describe('generateDailyDoses', () => {
 
   it('filters items correctly for a given date', () => {
     const rows = generateDailyDoses('2024-01-05', '2024-01-01', items); // Friday
-    assert.deepEqual(rows.map(r => r.peptide_id), [1,2,3,4]);
-    assert.deepEqual(rows.map(r => r.time_of_day), ['08:00', '09:00', '10:00', '11:00']);
-  });
+    assert.deepEqual(rows, [
+      { peptide_id: 1, canonical_name: 'A', dose_mg: 1, time_of_day: '08:00' },
+      { peptide_id: 2, canonical_name: 'B', dose_mg: 1, time_of_day: '09:00' },
+      { peptide_id: 3, canonical_name: 'C', dose_mg: 1, time_of_day: '10:00' },
+      { peptide_id: 4, canonical_name: 'D', dose_mg: 1, time_of_day: '11:00' },
+    ]);
+    });
   });
