@@ -5,6 +5,12 @@ import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type Schedule = "EVERYDAY" | "WEEKDAYS" | "CUSTOM" | "EVERY_N_DAYS";
 
+export type ActivationResult = {
+  ok: true;
+  /** Number of leftover future doses that could not be deleted. */
+  leftover?: number;
+};
+
 type ProtocolItem = {
   id: number;
   protocol_id: number;
@@ -43,7 +49,7 @@ export async function onProtocolUpdated(protocolId: number, _userId: string) {
   if (delErr) throw delErr;
 }
 
-export async function setActiveProtocolAndRegenerate(protocolId: number, _userId: string) {
+export async function setActiveProtocolAndRegenerate(protocolId: number, _userId: string): Promise<ActivationResult> {
   const supabase = getSupabaseBrowser();
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess?.session?.user?.id;
@@ -82,7 +88,8 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
     .eq("protocol_id", protocolId)
     .eq("user_id", uid);
   if (remErr) throw remErr;
-  if (remaining) throw new Error("Existing doses remain after cleanup");
+  const result: ActivationResult = { ok: true };
+  if (remaining) result.leftover = remaining;
 
   // Generate 12 months
   const start = new Date(startDateStr + "T00:00:00");
@@ -128,5 +135,5 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
     if (ins.error) throw ins.error;
   }
 
-  return true;
+  return result;
 }

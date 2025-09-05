@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { setActiveProtocolAndRegenerate } from './protocolEngine';
 import * as supabaseBrowser from './supabaseBrowser';
 
-function createSupabaseMock(state) {
+function createSupabaseMock(state, opts = {}) {
   function match(row, filters) {
     return filters.every(f => {
       if (f.type === 'eq') return row[f.col] === f.val;
@@ -34,7 +34,9 @@ function createSupabaseMock(state) {
         neq(col, val) { this.filters.push({ type: 'neq', col, val }); return this; },
         then(resolve) {
           if (this.action === 'delete' && table === 'doses') {
-            state.doses = state.doses.filter(row => !match(row, this.filters));
+            if (!opts.skipDelete) {
+              state.doses = state.doses.filter(row => !match(row, this.filters));
+            }
             resolve({ error: null });
           } else if (this.action === 'select') {
             let rows = [];
@@ -64,9 +66,24 @@ describe('setActiveProtocolAndRegenerate', () => {
     const supabaseMock = createSupabaseMock(state);
     mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
 
-    await setActiveProtocolAndRegenerate(1, 'uid');
+    const res = await setActiveProtocolAndRegenerate(1, 'uid');
 
     assert.equal(state.doses.some(d => d.date_for === '2000-01-01'), true);
     assert.equal(state.doses.some(d => d.date_for === '2999-01-01'), false);
+  });
+
+  it('reports leftover doses without failing', async () => {
+    const state = {
+      doses: [
+        { protocol_id: 1, user_id: 'uid', peptide_id: 1, dose_mg: 1, date: '2999-01-01', date_for: '2999-01-01', status: 'PENDING' },
+      ],
+      protocol_items: []
+    };
+    const supabaseMock = createSupabaseMock(state, { skipDelete: true });
+    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
+
+    const res = await setActiveProtocolAndRegenerate(1, 'uid');
+
+    assert.equal(res.leftover, 1);
   });
 });

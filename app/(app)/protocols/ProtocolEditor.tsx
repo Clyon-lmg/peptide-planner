@@ -155,9 +155,26 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
       const userId = userRes?.session?.user?.id;
       if (!userId) throw new Error("No session");
 
-      await setActiveProtocolAndRegenerate(protocol.id, userId);
-      onReload();
-    } catch (e) {
+      let result;
+      try {
+        result = await setActiveProtocolAndRegenerate(protocol.id, userId);
+      } catch (e: any) {
+        console.error(e);
+        alert(e?.message || "Activation failed.");
+        return;
+      }
+
+      if (result?.leftover) {
+        alert(`${result.leftover} dose(s) could not be removed during activation.`);
+      }
+
+      try {
+        await onReload();
+      } catch (e) {
+        console.error(e);
+        alert("Reload failed.");
+      }
+      } catch (e) {
       console.error(e);
       alert("Activation failed.");
     } finally {
