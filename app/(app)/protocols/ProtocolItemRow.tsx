@@ -70,13 +70,72 @@ export default function ProtocolItemRow({
           <input
             type="number"
             step="0.01"
-className="mt-1 input !max-w-[15ch]"
-value={v.dose_mg_per_administration}
+            className="mt-1 input !max-w-[15ch]"
+            value={v.dose_mg_per_administration}
             onChange={(e) =>
               onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })
             }
           />
-        </div>
+
+          <div className="mt-2">
+            <label className="inline-flex items-center text-xs text-muted">
+              <input
+                type="checkbox"
+                className="mr-2"
+                checked={v.titration_interval_days != null && v.titration_amount_mg != null}
+                onChange={(e) =>
+                  onChange(
+                    e.target.checked
+                      ? {
+                          ...v,
+                          titration_interval_days: v.titration_interval_days ?? 7,
+                          titration_amount_mg: v.titration_amount_mg ?? 0,
+                        }
+                      : { ...v, titration_interval_days: null, titration_amount_mg: null }
+                  )
+                }
+              />
+              Titrate
+            </label>
+
+            {v.titration_interval_days != null && (
+              <>
+                <div className="mt-2">
+                  <label className="block text-xs text-muted mb-1">
+                    Titration interval (days)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="mt-1 input !max-w-[15ch]"
+                    value={v.titration_interval_days ?? 1}
+                    onChange={(e) =>
+                      onChange({
+                        ...v,
+                        titration_interval_days: Number(e.target.value || 0),
+                      })
+                    }
+                  />
+                </div>
+                <div className="mt-2">
+                  <label className="block text-xs text-muted mb-1">Titration amount (mg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="mt-1 input !max-w-[15ch]"
+                    value={v.titration_amount_mg ?? 0}
+                    onChange={(e) =>
+                      onChange({
+                        ...v,
+                        titration_amount_mg: Number(e.target.value || 0),
+                      })
+                    }
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          </div>
 
         {/* Time of day */}
         <div className="col-span-6 md:col-span-2">
