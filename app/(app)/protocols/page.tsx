@@ -54,7 +54,7 @@ export default function ProtocolsPage() {
   const [protocols, setProtocols] = React.useState<Protocol[]>([]);
   const [selectedId, setSelectedId] = React.useState<number | null>(null);
   const [creating, setCreating] = React.useState(false);
-    const [siteLists, setSiteLists] = React.useState<SiteList[]>([]);
+  const [siteLists, setSiteLists] = React.useState<SiteList[]>([]);
   const [selectedListId, setSelectedListId] = React.useState<number | null>(null);
   const [creatingList, setCreatingList] = React.useState(false);
 
@@ -386,5 +386,4 @@ export default function ProtocolsPage() {
           </div>
         </div>
       );
-}                        }}
-                      >
+}
