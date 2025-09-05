@@ -108,13 +108,16 @@ export default function TodayPage() {
                     <div className="text-lg font-medium truncate">{r.canonical_name}</div>
 
                     {/* Bold numbers for dose and syringe */}
-                            <div className="text-xs text-muted">
+                    <div className="text-xs text-muted">
                       Dose: <span className="font-mono font-bold">{fmt(r.dose_mg)}</span>{" "}
                       mg  •  Syringe:{" "}
                       <span className="font-mono font-bold">{fmt(r.syringe_units, 2)}</span>{" "}
                       units
                     </div>
-                  </div>
+                    <div className="text-xs text-muted">
+                      Time: {r.time_of_day ?? "—"}
+                    </div>
+                    </div>
                 </div>
 
                 {/* Inventory mix line */}
