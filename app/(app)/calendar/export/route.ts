@@ -1,5 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { createEvents } from 'ics';
+import { createEvents, type EventAttributes, type DateArray } from 'ics';
 import { getDosesForRange } from '@/app/(app)/calendar/actions';
 
 export async function GET(req: NextRequest) {
@@ -11,15 +11,13 @@ export async function GET(req: NextRequest) {
   }
 
   const rows = await getDosesForRange(start, end);
-  const events = rows.map((r) => {
+  const events: EventAttributes[] = rows.map((r) => {
     const [year, month, day] = r.date_for.split('-').map(Number);
     const [hour, minute] = r.time_of_day
       ? r.time_of_day.split(':').map(Number)
       : [0, 0];
-    return {
-      start: [year, month, day, hour, minute],
-      title: `${r.canonical_name} ${r.dose_mg}mg`,
-    };
+    const start: DateArray = [year, month, day, hour, minute];
+    return { start, title: `${r.canonical_name} ${r.dose_mg}mg` };
   });
 
   const { error, value } = createEvents(events);
