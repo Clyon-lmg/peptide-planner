@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+﻿﻿import { NextRequest, NextResponse } from 'next/server';
 import { createEvents, type EventAttributes, type DateArray } from 'ics';
 import { getDosesForRange } from '@/app/(app)/calendar/actions';
 
@@ -17,7 +17,11 @@ export async function GET(req: NextRequest) {
       ? r.time_of_day.split(':').map(Number)
       : [0, 0];
     const start: DateArray = [year, month, day, hour, minute];
-    return { start, title: `${r.canonical_name} ${r.dose_mg}mg` };
+    return {
+      start,
+      duration: { minutes: 1 },
+      title: `${r.canonical_name} ${r.dose_mg}mg`,
+    };
   });
 
   const { error, value } = createEvents(events);
