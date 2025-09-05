@@ -53,8 +53,8 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
         cycle_on_weeks: Number(r.cycle_on_weeks || 0),
         cycle_off_weeks: Number(r.cycle_off_weeks || 0),
         every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
-        titration_interval_days: r.titration_interval_days ? Number(r.titration_interval_days) : null,
-        titration_amount_mg: r.titration_amount_mg ? Number(r.titration_amount_mg) : null,
+        titration_interval_days: r.titration_interval_days == null ? null : Number(r.titration_interval_days),
+        titration_amount_mg: r.titration_amount_mg == null ? 0 : Number(r.titration_amount_mg),
         color: r.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
         time_of_day: r.time_of_day || null,
     }));
