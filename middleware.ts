@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/sign-up",
   "/(auth)/sign-up",
   "/api/public",
+  "/api/calendar/export",
   "/auth/callback",
 ];
 
