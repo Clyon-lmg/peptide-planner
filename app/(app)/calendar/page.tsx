@@ -41,6 +41,20 @@ export default function CalendarPage() {
   const gridStart = useMemo(() => startOfCalendarGrid(cursor), [cursor]);
   const gridEnd = useMemo(() => endOfCalendarGrid(cursor), [cursor]);
 
+  const [exportStart, setExportStart] = useState(isoDate(gridStart));
+  const [exportEnd, setExportEnd] = useState(isoDate(gridEnd));
+
+  useEffect(() => {
+    setExportStart(isoDate(gridStart));
+    setExportEnd(isoDate(gridEnd));
+  }, [gridStart, gridEnd]);
+
+  function downloadIcs(e: React.FormEvent) {
+    e.preventDefault();
+    const url = `/api/calendar/export?start=${exportStart}&end=${exportEnd}`;
+    window.location.href = url;
+  }
+
   const monthLabel = useMemo(
     () =>
       cursor.toLocaleDateString(undefined, {
@@ -114,6 +128,24 @@ export default function CalendarPage() {
           <button onClick={nextMonth} className="rounded-lg border px-3 py-2 text-sm hover:bg-accent">Next →</button>
         </div>
       </div>
+
+      <form onSubmit={downloadIcs} className="flex items-center gap-2 text-sm">
+        <input
+          type="date"
+          value={exportStart}
+          onChange={(e) => setExportStart(e.target.value)}
+          className="rounded border px-2 py-1"
+        />
+        <input
+          type="date"
+          value={exportEnd}
+          onChange={(e) => setExportEnd(e.target.value)}
+          className="rounded border px-2 py-1"
+        />
+        <button type="submit" className="rounded-lg border px-3 py-2 hover:bg-accent">
+          Export ICS
+        </button>
+      </form>
 
       <div className="flex items-center justify_between mb-1">
         <div className="text-lg font-medium">{monthLabel}</div>
