@@ -68,8 +68,8 @@ export default function ProtocolItemRow({
           <input
             type="number"
             step="0.01"
-            className="input"
-            value={v.dose_mg_per_administration}
+className="mt-1 input !max-w-[15ch]"
+value={v.dose_mg_per_administration}
             onChange={(e) =>
               onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })
             }
@@ -81,8 +81,8 @@ export default function ProtocolItemRow({
           <label className="block text-xs text-muted mb-1">Time</label>
           <input
             type="time"
-            className="input"
-            value={v.time_of_day ?? ""}
+className="mt-1 input !max-w-[15ch]"
+value={v.time_of_day ?? ""}
             onChange={(e) => onChange({ ...v, time_of_day: e.target.value || null })}
           />
         </div>
@@ -165,8 +165,8 @@ export default function ProtocolItemRow({
           <label className="block text-xs text-muted mb-1">On (weeks)</label>
           <input
             type="number"
-            className="input"
-            value={v.cycle_on_weeks}
+className="mt-1 input !max-w-[15ch]"
+value={v.cycle_on_weeks}
             onChange={(e) =>
               onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })
             }
@@ -176,8 +176,8 @@ export default function ProtocolItemRow({
           <label className="block text-xs text-muted mb-1">Off (weeks)</label>
           <input
             type="number"
-            className="input"
-            value={v.cycle_off_weeks}
+className="mt-1 input !max-w-[15ch]"
+value={v.cycle_off_weeks}
             onChange={(e) =>
               onChange({ ...v, cycle_off_weeks: Number(e.target.value || 0) })
             }
