@@ -34,6 +34,8 @@ export default function ProtocolItemRow({
   onDelete: () => void;
 }) {
   const v = value;
+  const isTitrating =
+    v.titration_interval_days != null && v.titration_amount_mg != null;
 
   return (
     <div className="pp-card p-3 mb-2">
@@ -45,7 +47,10 @@ export default function ProtocolItemRow({
             className="input"
             value={v.peptide_id ?? ""}
             onChange={(e) =>
-              onChange({ ...v, peptide_id: e.target.value ? Number(e.target.value) : null })
+              onChange({
+                ...v,
+                peptide_id: e.target.value ? Number(e.target.value) : null,
+              })
             }
           >
             <option value="">Select peptide…</option>
@@ -77,7 +82,10 @@ export default function ProtocolItemRow({
             className="mt-1 input !max-w-[15ch]"
             value={v.dose_mg_per_administration}
             onChange={(e) =>
-              onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })
+              onChange({
+                ...v,
+                dose_mg_per_administration: Number(e.target.value || 0),
+              })
             }
           />
         </div>
@@ -94,7 +102,7 @@ export default function ProtocolItemRow({
         </div>
 
         {/* Schedule */}
-        <div className="col-span-6 md:col-span-3">
+        <div className="col-span-6 md:col-span-2">
           <label className="block text-xs text-muted mb-1">Schedule</label>
           <select
             className="input"
@@ -119,8 +127,134 @@ export default function ProtocolItemRow({
           )}
         </div>
 
-        {/* Custom days */}
-        {v.schedule === "CUSTOM" && (
+        {/* Delete button aligned far right */}
+        <div className="col-span-12 md:col-span-1 flex md:justify-end">
+          <button
+            type="button"
+            className="btn mt-6 bg-destructive hover:bg-destructive/90 text-white"
+            onClick={onDelete}
+          >
+            Delete
+          </button>
+        </div>
+
+        {/* On/Off weeks */}
+        <div className="col-span-6 md:col-span-2">
+          <label className="block text-xs text-muted mb-1">On (weeks)</label>
+          <input
+            type="number"
+            className="mt-1 input !max-w-[15ch]"
+            value={v.cycle_on_weeks}
+            onChange={(e) =>
+              onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })
+            }
+          />
+        </div>
+        <div className="col-span-6 md:col-span-2">
+          <label className="block text-xs text-muted mb-1">Off (weeks)</label>
+          <input
+            type="number"
+            className="mt-1 input !max-w-[15ch]"
+            value={v.cycle_off_weeks}
+            onChange={(e) =>
+              onChange({ ...v, cycle_off_weeks: Number(e.target.value || 0) })
+            }
+          />
+        </div>
+
+        {/* Site list */}
+        <div className="col-span-6 md:col-span-2 md:col-start-6">
+          <label className="block text-xs text-muted mb-1">Site list</label>
+          <select
+            className="input"
+            value={v.site_list_id ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...v,
+                site_list_id: e.target.value ? Number(e.target.value) : null,
+              })
+            }
+          >
+            <option value="">None</option>
+            {siteLists.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Titrate */}
+        <div className="col-span-6 md:col-span-1 md:col-start-8">
+          <label className="inline-flex items-center mt-6 text-xs text-muted">
+            <input
+              type="checkbox"
+              className="mr-2"
+              checked={isTitrating}
+              onChange={(e) =>
+                onChange(
+                  e.target.checked
+                    ? {
+                        ...v,
+                        titration_interval_days: v.titration_interval_days ?? 7,
+                        titration_amount_mg: v.titration_amount_mg ?? 0,
+                      }
+                    : {
+                        ...v,
+                        titration_interval_days: null,
+                        titration_amount_mg: null,
+                      }
+                )
+              }
+            />
+            Titrate
+          </label>
+        </div>
+
+        {/* Titration interval (days) */}
+        <div className="col-span-6 md:col-span-2 md:col-start-9">
+          <label className="block text-xs text-muted mb-1">
+            Titration interval (days)
+          </label>
+          <input
+            type="number"
+            min={1}
+            className="mt-1 input !max-w-[15ch]"
+            value={v.titration_interval_days ?? ""}
+            disabled={!isTitrating}
+            onChange={(e) =>
+              onChange({
+                ...v,
+                titration_interval_days: Number(e.target.value || 0),
+              })
+            }
+          />
+        </div>
+
+        {/* Titration amount (mg) */}
+        <div className="col-span-6 md:col-span-2 md:col-start-11">
+          <label className="block text-xs text-muted mb-1">
+            Titration amount (mg)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            className="mt-1 input !max-w-[15ch]"
+            value={v.titration_amount_mg ?? ""}
+            disabled={!isTitrating}
+            onChange={(e) =>
+              onChange({
+                ...v,
+                titration_amount_mg: Number(e.target.value || 0),
+              })
+            }
+          />
+        </div>
+      </div>
+
+      {/* Custom days */}
+      {v.schedule === "CUSTOM" && (
+        <div className="grid grid-cols-12 gap-3 mt-3">
           <div className="col-span-12">
             <label className="block text-xs text-muted mb-1">Custom days</label>
             <div className="flex flex-wrap gap-2">
@@ -153,136 +287,8 @@ export default function ProtocolItemRow({
               )}
             </div>
           </div>
-        )}
-
-        {/* On weeks */}
-        <div className="col-span-6 md:col-span-3">
-          <label className="block text-xs text-muted mb-1">On (weeks)</label>
-          <input
-            type="number"
-            className="mt-1 input !max-w-[15ch]"
-            value={v.cycle_on_weeks}
-            onChange={(e) =>
-              onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })
-            }
-          />
         </div>
-
-        {/* Off weeks */}
-        <div className="col-span-6 md:col-span-3">
-          <label className="block text-xs text-muted mb-1">Off (weeks)</label>
-          <input
-            type="number"
-            className="mt-1 input !max-w-[15ch]"
-            value={v.cycle_off_weeks}
-            onChange={(e) =>
-              onChange({ ...v, cycle_off_weeks: Number(e.target.value || 0) })
-            }
-          />
-        </div>
-
-        {/* Site list */}
-        <div className="col-span-6 md:col-span-3">
-          <label className="block text-xs text-muted mb-1">Site list</label>
-          <select
-            className="input"
-            value={v.site_list_id ?? ""}
-            onChange={(e) =>
-              onChange({
-                ...v,
-                site_list_id: e.target.value ? Number(e.target.value) : null,
-              })
-            }
-          >
-            <option value="">None</option>
-            {siteLists.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Titrate */}
-        <div className="col-span-6 md:col-span-2">
-          <label className="inline-flex items-center mt-6 text-xs text-muted">
-            <input
-              type="checkbox"
-              className="mr-2"
-              checked={
-                v.titration_interval_days != null && v.titration_amount_mg != null
-              }
-              onChange={(e) =>
-                onChange(
-                  e.target.checked
-                    ? {
-                        ...v,
-                        titration_interval_days: v.titration_interval_days ?? 7,
-                        titration_amount_mg: v.titration_amount_mg ?? 0,
-                      }
-                    : {
-                        ...v,
-                        titration_interval_days: null,
-                        titration_amount_mg: null,
-                      }
-                )
-              }
-            />
-            Titrate
-          </label>
-        </div>
-
-        {/* Delete button aligned far right */}
-        <div className="col-span-6 md:col-span-1 flex md:justify-end">
-          <button
-            type="button"
-            className="btn mt-6 bg-destructive hover:bg-destructive/90 text-white"
-            onClick={onDelete}
-          >
-            Delete
-          </button>
-        </div>
-
-        {/* Titration inputs */}
-        {v.titration_interval_days != null && v.titration_amount_mg != null && (
-          <>
-            <div className="col-span-6 md:col-span-6">
-              <label className="block text-xs text-muted mb-1">
-                Titration interval (days)
-              </label>
-              <input
-                type="number"
-                min={1}
-                className="mt-1 input !max-w-[15ch]"
-                value={v.titration_interval_days ?? 1}
-                onChange={(e) =>
-                  onChange({
-                    ...v,
-                    titration_interval_days: Number(e.target.value || 0),
-                  })
-                }
-              />
-            </div>
-            <div className="col-span-6 md:col-span-6">
-              <label className="block text-xs text-muted mb-1">
-                Titration amount (mg)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                className="mt-1 input !max-w-[15ch]"
-                value={v.titration_amount_mg ?? 0}
-                onChange={(e) =>
-                  onChange({
-                    ...v,
-                    titration_amount_mg: Number(e.target.value || 0),
-                  })
-                }
-              />
-            </div>
-          </>
-        )}
-      </div>
+      )}
     </div>
   );
 }
