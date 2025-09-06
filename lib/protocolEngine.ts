@@ -157,7 +157,6 @@ export async function setActiveProtocolAndRegenerate(
         date_for: ds,
         status: "PENDING",
         site_label,
-        user_id: null, // trigger will set auth.uid()
       });
       elapsed++;
     }

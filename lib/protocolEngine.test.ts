@@ -31,6 +31,7 @@ function createSupabaseMock(state, opts = {}) {
         update(_vals) { this.action = 'update'; return this; },
         insert(rows, opts = {}) {
           for (const row of rows) {
+            if (!row.user_id) row.user_id = 'uid';
             const exists = state.doses.some(
               (d) =>
                 d.user_id === row.user_id &&
