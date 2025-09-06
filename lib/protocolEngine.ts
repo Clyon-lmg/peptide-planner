@@ -168,7 +168,7 @@ export async function setActiveProtocolAndRegenerate(
     const ins = await supabase
       .from("doses")
       .insert(chunk, {
-        onConflict: "user_id,protocol_id,peptide_id,date_for",
+        onConflict: "user_id,protocol_id,peptide_id,date",
         ignoreDuplicates: true,
       });
       if (ins.error) throw ins.error;

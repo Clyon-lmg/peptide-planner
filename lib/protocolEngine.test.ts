@@ -29,14 +29,14 @@ function createSupabaseMock(state, opts = {}) {
         delete() { this.action = 'delete'; return this; },
         select(_cols, opts) { this.action = 'select'; this.opts = opts || {}; return this; },
         update(_vals) { this.action = 'update'; return this; },
-     insert(rows, opts = {}) {
+        insert(rows, opts = {}) {
           for (const row of rows) {
             const exists = state.doses.some(
               (d) =>
                 d.user_id === row.user_id &&
                 d.protocol_id === row.protocol_id &&
                 d.peptide_id === row.peptide_id &&
-                d.date_for === row.date_for,
+                d.date === row.date,
             );
             if (exists) {
               if (opts.ignoreDuplicates) continue;
@@ -234,7 +234,7 @@ describe('setActiveProtocolAndRegenerate', () => {
     assert.equal(p2[5].dose_mg, 6);
   });
 
-    it('handles overlapping doses without error', async () => {
+  it('handles overlapping doses without error', async () => {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const state = {
