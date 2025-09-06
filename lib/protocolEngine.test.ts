@@ -48,6 +48,21 @@ function createSupabaseMock(state, opts = {}) {
           }
           return Promise.resolve({ error: null });
         },
+                upsert(rows, _opts = {}) {
+          for (const row of rows) {
+            if (!row.user_id) row.user_id = 'uid';
+            const idx = state.doses.findIndex(
+              (d) =>
+                d.user_id === row.user_id &&
+                d.protocol_id === row.protocol_id &&
+                d.peptide_id === row.peptide_id &&
+                d.date === row.date,
+            );
+            if (idx >= 0) state.doses[idx] = { ...state.doses[idx], ...row };
+            else state.doses.push(row);
+          }
+          return Promise.resolve({ error: null });
+        },
         eq(col, val) { this.filters.push({ type: 'eq', col, val }); return this; },
         gte(col, val) { this.filters.push({ type: 'gte', col, val }); return this; },
         neq(col, val) { this.filters.push({ type: 'neq', col, val }); return this; },
@@ -316,5 +331,66 @@ describe('setActiveProtocolAndRegenerate', () => {
       .slice(0, 3)
       .map(d => d.site_label);
     assert.deepEqual(labels, ['A', 'C', 'B']);
+  });
+
+  it('updates site labels when site list is changed and doses are regenerated', async () => {
+    const today = new Date();
+    const t0 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const t1d = new Date(today);
+    t1d.setUTCDate(t1d.getUTCDate() + 1);
+    const t1 = `${t1d.getFullYear()}-${String(t1d.getMonth() + 1).padStart(2, '0')}-${String(t1d.getDate()).padStart(2, '0')}`;
+
+    const state = {
+      doses: [
+        {
+          protocol_id: 1,
+          user_id: 'uid',
+          peptide_id: 1,
+          dose_mg: 1,
+          date: t0,
+          date_for: t0,
+          status: 'PENDING',
+          site_label: 'OldA',
+        },
+        {
+          protocol_id: 1,
+          user_id: 'uid',
+          peptide_id: 1,
+          dose_mg: 1,
+          date: t1,
+          date_for: t1,
+          status: 'PENDING',
+          site_label: 'OldB',
+        },
+      ],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: null,
+          titration_amount_mg: null,
+          site_list_id: 1,
+        },
+      ],
+      injection_sites: [
+        { list_id: 1, name: 'NewA', position: 1 },
+        { list_id: 1, name: 'NewB', position: 2 },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state, { skipDelete: true });
+    await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
+
+    const labels = state.doses
+      .filter(d => d.peptide_id === 1)
+      .slice(0, 2)
+      .map(d => d.site_label);
+    assert.deepEqual(labels, ['NewA', 'NewB']);
   });
 });
