@@ -99,7 +99,7 @@ export async function setActiveProtocolAndRegenerate(
   const del = await supabase
     .from("doses")
     .delete()
-    .gte("date_for", startDateStr)
+    .or(`date.gte.${startDateStr},date_for.gte.${startDateStr}`)
     .eq("protocol_id", protocolId)
     .eq("user_id", uid);
   if (del.error) throw del.error;
@@ -107,7 +107,7 @@ export async function setActiveProtocolAndRegenerate(
   const { count: remaining, error: remErr } = await supabase
     .from("doses")
     .select("*", { head: true, count: "exact" })
-    .gte("date_for", startDateStr)
+    .or(`date.gte.${startDateStr},date_for.gte.${startDateStr}`)
     .eq("protocol_id", protocolId)
     .eq("user_id", uid);
   if (remErr) throw remErr;

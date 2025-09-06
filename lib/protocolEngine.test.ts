@@ -11,6 +11,7 @@ function createSupabaseMock(state, opts = {}) {
       if (f.type === 'gte') return row[f.col] >= f.val;
       if (f.type === 'neq') return row[f.col] !== f.val;
       if (f.type === 'in') return f.val.includes(row[f.col]);
+      if (f.type === 'or') return f.filters.some(sf => match(row, [sf]));
       return true;
     });
   }
@@ -51,6 +52,14 @@ function createSupabaseMock(state, opts = {}) {
         gte(col, val) { this.filters.push({ type: 'gte', col, val }); return this; },
         neq(col, val) { this.filters.push({ type: 'neq', col, val }); return this; },
         in(col, val) { this.filters.push({ type: 'in', col, val }); return this; },
+        or(expr) {
+          const filters = expr.split(',').map(part => {
+            const [col, op, val] = part.split('.');
+            return { type: op, col, val };
+          });
+          this.filters.push({ type: 'or', filters });
+          return this;
+        },
         order(col, opts) { this.order = { col, asc: opts?.ascending !== false }; return this; },
         then(resolve) {
           if (this.action === 'delete' && table === 'doses') {
@@ -85,6 +94,7 @@ describe('setActiveProtocolAndRegenerate', () => {
       doses: [
         { protocol_id: 1, user_id: 'uid', peptide_id: 1, dose_mg: 1, date: '2000-01-01', date_for: '2000-01-01', status: 'PENDING' },
         { protocol_id: 1, user_id: 'uid', peptide_id: 1, dose_mg: 1, date: '2999-01-01', date_for: '2999-01-01', status: 'PENDING' },
+        { protocol_id: 1, user_id: 'uid', peptide_id: 1, dose_mg: 1, date: '2999-01-01', date_for: '2000-01-01', status: 'PENDING' },
       ],
       protocol_items: []
     };
@@ -93,6 +103,7 @@ describe('setActiveProtocolAndRegenerate', () => {
 
     assert.equal(state.doses.some(d => d.date_for === '2000-01-01'), true);
     assert.equal(state.doses.some(d => d.date_for === '2999-01-01'), false);
+    assert.equal(state.doses.some(d => d.date === '2999-01-01' && d.date_for === '2000-01-01'), false);
   });
 
   it('reports leftover doses without failing', async () => {
