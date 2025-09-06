@@ -1,7 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Card from "@/components/layout/Card";
-import ProtocolItemRow, { ProtocolItemState, InventoryPeptide } from "./ProtocolItemRow";
+import ProtocolItemRow, {
+  ProtocolItemState,
+  InventoryPeptide,
+  SiteList,
+} from "./ProtocolItemRow";
 import ProtocolGraph from "./ProtocolGraph";
 import { onProtocolUpdated, setActiveProtocolAndRegenerate } from "@/lib/protocolEngine";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
@@ -32,6 +36,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
   const supabase = React.useMemo(() => getSupabaseBrowser(), []);
   const [items, setItems] = useState<ProtocolItemState[]>([]);
   const [peptides, setPeptides] = useState<InventoryPeptide[]>([]);
+  const [siteLists, setSiteLists] = useState<SiteList[]>([]);
   const [saving, setSaving] = useState(false);
   const [activating, setActivating] = useState(false);
 
@@ -44,28 +49,43 @@ export default function ProtocolEditor({ protocol, onReload }: {
         .order("id", { ascending: true });
       if (itemsErr) console.error(itemsErr);
 
-const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) => ({
+      const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) => ({
         id: r.id,
         peptide_id: r.peptide_id,
+        site_list_id: r.site_list_id ?? null,
         dose_mg_per_administration: Number(r.dose_mg_per_administration || 0),
         schedule: (r.schedule || "EVERYDAY") as any,
         custom_days: r.custom_days || [],
         cycle_on_weeks: Number(r.cycle_on_weeks || 0),
         cycle_off_weeks: Number(r.cycle_off_weeks || 0),
         every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
-        titration_interval_days: r.titration_interval_days == null ? null : Number(r.titration_interval_days),
-        titration_amount_mg: r.titration_amount_mg == null ? 0 : Number(r.titration_amount_mg),
-        color: r.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
+        titration_interval_days:
+          r.titration_interval_days == null ? null : Number(r.titration_interval_days),
+        titration_amount_mg:
+          r.titration_amount_mg == null ? 0 : Number(r.titration_amount_mg),
+          color: r.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
         time_of_day: r.time_of_day || null,
-    }));
+      }));
       setItems(mapped);
 
-      const { data: vialInv } = await supabase
-        .from("inventory_items")
-        .select("peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )");
-      const { data: capInv } = await supabase
-        .from("inventory_capsules")
-        .select("peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )");
+      const [{ data: vialInv }, { data: capInv }, { data: listData, error: listErr }] =
+        await Promise.all([
+          supabase
+            .from("inventory_items")
+            .select(
+              "peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )"
+            ),
+          supabase
+            .from("inventory_capsules")
+            .select(
+              "peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )"
+            ),
+          supabase
+            .from("injection_site_lists")
+            .select("id, name")
+            .order("id", { ascending: true }),
+        ]);
+      if (listErr) console.error(listErr);
 
       const merged: Record<number, InventoryPeptide> = {};
       (vialInv || []).forEach((row: any) => {
@@ -75,7 +95,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
             canonical_name: row.peptides.canonical_name,
             half_life_hours: Number(row.half_life_hours || 0),
           };
-          });
+      });
       (capInv || []).forEach((row: any) => {
         if (row.peptides)
           merged[row.peptides.id] = {
@@ -83,9 +103,12 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
             canonical_name: row.peptides.canonical_name,
             half_life_hours: Number(row.half_life_hours || 0),
           };
-          });
-      setPeptides(Object.values(merged).sort((a, b) => a.canonical_name.localeCompare(b.canonical_name)));
-    })();
+      });
+      setPeptides(
+        Object.values(merged).sort((a, b) => a.canonical_name.localeCompare(b.canonical_name))
+      );
+      setSiteLists(listData || []);
+  })();
   }, [protocol.id, supabase]);
 
   const addItem = () => {
@@ -95,6 +118,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
         ...prev,
         {
           peptide_id: null,
+          site_list_id: null,
           dose_mg_per_administration: 0,
           schedule: "EVERYDAY",
           custom_days: [],
@@ -134,7 +158,8 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
           titration_amount_mg: i.titration_amount_mg,
           color: i.color,
           time_of_day: i.time_of_day,
-       }));
+          site_list_id: i.site_list_id,
+        }));
 
       if (rows.length) {
         const { error: insErr } = await supabase.from("protocol_items").insert(rows);
@@ -219,6 +244,7 @@ const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) =
             key={idx}
             value={it}
             peptides={peptides}
+            siteLists={siteLists}
             onChange={(v) => {
               const next = items.slice();
               next[idx] = v;

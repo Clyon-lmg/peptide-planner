@@ -2,10 +2,12 @@
 import React from "react";
 
 export type InventoryPeptide = { id: number; canonical_name: string; half_life_hours: number };
+export type SiteList = { id: number; name: string };
 
 export type ProtocolItemState = {
   id?: number;
   peptide_id: number | null;
+  site_list_id: number | null;
   dose_mg_per_administration: number;
   schedule: "EVERYDAY" | "WEEKDAYS" | "CUSTOM" | "EVERY_N_DAYS";
   custom_days: number[];
@@ -21,11 +23,13 @@ export type ProtocolItemState = {
 export default function ProtocolItemRow({
   value,
   peptides,
+  siteLists,
   onChange,
   onDelete,
 }: {
   value: ProtocolItemState;
   peptides: InventoryPeptide[];
+  siteLists: SiteList[];
   onChange: (v: ProtocolItemState) => void;
   onDelete: () => void;
 }) {
@@ -62,6 +66,28 @@ export default function ProtocolItemRow({
             value={v.color}
             onChange={(e) => onChange({ ...v, color: e.target.value })}
           />
+        </div>
+
+        {/* Site list */}
+        <div className="col-span-6 md:col-span-2">
+          <label className="block text-xs text-muted mb-1">Site list</label>
+          <select
+            className="input"
+            value={v.site_list_id ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...v,
+                site_list_id: e.target.value ? Number(e.target.value) : null,
+              })
+            }
+          >
+            <option value="">None</option>
+            {siteLists.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Dose (mg) */}
