@@ -134,7 +134,7 @@ export default function ProtocolItemRow({
         </div>
 
         {/* Time of day */}
-        <div className="col-span-6 md:col-span-1">
+        <div className="col-span-6 md:col-span-2">
           <label className="block text-xs text-muted mb-1">Time</label>
           <input
             type="time"
@@ -145,7 +145,7 @@ value={v.time_of_day ?? ""}
         </div>
 
         {/* Schedule */}
-        <div className="col-span-6 md:col-span-2">
+        <div className="col-span-6 md:col-span-1">
           <label className="block text-xs text-muted mb-1">Schedule</label>
           <select
             className="input"
