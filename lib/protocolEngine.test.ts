@@ -48,9 +48,17 @@ function createSupabaseMock(state, opts = {}) {
           }
           return Promise.resolve({ error: null });
         },
-                upsert(rows, _opts = {}) {
+        upsert(rows, _opts = {}) {
+          const seen = new Set();
           for (const row of rows) {
             if (!row.user_id) row.user_id = 'uid';
+            const key = `${row.user_id}-${row.protocol_id}-${row.peptide_id}-${row.date}`;
+            if (seen.has(key)) {
+              return Promise.resolve({ error: { code: '21000' } });
+            }
+            seen.add(key);
+          }
+          for (const row of rows) {
             const idx = state.doses.findIndex(
               (d) =>
                 d.user_id === row.user_id &&
@@ -296,6 +304,46 @@ describe('setActiveProtocolAndRegenerate', () => {
     await assert.doesNotReject(() =>
       setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock),
     );
+  });
+
+  it('merges duplicate items for the same peptide without conflict', async () => {
+    const state = {
+      doses: [],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: null,
+          titration_amount_mg: null,
+        },
+        {
+          id: 2,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 2,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: null,
+          titration_amount_mg: null,
+        },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state);
+    await assert.doesNotReject(() =>
+      setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock),
+    );
+    assert.equal(state.doses.length, 365);
+    assert.equal(state.doses[0].dose_mg, 3);
   });
 
   it('assigns site labels cycling daily', async () => {

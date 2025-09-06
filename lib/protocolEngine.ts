@@ -162,9 +162,25 @@ export async function setActiveProtocolAndRegenerate(
     }
   });
 
-  for (let i = 0; i < inserts.length; i += 1000) {
-    const chunk = inserts.slice(i, i + 1000);
-    const ins = await supabase
+  // Deduplicate by (peptide_id, date) to avoid Postgres error when the
+  // same row appears multiple times within a single upsert call. When
+  // duplicates occur we merge them, summing doses and keeping the last
+  // non-null site label.
+  const unique = new Map<string, any>();
+  for (const row of inserts) {
+    const key = `${row.peptide_id}|${row.date}`;
+    const prev = unique.get(key);
+    if (prev) {
+      prev.dose_mg += row.dose_mg;
+      if (row.site_label != null) prev.site_label = row.site_label;
+    } else {
+      unique.set(key, { ...row });
+    }
+  }
+  const deduped = Array.from(unique.values());
+
+  for (let i = 0; i < deduped.length; i += 1000) {
+    const chunk = deduped.slice(i, i + 1000);    const ins = await supabase
       .from("doses")
       .upsert(chunk, {
         onConflict: "user_id,protocol_id,peptide_id,date",
