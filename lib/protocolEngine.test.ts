@@ -29,7 +29,23 @@ function createSupabaseMock(state, opts = {}) {
         delete() { this.action = 'delete'; return this; },
         select(_cols, opts) { this.action = 'select'; this.opts = opts || {}; return this; },
         update(_vals) { this.action = 'update'; return this; },
-        insert(rows) { state.doses.push(...rows); return Promise.resolve({ error: null }); },
+     insert(rows, opts = {}) {
+          for (const row of rows) {
+            const exists = state.doses.some(
+              (d) =>
+                d.user_id === row.user_id &&
+                d.protocol_id === row.protocol_id &&
+                d.peptide_id === row.peptide_id &&
+                d.date_for === row.date_for,
+            );
+            if (exists) {
+              if (opts.ignoreDuplicates) continue;
+              return Promise.resolve({ error: new Error("duplicate key") });
+            }
+            state.doses.push(row);
+          }
+          return Promise.resolve({ error: null });
+        },
         eq(col, val) { this.filters.push({ type: 'eq', col, val }); return this; },
         gte(col, val) { this.filters.push({ type: 'gte', col, val }); return this; },
         neq(col, val) { this.filters.push({ type: 'neq', col, val }); return this; },
@@ -216,6 +232,43 @@ describe('setActiveProtocolAndRegenerate', () => {
     assert.equal(p1[6].dose_mg, 14);
     assert.equal(p2[4].dose_mg, 5);
     assert.equal(p2[5].dose_mg, 6);
+  });
+
+    it('handles overlapping doses without error', async () => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const state = {
+      doses: [
+        {
+          protocol_id: 1,
+          user_id: 'uid',
+          peptide_id: 1,
+          dose_mg: 1,
+          date: todayStr,
+          date_for: todayStr,
+          status: 'PENDING',
+        },
+      ],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: null,
+          titration_amount_mg: null,
+        },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state, { skipDelete: true });
+    await assert.doesNotReject(() =>
+      setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock),
+    );
   });
 
   it('assigns site labels cycling daily', async () => {

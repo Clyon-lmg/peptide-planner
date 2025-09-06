@@ -20,6 +20,17 @@ async function seed() {
     await supabase.from("doses").delete().eq("user_id", uid);
     await supabase.from("inventory_items").delete().eq("user_id", uid);
     await supabase.from("inventory_capsules").delete().eq("user_id", uid);
+
+    const { data: oldLists } = await supabase
+      .from("injection_site_lists")
+      .select("id")
+      .eq("user_id", uid);
+    const listIds = (oldLists ?? []).map((l: any) => l.id);
+    if (listIds.length) {
+      await supabase.from("injection_sites").delete().in("list_id", listIds);
+      await supabase.from("injection_site_lists").delete().in("id", listIds);
+    }
+
     const { data: oldProt } = await supabase
       .from("protocols")
       .select("id")
@@ -43,6 +54,21 @@ async function seed() {
     const p2 = Number(peptides[1].id);
 
     const today = new Date().toISOString().slice(0, 10);
+
+    // Injection site list
+    const { data: list, error: listErr } = await supabase
+      .from("injection_site_lists")
+      .insert({ name: "Demo Sites" })
+      .select("id")
+      .single();
+    if (listErr) throw listErr;
+    const siteListId = Number(list.id);
+
+    const { error: siteErr } = await supabase.from("injection_sites").insert([
+      { list_id: siteListId, name: "Left Arm", position: 1 },
+      { list_id: siteListId, name: "Right Arm", position: 2 },
+    ]);
+    if (siteErr) throw siteErr;
 
     // Protocol
     const { data: proto, error: protoErr } = await supabase
@@ -72,6 +98,7 @@ async function seed() {
         titration_interval_days: null,
         titration_amount_mg: null,
         color: "#f87171",
+        site_list_id: siteListId,
       },
       {
         protocol_id: protocolId,
@@ -85,10 +112,10 @@ async function seed() {
         titration_interval_days: null,
         titration_amount_mg: null,
         color: "#60a5fa",
+        site_list_id: null,
       },
     ]);
     if (itemsErr) throw itemsErr;
-
     // Inventory
     const { error: vialErr } = await supabase.from("inventory_items").insert({
       user_id: uid,

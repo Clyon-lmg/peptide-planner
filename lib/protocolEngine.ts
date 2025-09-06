@@ -163,10 +163,15 @@ export async function setActiveProtocolAndRegenerate(
     }
   });
 
-  for (let i=0;i<inserts.length;i+=1000) {
-    const chunk = inserts.slice(i, i+1000);
-    const ins = await supabase.from("doses").insert(chunk);
-    if (ins.error) throw ins.error;
+  for (let i = 0; i < inserts.length; i += 1000) {
+    const chunk = inserts.slice(i, i + 1000);
+    const ins = await supabase
+      .from("doses")
+      .insert(chunk, {
+        onConflict: "user_id,protocol_id,peptide_id,date_for",
+        ignoreDuplicates: true,
+      });
+      if (ins.error) throw ins.error;
   }
 
   return result;
