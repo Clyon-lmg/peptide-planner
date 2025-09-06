@@ -170,8 +170,12 @@ export async function setActiveProtocolAndRegenerate(
         onConflict: "user_id,protocol_id,peptide_id,date",
         ignoreDuplicates: true,
       });
-      if (ins.error) throw ins.error;
-  }
+    if (ins.error?.code === "23505") {
+      console.debug("Duplicate dose insertion skipped", ins.error);
+    } else if (ins.error) {
+      throw ins.error;
+    }
+    }
 
   return result;
 }
