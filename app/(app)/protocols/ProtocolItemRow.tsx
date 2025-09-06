@@ -39,7 +39,7 @@ export default function ProtocolItemRow({
     <div className="pp-card p-3 mb-2">
       <div className="grid grid-cols-12 gap-3 items-end">
         {/* Peptide */}
-        <div className="col-span-12 md:col-span-4">
+        <div className="col-span-12 md:col-span-3">
           <label className="block text-xs text-muted mb-1">Peptide</label>
           <select
             className="input"
@@ -133,7 +133,7 @@ export default function ProtocolItemRow({
           </div>
 
         {/* Time of day */}
-        <div className="col-span-6 md:col-span-2">
+        <div className="col-span-6 md:col-span-1">
           <label className="block text-xs text-muted mb-1">Time</label>
           <input
             type="time"
@@ -181,7 +181,7 @@ value={v.time_of_day ?? ""}
         </div>
         {v.titration_interval_days != null && v.titration_amount_mg != null && (
           <>
-            <div className="col-span-6 md:col-span-2 md:col-start-8 md:row-start-2">
+            <div className="col-span-6 md:col-span-2 md:col-start-7 md:row-start-2">
               <label className="block text-xs text-muted mb-1">
                 Titration interval (days)
               </label>
@@ -198,7 +198,7 @@ value={v.time_of_day ?? ""}
                 }
               />
             </div>
-            <div className="col-span-6 md:col-span-2 md:col-start-10 md:row-start-2">
+            <div className="col-span-6 md:col-span-2 md:col-start-9 md:row-start-2">
               <label className="block text-xs text-muted mb-1">
                 Titration amount (mg)
               </label>
