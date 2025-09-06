@@ -68,28 +68,6 @@ export default function ProtocolItemRow({
           />
         </div>
 
-        {/* Site list */}
-        <div className="col-span-6 md:col-span-2">
-          <label className="block text-xs text-muted mb-1">Site list</label>
-          <select
-            className="input"
-            value={v.site_list_id ?? ""}
-            onChange={(e) =>
-              onChange({
-                ...v,
-                site_list_id: e.target.value ? Number(e.target.value) : null,
-              })
-            }
-          >
-            <option value="">None</option>
-            {siteLists.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Dose (mg) */}
         <div className="col-span-6 md:col-span-1">
           <label className="block text-xs text-muted mb-1">Dose (mg)</label>
@@ -268,15 +246,37 @@ value={v.cycle_on_weeks}
           />
         </div>
         <div className="col-span-6 md:col-span-3">
-          <label className="block text-xs text-muted mb-1">Off (weeks)</label>
+        <div className="col-span-6 md:col-span-3 md:col-start-4">
           <input
             type="number"
-className="mt-1 input !max-w-[15ch]"
-value={v.cycle_off_weeks}
+            className="mt-1 input !max-w-[15ch]"
+            value={v.cycle_off_weeks}
             onChange={(e) =>
               onChange({ ...v, cycle_off_weeks: Number(e.target.value || 0) })
             }
           />
+        </div>
+
+        {/* Site list */}
+        <div className="col-span-6 md:col-span-3 md:col-start-7">
+          <label className="block text-xs text-muted mb-1">Site list</label>
+          <select
+            className="input"
+            value={v.site_list_id ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...v,
+                site_list_id: e.target.value ? Number(e.target.value) : null,
+              })
+            }
+          >
+            <option value="">None</option>
+            {siteLists.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     </div>
