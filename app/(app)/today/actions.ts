@@ -21,6 +21,7 @@ export type TodayDoseRow = {
   remainingDoses?: number | null;
   reorderDateISO?: string | null;
   time_of_day: string | null;
+  site_label: string | null;
 };
 
 // ---- tiny types to avoid SWC comma/semicolon parsing issue in generics
@@ -90,7 +91,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
       .in('peptide_id', peptideIds),
     sa
       .from('doses')
-      .select('peptide_id,status')
+      .select('peptide_id,status,site_label')
       .eq('user_id', uid)
       .eq('protocol_id', protocol.id)
       .eq('date_for', dateISO)
@@ -115,9 +116,12 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     });
   });
 
-  const statusByPeptide = new Map<number, DoseStatus>();
+  const doseInfoByPeptide = new Map<number, { status: DoseStatus; site_label: string | null }>();
   (doseRows ?? []).forEach((d: any) =>
-    statusByPeptide.set(Number(d.peptide_id), d.status as DoseStatus)
+    doseInfoByPeptide.set(Number(d.peptide_id), {
+      status: d.status as DoseStatus,
+      site_label: d.site_label ?? null,
+    })
   );
 
   const itemById = new Map<number, ProtocolItem>(
@@ -161,7 +165,8 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
       ),
       mg_per_vial: vialInv?.mg_per_vial ?? null,
       bac_ml: vialInv?.bac_ml ?? null,
-      status: statusByPeptide.get(pid) || 'PENDING',
+      status: doseInfoByPeptide.get(pid)?.status || 'PENDING',
+      site_label: doseInfoByPeptide.get(pid)?.site_label || null,
       remainingDoses,
       reorderDateISO,
       time_of_day: dr.time_of_day,
@@ -220,6 +225,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, status: Dos
       date_for: dateISO,
       dose_mg,
       status,
+      site_label: null,
     });
     if (insErr) throw insErr;
   } else {

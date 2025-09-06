@@ -39,7 +39,7 @@ export default function ProtocolItemRow({
     <div className="pp-card p-3 mb-2">
       <div className="grid grid-cols-12 gap-3 items-end">
         {/* Peptide */}
-        <div className="col-span-12 md:col-span-3">
+        <div className="col-span-12 md:col-span-4">
           <label className="block text-xs text-muted mb-1">Peptide</label>
           <select
             className="input"
@@ -68,9 +68,8 @@ export default function ProtocolItemRow({
           />
         </div>
 
-
         {/* Dose (mg) */}
-        <div className="col-span-6 md:col-span-1">
+        <div className="col-span-6 md:col-span-2">
           <label className="block text-xs text-muted mb-1">Dose (mg)</label>
           <input
             type="number"
@@ -83,48 +82,19 @@ export default function ProtocolItemRow({
           />
         </div>
 
-        {/* Titrate */}
-        <div className="col-span-6 md:col-span-1">
-          <label className="inline-flex items-center mt-6 text-xs text-muted">
-            <input
-              type="checkbox"
-              className="mr-2"
-              checked={
-                v.titration_interval_days != null && v.titration_amount_mg != null
-              }
-              onChange={(e) =>
-                onChange(
-                  e.target.checked
-                    ? {
-                        ...v,
-                        titration_interval_days: v.titration_interval_days ?? 7,
-                        titration_amount_mg: v.titration_amount_mg ?? 0,
-                      }
-                    : {
-                        ...v,
-                        titration_interval_days: null,
-                        titration_amount_mg: null,
-                      }
-                )
-              }
-            />
-            Titrate
-          </label>
-        </div>
-
         {/* Time of day */}
         <div className="col-span-6 md:col-span-2">
           <label className="block text-xs text-muted mb-1">Time</label>
           <input
             type="time"
-className="mt-1 input !max-w-[15ch]"
-value={v.time_of_day ?? ""}
+            className="mt-1 input !max-w-[15ch]"
+            value={v.time_of_day ?? ""}
             onChange={(e) => onChange({ ...v, time_of_day: e.target.value || null })}
           />
         </div>
 
         {/* Schedule */}
-        <div className="col-span-6 md:col-span-1">
+        <div className="col-span-6 md:col-span-3">
           <label className="block text-xs text-muted mb-1">Schedule</label>
           <select
             className="input"
@@ -148,55 +118,6 @@ value={v.time_of_day ?? ""}
             />
           )}
         </div>
-
-        {/* Delete button aligned far right */}
-        <div className="col-span-12 md:col-span-1 flex md:justify-end">
-          <button
-            type="button"
-            className="btn mt-6 bg-destructive hover:bg-destructive/90 text-white"
-            onClick={onDelete}
-          >
-            Delete
-          </button>
-        </div>
-        {v.titration_interval_days != null && v.titration_amount_mg != null && (
-          <>
-            <div className="col-span-6 md:col-span-2 md:col-start-7 md:row-start-2">
-              <label className="block text-xs text-muted mb-1">
-                Titration interval (days)
-              </label>
-              <input
-                type="number"
-                min={1}
-                className="mt-1 input !max-w-[15ch]"
-                value={v.titration_interval_days ?? 1}
-                onChange={(e) =>
-                  onChange({
-                    ...v,
-                    titration_interval_days: Number(e.target.value || 0),
-                  })
-                }
-              />
-            </div>
-            <div className="col-span-6 md:col-span-2 md:col-start-9 md:row-start-2">
-              <label className="block text-xs text-muted mb-1">
-                Titration amount (mg)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                className="mt-1 input !max-w-[15ch]"
-                value={v.titration_amount_mg ?? 0}
-                onChange={(e) =>
-                  onChange({
-                    ...v,
-                    titration_amount_mg: Number(e.target.value || 0),
-                  })
-                }
-              />
-            </div>
-          </>
-        )}
 
         {/* Custom days */}
         {v.schedule === "CUSTOM" && (
@@ -234,19 +155,21 @@ value={v.time_of_day ?? ""}
           </div>
         )}
 
-        {/* Cycles */}
+        {/* On weeks */}
         <div className="col-span-6 md:col-span-3">
           <label className="block text-xs text-muted mb-1">On (weeks)</label>
           <input
             type="number"
-className="mt-1 input !max-w-[15ch]"
-value={v.cycle_on_weeks}
+            className="mt-1 input !max-w-[15ch]"
+            value={v.cycle_on_weeks}
             onChange={(e) =>
               onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })
             }
           />
         </div>
-        <div className="col-span-6 md:col-span-3 md:col-start-4">
+
+        {/* Off weeks */}
+        <div className="col-span-6 md:col-span-3">
           <label className="block text-xs text-muted mb-1">Off (weeks)</label>
           <input
             type="number"
@@ -259,7 +182,7 @@ value={v.cycle_on_weeks}
         </div>
 
         {/* Site list */}
-        <div className="col-span-6 md:col-span-3 md:col-start-7">
+        <div className="col-span-6 md:col-span-3">
           <label className="block text-xs text-muted mb-1">Site list</label>
           <select
             className="input"
@@ -279,6 +202,86 @@ value={v.cycle_on_weeks}
             ))}
           </select>
         </div>
+
+        {/* Titrate */}
+        <div className="col-span-6 md:col-span-2">
+          <label className="inline-flex items-center mt-6 text-xs text-muted">
+            <input
+              type="checkbox"
+              className="mr-2"
+              checked={
+                v.titration_interval_days != null && v.titration_amount_mg != null
+              }
+              onChange={(e) =>
+                onChange(
+                  e.target.checked
+                    ? {
+                        ...v,
+                        titration_interval_days: v.titration_interval_days ?? 7,
+                        titration_amount_mg: v.titration_amount_mg ?? 0,
+                      }
+                    : {
+                        ...v,
+                        titration_interval_days: null,
+                        titration_amount_mg: null,
+                      }
+                )
+              }
+            />
+            Titrate
+          </label>
+        </div>
+
+        {/* Delete button aligned far right */}
+        <div className="col-span-6 md:col-span-1 flex md:justify-end">
+          <button
+            type="button"
+            className="btn mt-6 bg-destructive hover:bg-destructive/90 text-white"
+            onClick={onDelete}
+          >
+            Delete
+          </button>
+        </div>
+
+        {/* Titration inputs */}
+        {v.titration_interval_days != null && v.titration_amount_mg != null && (
+          <>
+            <div className="col-span-6 md:col-span-6">
+              <label className="block text-xs text-muted mb-1">
+                Titration interval (days)
+              </label>
+              <input
+                type="number"
+                min={1}
+                className="mt-1 input !max-w-[15ch]"
+                value={v.titration_interval_days ?? 1}
+                onChange={(e) =>
+                  onChange({
+                    ...v,
+                    titration_interval_days: Number(e.target.value || 0),
+                  })
+                }
+              />
+            </div>
+            <div className="col-span-6 md:col-span-6">
+              <label className="block text-xs text-muted mb-1">
+                Titration amount (mg)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className="mt-1 input !max-w-[15ch]"
+                value={v.titration_amount_mg ?? 0}
+                onChange={(e) =>
+                  onChange({
+                    ...v,
+                    titration_amount_mg: Number(e.target.value || 0),
+                  })
+                }
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

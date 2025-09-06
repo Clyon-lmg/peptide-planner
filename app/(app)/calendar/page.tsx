@@ -250,9 +250,11 @@ function DoseBlock({ r, duplicate }: { r: CalendarDoseRow; duplicate?: boolean }
             : r.status === 'SKIPPED'
                 ? 'text-destructive'
                 : 'text-info';
-  const info = r.time_of_day
-    ? `${r.time_of_day} • ${r.dose_mg} mg`
-    : `${r.dose_mg} mg`;
+  const infoParts = [] as string[];
+  if (r.time_of_day) infoParts.push(r.time_of_day);
+  infoParts.push(`${r.dose_mg} mg`);
+  if (r.site_label) infoParts.push(r.site_label);
+  const info = infoParts.join(' • ');
   return (
     <div
       className={`rounded-lg border ${border} border-l-4 ${bg} ${text} p-2 ${

@@ -117,6 +117,9 @@ export default function TodayPage() {
                     <div className="text-xs text-muted">
                       Time: {r.time_of_day ?? "—"}
                     </div>
+                    <div className="text-xs text-muted">
+                      Site: {r.site_label ?? "—"}
+                    </div>
                     </div>
                 </div>
 

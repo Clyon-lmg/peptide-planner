@@ -12,6 +12,7 @@ export type CalendarDoseRow = {
   dose_mg: number;
   status: DoseStatus;
   time_of_day: string | null;
+  site_label: string | null;
 };
 
 /**
@@ -57,7 +58,7 @@ export async function getDosesForRange(
       .in('id', peptideIds),
     supabase
       .from('doses')
-      .select('date_for, peptide_id, dose_mg, status')
+      .select('date_for, peptide_id, dose_mg, status, site_label')
       .eq('user_id', user.id)
       .eq('protocol_id', protocol.id)
       .gte('date_for', startIso)
@@ -67,12 +68,13 @@ export async function getDosesForRange(
     (peptideRows ?? []).map((p: any) => [Number(p.id), String(p.canonical_name)])
   );
 
-  const statusMap = new Map<string, { status: DoseStatus; dose_mg: number }>();
+  const statusMap = new Map<string, { status: DoseStatus; dose_mg: number; site_label: string | null }>();
   (doseRows ?? []).forEach((r: any) => {
     const key = `${r.date_for}_${r.peptide_id}`;
     statusMap.set(key, {
       status: (r.status ?? 'PENDING') as DoseStatus,
       dose_mg: Number(r.dose_mg ?? 0),
+      site_label: r.site_label ?? null,
     });
   });
 

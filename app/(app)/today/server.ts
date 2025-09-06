@@ -15,6 +15,7 @@ export type TodayDoseRow = {
   remainingDoses?: number | null;
   reorderDateISO?: string | null;
   time_of_day: string | null;
+  site_label: string | null;
 };
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
@@ -48,7 +49,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     sa.from("peptides").select("id, canonical_name").in("id", peptideIds),
     sa.from("inventory_items").select("peptide_id, vials, mg_per_vial, bac_ml").eq("user_id", uid).in("peptide_id", peptideIds),
     sa.from("inventory_capsules").select("peptide_id, bottles, caps_per_bottle, mg_per_cap").eq("user_id", uid).in("peptide_id", peptideIds),
-    sa.from("doses").select("peptide_id,status").eq("user_id", uid).eq("protocol_id", protocol.id).eq("date_for", dateISO).in("peptide_id", peptideIds),
+    sa.from("doses").select("peptide_id,status,site_label").eq("user_id", uid).eq("protocol_id", protocol.id).eq("date_for", dateISO).in("peptide_id", peptideIds),
   ]);
 
   const nameById = new Map<number, string>((peptideRows ?? []).map(p => [Number(p.id), String(p.canonical_name)]));
@@ -67,8 +68,13 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     mg_per_cap: Number(r.mg_per_cap || 0),
   }));
 
-  const statusByPeptide = new Map<number, DoseStatus>();
-  (doseRows ?? []).forEach((d: any) => statusByPeptide.set(Number(d.peptide_id), d.status as DoseStatus));
+  const doseInfoByPeptide = new Map<number, { status: DoseStatus; site_label: string | null }>();
+  (doseRows ?? []).forEach((d: any) =>
+    doseInfoByPeptide.set(Number(d.peptide_id), {
+      status: d.status as DoseStatus,
+      site_label: d.site_label ?? null,
+    })
+  );
 
   const rows: TodayDoseRow[] = items.map((it: any) => {
     const pid = Number(it.peptide_id);
@@ -103,7 +109,8 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
       syringe_units: unitsFromDose(dose_mg, vialInv?.mg_per_vial, vialInv?.bac_ml), // may be null, that’s fine
       mg_per_vial: vialInv?.mg_per_vial ?? null,
       bac_ml: vialInv?.bac_ml ?? null,
-      status: statusByPeptide.get(pid) || "PENDING",
+      status: doseInfoByPeptide.get(pid)?.status || "PENDING",
+      site_label: doseInfoByPeptide.get(pid)?.site_label || null,
       remainingDoses,
       reorderDateISO,
       time_of_day: (it as any).time_of_day ?? null,
@@ -161,6 +168,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, status: Dos
       date_for: dateISO,
       dose_mg,
       status,
+      site_label: null,
     });
     if (insErr) throw insErr;
   } else {

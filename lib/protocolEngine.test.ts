@@ -5,11 +5,13 @@ import { setActiveProtocolAndRegenerate } from './protocolEngine';
 import * as supabaseBrowser from './supabaseBrowser';
 
 function createSupabaseMock(state, opts = {}) {
+  state.injection_sites = state.injection_sites || [];
   function match(row, filters) {
     return filters.every(f => {
       if (f.type === 'eq') return row[f.col] === f.val;
       if (f.type === 'gte') return row[f.col] >= f.val;
       if (f.type === 'neq') return row[f.col] !== f.val;
+      if (f.type === 'in') return f.val.includes(row[f.col]);
       return true;
     });
   }
@@ -32,6 +34,8 @@ function createSupabaseMock(state, opts = {}) {
         eq(col, val) { this.filters.push({ type: 'eq', col, val }); return this; },
         gte(col, val) { this.filters.push({ type: 'gte', col, val }); return this; },
         neq(col, val) { this.filters.push({ type: 'neq', col, val }); return this; },
+        in(col, val) { this.filters.push({ type: 'in', col, val }); return this; },
+        order(col, opts) { this.order = { col, asc: opts?.ascending !== false }; return this; },
         then(resolve) {
           if (this.action === 'delete' && table === 'doses') {
             if (!opts.skipDelete) {
@@ -42,6 +46,11 @@ function createSupabaseMock(state, opts = {}) {
             let rows = [];
             if (table === 'protocol_items') rows = state.protocol_items.filter(r => match(r, this.filters));
             if (table === 'doses') rows = state.doses.filter(r => match(r, this.filters));
+            if (table === 'injection_sites') rows = state.injection_sites.filter(r => match(r, this.filters));
+            if (this.order && rows.length) {
+              const { col, asc } = this.order;
+              rows = rows.sort((a,b) => asc ? a[col] - b[col] : b[col] - a[col]);
+            }
             if (this.opts.head) resolve({ count: rows.length, error: null });
             else resolve({ data: rows, error: null });
           } else {
@@ -220,5 +229,42 @@ describe('setActiveProtocolAndRegenerate', () => {
     assert.equal(p1[6].dose_mg, 14);
     assert.equal(p2[4].dose_mg, 5);
     assert.equal(p2[5].dose_mg, 6);
+  });
+
+  it('assigns site labels cycling daily', async () => {
+    const state = {
+      doses: [],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERY_N_DAYS',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: 2,
+          titration_interval_days: null,
+          titration_amount_mg: null,
+          site_list_id: 1,
+        },
+      ],
+      injection_sites: [
+        { list_id: 1, name: 'A', position: 1 },
+        { list_id: 1, name: 'B', position: 2 },
+        { list_id: 1, name: 'C', position: 3 },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state);
+    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
+
+    await setActiveProtocolAndRegenerate(1, 'uid');
+
+    const labels = state.doses
+      .filter(d => d.peptide_id === 1)
+      .slice(0, 3)
+      .map(d => d.site_label);
+    assert.deepEqual(labels, ['A', 'C', 'B']);
   });
 });

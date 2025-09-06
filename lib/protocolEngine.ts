@@ -23,6 +23,7 @@ type ProtocolItem = {
   every_n_days: number | null;
   titration_interval_days: number | null;
   titration_amount_mg: number | null;
+  site_list_id: number | null;
 };
 
 function localDateStr(d = new Date()) {
@@ -67,10 +68,26 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
   // Fetch items
   const itemsRes = await supabase
     .from("protocol_items")
-    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, titration_interval_days, titration_amount_mg")
+    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, titration_interval_days, titration_amount_mg, site_list_id")
     .eq("protocol_id", protocolId);
   if (itemsRes.error) throw itemsRes.error;
   const items = itemsRes.data || [];
+
+  // Load injection site lists for items
+  const siteMap = new Map<number, string[]>();
+  const siteListIds = Array.from(new Set(items.map((it: any) => it.site_list_id).filter((id: number | null) => id)));
+  if (siteListIds.length) {
+    const { data: sites, error: sitesErr } = await supabase
+      .from("injection_sites")
+      .select("list_id,name,position")
+      .in("list_id", siteListIds)
+      .order("position", { ascending: true });
+    if (sitesErr) throw sitesErr;
+    (sites || []).forEach((row: any) => {
+      if (!siteMap.has(row.list_id)) siteMap.set(row.list_id, []);
+      siteMap.get(row.list_id)!.push(row.name);
+    });
+  }
 
   // Clear future doses for this protocol based on the scheduled date (date_for),
   // ensuring uniqueness on (user_id, protocol_id, peptide_id, date). Past doses
@@ -103,6 +120,7 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
     const offWeeks = Number(it.cycle_off_weeks || 0);
     const cycleLenDays = (onWeeks + offWeeks) * 7;
     let elapsed = 0;
+    const sites = it.site_list_id ? siteMap.get(it.site_list_id) || [] : [];
     for (const d of dateRangeDays(start, days)) {
       if (cycleLenDays > 0) {
         const inOn = elapsed % cycleLenDays < onWeeks * 7;
@@ -125,6 +143,8 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
       if (interval > 0 && amount > 0) {
         dose = baseDose + Math.floor(elapsed / interval) * amount;
       }
+      let site_label: string | null = null;
+      if (sites.length) site_label = sites[elapsed % sites.length];
       inserts.push({
         protocol_id: protocolId,
         peptide_id: it.peptide_id,
@@ -132,6 +152,7 @@ export async function setActiveProtocolAndRegenerate(protocolId: number, _userId
         date: ds,
         date_for: ds,
         status: "PENDING",
+        site_label,
         user_id: null, // trigger will set auth.uid()
       });
       elapsed++;
