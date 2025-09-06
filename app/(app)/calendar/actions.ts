@@ -106,6 +106,7 @@ export async function getDosesForRange(
           existing?.dose_mg ?? Number(it.dose_mg_per_administration || 0),
         status: existing?.status ?? 'PENDING',
         time_of_day: (it as any).time_of_day ?? null,
+        site_label: existing?.site_label ?? null,
       });
     }
   }
