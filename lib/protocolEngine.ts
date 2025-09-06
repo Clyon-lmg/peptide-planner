@@ -52,8 +52,12 @@ export async function onProtocolUpdated(protocolId: number, _userId: string) {
   if (delErr) throw delErr;
 }
 
-export async function setActiveProtocolAndRegenerate(protocolId: number, _userId: string): Promise<ActivationResult> {
-  const supabase = getSupabaseBrowser();
+export async function setActiveProtocolAndRegenerate(
+  protocolId: number,
+  _userId: string,
+  getSupabase: () => any = getSupabaseBrowser,
+): Promise<ActivationResult> {
+  const supabase = getSupabase();
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess?.session?.user?.id;
   if (!uid) throw new Error("No session");

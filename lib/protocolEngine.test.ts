@@ -1,8 +1,7 @@
 ﻿// @ts-nocheck
-import { describe, it, mock } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { setActiveProtocolAndRegenerate } from './protocolEngine';
-import * as supabaseBrowser from './supabaseBrowser';
 
 function createSupabaseMock(state, opts = {}) {
   state.injection_sites = state.injection_sites || [];
@@ -73,9 +72,7 @@ describe('setActiveProtocolAndRegenerate', () => {
       protocol_items: []
     };
     const supabaseMock = createSupabaseMock(state);
-    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
-
-    const res = await setActiveProtocolAndRegenerate(1, 'uid');
+    const res = await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
 
     assert.equal(state.doses.some(d => d.date_for === '2000-01-01'), true);
     assert.equal(state.doses.some(d => d.date_for === '2999-01-01'), false);
@@ -89,9 +86,7 @@ describe('setActiveProtocolAndRegenerate', () => {
       protocol_items: []
     };
     const supabaseMock = createSupabaseMock(state, { skipDelete: true });
-    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
-
-    const res = await setActiveProtocolAndRegenerate(1, 'uid');
+    const res = await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
 
     assert.equal(res.leftover, 1);
   });
@@ -116,9 +111,7 @@ describe('setActiveProtocolAndRegenerate', () => {
       ],
     };
     const supabaseMock = createSupabaseMock(state);
-    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
-
-    await setActiveProtocolAndRegenerate(1, 'uid');
+    await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
 
     assert.equal(state.doses[0].dose_mg, 10);
     assert.equal(state.doses[7].dose_mg, 15);
@@ -144,9 +137,7 @@ describe('setActiveProtocolAndRegenerate', () => {
       ],
     };
     const supabaseMock = createSupabaseMock(state);
-    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
-
-    await setActiveProtocolAndRegenerate(1, 'uid');
+    await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
 
     const doses = state.doses.filter(d => d.peptide_id === 1);
     assert.equal(doses[0].dose_mg, 10); // initial
@@ -176,9 +167,7 @@ describe('setActiveProtocolAndRegenerate', () => {
       ],
     };
     const supabaseMock = createSupabaseMock(state);
-    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
-
-    await setActiveProtocolAndRegenerate(1, 'uid');
+    await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
 
     const doses = state.doses.filter(d => d.peptide_id === 1);
     assert.equal(new Set(doses.slice(0, 10).map(d => d.dose_mg)).size, 1);
@@ -218,9 +207,7 @@ describe('setActiveProtocolAndRegenerate', () => {
       ],
     };
     const supabaseMock = createSupabaseMock(state);
-    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
-
-    await setActiveProtocolAndRegenerate(1, 'uid');
+    await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
 
     const p1 = state.doses.filter(d => d.peptide_id === 1);
     const p2 = state.doses.filter(d => d.peptide_id === 2);
@@ -257,9 +244,7 @@ describe('setActiveProtocolAndRegenerate', () => {
       ],
     };
     const supabaseMock = createSupabaseMock(state);
-    mock.method(supabaseBrowser, 'getSupabaseBrowser', () => supabaseMock);
-
-    await setActiveProtocolAndRegenerate(1, 'uid');
+    await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
 
     const labels = state.doses
       .filter(d => d.peptide_id === 1)

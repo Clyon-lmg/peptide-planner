@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --test"
+    "test": "node --loader ./ts-test-loader.mjs --test lib/*.test.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^1",
