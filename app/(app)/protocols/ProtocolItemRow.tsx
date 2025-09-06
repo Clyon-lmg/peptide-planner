@@ -68,6 +68,7 @@ export default function ProtocolItemRow({
           />
         </div>
 
+
         {/* Dose (mg) */}
         <div className="col-span-6 md:col-span-1">
           <label className="block text-xs text-muted mb-1">Dose (mg)</label>
@@ -245,8 +246,8 @@ value={v.cycle_on_weeks}
             }
           />
         </div>
-        <div className="col-span-6 md:col-span-3">
         <div className="col-span-6 md:col-span-3 md:col-start-4">
+          <label className="block text-xs text-muted mb-1">Off (weeks)</label>
           <input
             type="number"
             className="mt-1 input !max-w-[15ch]"
