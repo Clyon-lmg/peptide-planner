@@ -11,7 +11,7 @@ export default async function SuggestionDetailPage({ params }: { params: { id: s
   const id = Number(params.id);
   const { data: s, error } = await supabase
     .from("suggestions")
-    .select("id,title,note,type,status")
+    .select("id,title,payload,type,status")
     .eq("id", id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -21,7 +21,9 @@ export default async function SuggestionDetailPage({ params }: { params: { id: s
       <Card>
         <div className="pp-h2">{s.title}</div>
         <div className="pp-subtle">{s.type}</div>
-        <p className="mt-2">{s.note}</p>
+        {s.payload?.note && (
+          <p className="mt-2">{s.payload.note}</p>
+        )}
         <div className="mt-4 flex gap-2">
           <form action={async () => { await acceptSuggestion(id); }}>
             <button className="btn">Accept</button>
