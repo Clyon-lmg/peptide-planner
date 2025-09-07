@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { Calendar, Package, Notebook, Home, ShoppingCart, ClipboardList, Activity } from "lucide-react"
+import { Calendar, Package, Notebook, Home, ShoppingCart, ClipboardList, Activity, Lightbulb } from "lucide-react"
 const nav = [
   { href: "/today", label: "Today", icon: Home },
   { href: "/calendar", label: "Calendar", icon: Calendar },
@@ -11,6 +11,7 @@ const nav = [
   { href: "/cart", label: "Cart", icon: ShoppingCart },
   { href: "/orders", label: "Orders", icon: ClipboardList },
   { href: "/weight", label: "Weight", icon: Activity },
+  { href: "/suggestions", label: "Suggestions", icon: Lightbulb, beta: true },
   ]
 export default function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
   const pathname = usePathname()
@@ -31,15 +32,25 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
               return <Link key={n.href} href={n.href}
                 className={"flex items-center gap-3 px-3 py-2 rounded-xl transition-colors " + (active ? "" : "hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.06)]")}
                 style={active?{ background:"color-mix(in oklab, rgb(var(--ring)) 10%, transparent)", color:"rgb(var(--ring))"}:{}}
-              ><Icon className="size-4"/><span>{n.label}</span></Link>
-            })}
+              ><Icon className="size-4"/>
+                <span className="flex items-center">
+                  {n.label}
+                  {n.beta && <span className="ml-1 text-[10px] uppercase">Beta</span>}
+                </span>
+              </Link>   
+          })}
           </nav>
 <p className="text-xs opacity-70">For research purposes only</p>
         </div>
         </aside>
       <main className="p-5 md:p-8">
         <header className="flex items-center justify-between mb-6">
-          <h1 className="pp-h1">{titleFromPath(pathname)}</h1>
+          <h1 className="pp-h1">
+            {titleFromPath(pathname)}
+            {(pathname?.startsWith("/suggestions") || pathname?.startsWith("/provider")) && (
+              <span className="ml-2 text-[10px] uppercase">Beta</span>
+            )}
+          </h1>
           <div className="text-sm opacity-80 flex items-center gap-2">
             {userEmail ? <span>{userEmail}</span> : <Link href="/sign-in">Sign in</Link>}
             {userEmail && <form action="/auth/signout" method="post"><button className="btn">Sign out</button></form>}

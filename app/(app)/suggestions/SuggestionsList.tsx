@@ -35,8 +35,10 @@ export default function SuggestionsList({ initial }: { initial: any[] }) {
               <div className="font-semibold">{s.title}</div>
               <div className="pp-subtle">{s.type}</div>
             </div>
-            <Link className="btn" href={`/suggestions/${s.id}`}>View</Link>
-          </div>
+            <Link className="btn" href={`/suggestions/${s.id}`}>
+              View <span className="ml-1 text-[10px] uppercase">Beta</span>
+            </Link>
+            </div>
         </Card>
       ))}
     </div>

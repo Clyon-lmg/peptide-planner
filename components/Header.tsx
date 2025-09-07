@@ -64,6 +64,9 @@ export default function Header() {
             <Link href="/protocol" className="hover:underline">Protocol</Link>
             <Link href="/inventory" className="hover:underline">Inventory</Link>
             <Link href="/cart" className="relative hover:underline">
+            <Link href="/suggestions" className="hover:underline">
+                Suggestions <span className="ml-1 text-[10px] uppercase">Beta</span>
+            </Link>
                 Cart
                 {cartCount > 0 && (
                      <span className="ml-1 inline-flex items-center justify-center min-w-5 h-5 px-1 text-xs rounded-full border border-border">
