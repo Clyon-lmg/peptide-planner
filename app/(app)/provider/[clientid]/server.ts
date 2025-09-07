@@ -2,12 +2,19 @@
 import { createServerActionSupabase } from "@/lib/supabaseServer";
 import { revalidatePath } from "next/cache";
 
-export async function createSuggestionForClient(clientId: string, type: string, title: string, note: string) {
-  const supabase = createServerActionSupabase();
-  const { error } = await supabase.from("suggestions").insert({ user_id: clientId, type, title, note, status: "PENDING" });
-  if (error) throw error;
+export async function createSuggestionForClient(
+  clientId: string,
+  type: string,
+  title: string,
+  note: string,
+) {
+	const supabase = createServerActionSupabase();
+  const { error } = await supabase
+    .from("suggestions")
+    .insert({ user_id: clientId, type, title, payload: { note }, status: "PENDING" });
+    if (error) throw error;
   // Revalidate suggestions page for the client if needed
-  revalidatePath(`/provider/${clientId}/${type === 'protocol' ? 'protocols' : 'inventory'}`);
+  revalidatePath(`/provider/${clientId}/${type === "protocol" ? "protocols" : "inventory"}`);
   revalidatePath("/suggestions");
 }
 
