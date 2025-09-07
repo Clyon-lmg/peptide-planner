@@ -1,6 +1,7 @@
 import { createServerComponentSupabase } from "@/lib/supabaseServer";
 import Card from "@/components/layout/Card";
 import SuggestionsList from "./SuggestionsList";
+import type { Suggestion } from "./types";
 
 export const dynamic = "force-dynamic";
 
@@ -10,14 +11,14 @@ export default async function SuggestionsPage() {
   if (!user) return <Card>Please sign in.</Card>;
   const { data: suggestions, error } = await supabase
     .from("suggestions")
-    .select("id,title,type,status")
+    .select("id,title,status")
     .eq("user_id", user.id)
     .eq("status", "PENDING")
     .order("id", { ascending: false });
   if (error) return <Card>Error: {error.message}</Card>;
   return (
     <div className="p-4">
-      <SuggestionsList initial={suggestions || []} />
+      <SuggestionsList initial={(suggestions as Suggestion[]) || []} />
     </div>
   );
 }
