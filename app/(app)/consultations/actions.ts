@@ -1,7 +1,4 @@
-﻿+44
--0
-
-'use server';
+﻿'use server';
 
 import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { revalidatePath } from 'next/cache';
