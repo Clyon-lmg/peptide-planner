@@ -22,8 +22,12 @@ function resolveWithExtensions(resolved) {
 
 export function resolve(specifier, context, defaultResolve) {
   let resolvedPath;
-  if (specifier.startsWith('@/')) {
-    resolvedPath = resolvePath(process.cwd(), specifier.slice(2));
+  if (specifier === 'server-only') {
+    resolvedPath = resolvePath(process.cwd(), 'server-only.ts');
+  } else if (specifier === 'next/headers') {
+    resolvedPath = resolvePath(process.cwd(), 'next-headers.ts');
+  } else if (specifier.startsWith('@/')) {
+      resolvedPath = resolvePath(process.cwd(), specifier.slice(2));
   } else if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('file:')) {
     const parentPath = context.parentURL ? fileURLToPath(context.parentURL) : process.cwd();
     if (specifier.startsWith('file:')) {

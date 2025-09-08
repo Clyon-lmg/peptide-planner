@@ -478,6 +478,52 @@ describe('getDosesForRange', () => {
       canonical_name: 'Test Peptide',
       dose_mg: 1,
       status: 'TAKEN',
+      time_of_day: null,
+      site_label: null,
+    });
+  });
+
+  it('includes doses logged before protocol start date', async () => {
+    const supabase = createSupabaseMock({
+      user: { id: 'user1' },
+      protocol: { id: 1, start_date: '2024-01-05' },
+      items: [
+        {
+          peptide_id: 10,
+          dose_mg_per_administration: 1,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+        },
+      ],
+      peptides: [{ id: 10, canonical_name: 'Test Peptide' }],
+      doses: [
+        {
+          date_for: '2024-01-03',
+          peptide_id: 10,
+          dose_mg: 1,
+          status: 'TAKEN',
+        },
+      ],
+    });
+
+    (globalThis as any).__supabaseMock = supabase;
+    const rows = await getDosesForRange('2024-01-01', '2024-01-07');
+
+    assert.deepEqual(
+      rows.map((r: any) => r.date_for),
+      ['2024-01-03', '2024-01-05', '2024-01-06', '2024-01-07']
+    );
+    const early = rows.find((r: any) => r.date_for === '2024-01-03');
+    assert.deepEqual(early, {
+      date_for: '2024-01-03',
+      peptide_id: 10,
+      canonical_name: 'Test Peptide',
+      dose_mg: 1,
+      status: 'TAKEN',
+      time_of_day: null,
+      site_label: null,
     });
   });
 

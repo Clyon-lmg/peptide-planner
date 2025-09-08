@@ -111,6 +111,24 @@ export async function getDosesForRange(
     }
   }
 
+  // Inject any recorded doses that weren't part of the generated schedule
+  const existingKeys = new Set(
+    rows.map((r) => `${r.date_for}_${r.peptide_id}`)
+  );
+  (doseRows ?? []).forEach((r: any) => {
+    const key = `${r.date_for}_${r.peptide_id}`;
+    if (existingKeys.has(key)) return;
+    rows.push({
+      date_for: r.date_for,
+      peptide_id: Number(r.peptide_id),
+      canonical_name: nameById.get(Number(r.peptide_id)) || '',
+      dose_mg: Number(r.dose_mg ?? 0),
+      status: (r.status ?? 'PENDING') as DoseStatus,
+      time_of_day: null,
+      site_label: r.site_label ?? null,
+    });
+  });
+
   rows.sort((a, b) => {
     const da = a.date_for.localeCompare(b.date_for);
     if (da !== 0) return da;

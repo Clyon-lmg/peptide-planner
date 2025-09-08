@@ -22,11 +22,15 @@ function createClient(cookieStore: ReturnType<typeof cookies>, writable: boolean
 }
 
 export function createServerComponentSupabase(): SupabaseClient {
+  const mock = (globalThis as any).__supabaseMock;
+  if (mock) return mock;
   const cookieStore = cookies();
   return createClient(cookieStore, false);
 }
 
 export function createServerActionSupabase(): SupabaseClient {
+  const mock = (globalThis as any).__supabaseMock;
+  if (mock) return mock;
   const cookieStore = cookies();
   return createClient(cookieStore, true);
 }
