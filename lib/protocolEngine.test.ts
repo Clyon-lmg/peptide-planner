@@ -5,6 +5,7 @@ import { setActiveProtocolAndRegenerate } from './protocolEngine';
 
 function createSupabaseMock(state, opts = {}) {
   state.injection_sites = state.injection_sites || [];
+  state.protocols = state.protocols || [];
   function match(row, filters) {
     return filters.every(f => {
       if (f.type === 'eq') return row[f.col] === f.val;
@@ -29,7 +30,7 @@ function createSupabaseMock(state, opts = {}) {
         opts: {},
         delete() { this.action = 'delete'; return this; },
         select(_cols, opts) { this.action = 'select'; this.opts = opts || {}; return this; },
-        update(_vals) { this.action = 'update'; return this; },
+        update(vals) { this.action = 'update'; this.vals = vals; return this; },
         insert(rows, opts = {}) {
           for (const row of rows) {
             if (!row.user_id) row.user_id = 'uid';
@@ -95,12 +96,18 @@ function createSupabaseMock(state, opts = {}) {
             if (table === 'protocol_items') rows = state.protocol_items.filter(r => match(r, this.filters));
             if (table === 'doses') rows = state.doses.filter(r => match(r, this.filters));
             if (table === 'injection_sites') rows = state.injection_sites.filter(r => match(r, this.filters));
+            if (table === 'protocols') rows = state.protocols.filter(r => match(r, this.filters));
             if (this.order && rows.length) {
               const { col, asc } = this.order;
               rows = rows.sort((a,b) => asc ? a[col] - b[col] : b[col] - a[col]);
             }
             if (this.opts.head) resolve({ count: rows.length, error: null });
             else resolve({ data: rows, error: null });
+          } else if (this.action === 'update' && table === 'protocols') {
+            state.protocols = state.protocols.map(r =>
+              match(r, this.filters) ? { ...r, ...this.vals } : r
+            );
+            resolve({ error: null });
           } else {
             resolve({ error: null });
           }
@@ -127,6 +134,45 @@ describe('setActiveProtocolAndRegenerate', () => {
     assert.equal(state.doses.some(d => d.date_for === '2000-01-01'), true);
     assert.equal(state.doses.some(d => d.date_for === '2999-01-01'), false);
     assert.equal(state.doses.some(d => d.date === '2999-01-01' && d.date_for === '2000-01-01'), false);
+  });
+
+  it('regenerates using existing start date and keeps history', async () => {
+    const state = {
+      protocols: [{ id: 1, is_active: false, start_date: '2000-01-01' }],
+      doses: [
+        {
+          protocol_id: 1,
+          user_id: 'uid',
+          peptide_id: 1,
+          dose_mg: 1,
+          date: '2000-01-01',
+          date_for: '2000-01-01',
+          status: 'PENDING',
+        },
+      ],
+      protocol_items: [
+        {
+          id: 1,
+          protocol_id: 1,
+          peptide_id: 1,
+          dose_mg_per_administration: 2,
+          schedule: 'EVERYDAY',
+          custom_days: null,
+          cycle_on_weeks: 0,
+          cycle_off_weeks: 0,
+          every_n_days: null,
+          titration_interval_days: null,
+          titration_amount_mg: null,
+        },
+      ],
+    };
+    const supabaseMock = createSupabaseMock(state);
+    await setActiveProtocolAndRegenerate(1, 'uid', () => supabaseMock);
+
+    const past = state.doses.find(d => d.date === '2000-01-01');
+    assert.ok(past);
+    assert.equal(past.dose_mg, 2);
+    assert.equal(state.protocols[0].start_date, '2000-01-01');
   });
 
   it('reports leftover doses without failing', async () => {

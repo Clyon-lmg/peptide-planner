@@ -61,13 +61,22 @@ export async function setActiveProtocolAndRegenerate(
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess?.session?.user?.id;
   if (!uid) throw new Error("No session");
-
-  const startDateStr = localDateStr();
+  const todayStr = localDateStr();
+  const { data: startData, error: startErr } = await supabase
+    .from("protocols")
+    .select("start_date")
+    .eq("id", protocolId);
+  if (startErr) throw startErr;
+  let startDateStr = startData?.[0]?.start_date as string | null;
+  const needsStartDateUpdate = !startDateStr;
+  if (!startDateStr) startDateStr = todayStr;
 
   // Deactivate others; activate this protocol
   let r = await supabase.from("protocols").update({ is_active: false }).neq("id", protocolId); if (r.error) throw r.error;
   r = await supabase.from("protocols").update({ is_active: true }).eq("id", protocolId); if (r.error) throw r.error;
-  r = await supabase.from("protocols").update({ start_date: startDateStr }).eq("id", protocolId); if (r.error) throw r.error;
+  if (needsStartDateUpdate) {
+    r = await supabase.from("protocols").update({ start_date: startDateStr }).eq("id", protocolId); if (r.error) throw r.error;
+  }
 
   // Fetch items
   const itemsRes = await supabase
@@ -99,7 +108,7 @@ export async function setActiveProtocolAndRegenerate(
   const del = await supabase
     .from("doses")
     .delete()
-    .or(`date.gte.${startDateStr},date_for.gte.${startDateStr}`)
+    .or(`date.gte.${startDateStr!},date_for.gte.${startDateStr!}`)
     .eq("protocol_id", protocolId)
     .eq("user_id", uid);
   if (del.error) throw del.error;
@@ -107,7 +116,7 @@ export async function setActiveProtocolAndRegenerate(
   const { count: remaining, error: remErr } = await supabase
     .from("doses")
     .select("*", { head: true, count: "exact" })
-    .or(`date.gte.${startDateStr},date_for.gte.${startDateStr}`)
+    .or(`date.gte.${startDateStr!},date_for.gte.${startDateStr!}`)
     .eq("protocol_id", protocolId)
     .eq("user_id", uid);
   if (remErr) throw remErr;
@@ -115,7 +124,7 @@ export async function setActiveProtocolAndRegenerate(
   if (remaining) result.leftover = remaining;
 
   // Generate 12 months
-  const start = new Date(startDateStr + "T00:00:00");
+  const start = new Date(startDateStr! + "T00:00:00");
   const days = 365;
   const inserts: any[] = [];
 
