@@ -14,9 +14,7 @@ async function getAuthed() {
 }
 
 /* -------------------------------------------
-   Known lists (filtered by vendor_products.kind)
-   Note: Keeping this so the "Add" dropdowns still populate
-   from known peptides in the DB, even if we don't sell them.
+   Known lists
 -------------------------------------------- */
 
 export type KnownItem = { id: number; canonical_name: string };
@@ -76,6 +74,7 @@ export type VialRow = {
     mg_per_vial: number;
     bac_ml: number;
     half_life_hours: number;
+    current_used_mg: number;
     name: string;
 };
 
@@ -86,6 +85,7 @@ export type CapsRow = {
     caps_per_bottle: number;
     mg_per_cap: number;
     half_life_hours: number;
+    current_used_mg: number;
     name: string;
 };
 
@@ -110,7 +110,7 @@ export async function getVialInventory(): Promise<VialRow[]> {
     const { data, error } = await supabase
         .from("inventory_items")
         .select(
-            "id, peptide_id, vials, mg_per_vial, bac_ml, half_life_hours, peptides(canonical_name)"
+            "id, peptide_id, vials, mg_per_vial, bac_ml, half_life_hours, current_used_mg, peptides(canonical_name)"
         )
         .eq("user_id", userId)
         .order("updated_at", { ascending: false });
@@ -128,6 +128,7 @@ export async function getVialInventory(): Promise<VialRow[]> {
             mg_per_vial: Number(r.mg_per_vial ?? 0),
             bac_ml: Number(r.bac_ml ?? 0),
             half_life_hours: Number(r.half_life_hours ?? 0),
+            current_used_mg: Number(r.current_used_mg || 0),
             name: r.peptides?.canonical_name ?? "Peptide",
         })) ?? []
     );
@@ -138,7 +139,7 @@ export async function getCapsInventory(): Promise<CapsRow[]> {
     const { data, error } = await supabase
         .from("inventory_capsules")
         .select(
-            "id, peptide_id, bottles, caps_per_bottle, mg_per_cap, half_life_hours, peptides(canonical_name)",
+            "id, peptide_id, bottles, caps_per_bottle, mg_per_cap, half_life_hours, current_used_mg, peptides(canonical_name)",
         )
         .eq("user_id", userId)
         .order("updated_at", { ascending: false });
@@ -156,6 +157,7 @@ export async function getCapsInventory(): Promise<CapsRow[]> {
             caps_per_bottle: Number(r.caps_per_bottle ?? 0),
             mg_per_cap: Number(r.mg_per_cap ?? 0),
             half_life_hours: Number(r.half_life_hours ?? 0),
+            current_used_mg: Number(r.current_used_mg || 0),
             name: r.peptides?.canonical_name ?? "Capsule",
         })) ?? []
     );
@@ -215,7 +217,6 @@ export async function addCapsuleByIdAction(formData: FormData): Promise<ActionRe
     return { ok: true };
 }
 
-/** Add Custom by name + kind (radio) */
 export async function addCustomAction(formData: FormData): Promise<ActionResult> {
     "use server";
     const { supabase, userId } = await getAuthed();

@@ -1,69 +1,101 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-
 import { Calendar, Package, Notebook, Home, Activity, Lightbulb } from "lucide-react"
 
+// Define nav items once
 const nav = [
     { href: "/today", label: "Today", icon: Home },
     { href: "/calendar", label: "Calendar", icon: Calendar },
-    { href: "/inventory", label: "Inventory", icon: Package },
-    { href: "/protocol", label: "Protocol", icon: Notebook },
-    { href: "/weight", label: "Weight", icon: Activity },
-    { href: "/suggestions", label: "Suggestions", icon: Lightbulb, beta: true },
+    { href: "/inventory", label: "Inv", icon: Package }, // Shortened label for mobile
+    { href: "/protocol", label: "Plan", icon: Notebook }, // Shortened label
+    { href: "/weight", label: "Stats", icon: Activity },
+    { href: "/suggestions", label: "Tips", icon: Lightbulb, beta: true },
 ]
 
 export default function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
     const pathname = usePathname()
 
     return (
-        <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[260px_1fr]">
-            <aside className="hidden lg:block" style={{ background: "rgb(var(--card))", borderRight: "1px solid rgb(var(--border))" }}>
-                <div className="p-5 space-y-8">
-                    <div className="flex items-center gap-2">
-                        <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: "color-mix(in oklab, rgb(var(--ring)) 15%, transparent)" }}>
-                            <span style={{ color: "rgb(var(--ring))", fontWeight: 700 }}>PP</span>
-                        </div><div className="text-lg">Peptide Planner</div>
+        <div className="min-h-[100dvh] flex flex-col lg:grid lg:grid-cols-[260px_1fr]">
+
+            {/* DESKTOP SIDEBAR (Hidden on mobile) */}
+            <aside className="hidden lg:block sticky top-0 h-screen overflow-y-auto border-r border-border bg-card/50 backdrop-blur-xl p-5 space-y-8">
+                <div className="flex items-center gap-3 px-2">
+                    <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
+                        PP
                     </div>
-                    <nav className="space-y-1">
-                        {nav.map(n => {
-                            const active = pathname?.startsWith(n.href)
-                            const Icon = n.icon as any
-                            return <Link key={n.href} href={n.href}
-                                className={"flex items-center gap-3 px-3 py-2 rounded-xl transition-colors " + (active ? "" : "hover:bg-[rgba(0,0,0,0.04)] dark:hover:bg-[rgba(255,255,255,0.06)]")}
-                                style={active ? { background: "color-mix(in oklab, rgb(var(--ring)) 10%, transparent)", color: "rgb(var(--ring))" } : {}}
-                            ><Icon className="size-4" />
-                                <span className="flex items-center">
-                                    {n.label}
-                                    {n.beta && <span className="ml-1 text-[10px] uppercase">Beta</span>}
-                                </span>
+                    <div className="font-bold text-lg tracking-tight">Peptide Planner</div>
+                </div>
+
+                <nav className="space-y-1">
+                    {nav.map(n => {
+                        const active = pathname?.startsWith(n.href)
+                        const Icon = n.icon
+                        return (
+                            <Link
+                                key={n.href}
+                                href={n.href}
+                                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all
+                  ${active
+                                        ? "bg-primary/10 text-primary"
+                                        : "text-muted-foreground hover:bg-muted/10 hover:text-foreground"
+                                    }
+                `}
+                            >
+                                <Icon className={`size-5 ${active ? "fill-current" : ""}`} strokeWidth={active ? 2.5 : 2} />
+                                <span>{n.label}</span>
+                                {n.beta && <span className="ml-auto text-[10px] font-bold uppercase tracking-wider opacity-60">Beta</span>}
                             </Link>
-                        })}
-                    </nav>
-                    <p className="text-xs opacity-70">For research purposes only</p>
+                        )
+                    })}
+                </nav>
+
+                <div className="mt-auto px-2">
+                    <div className="text-xs font-medium text-muted-foreground mb-1">Signed in as</div>
+                    <div className="text-sm truncate opacity-80 mb-2">{userEmail}</div>
+                    <form action="/auth/signout" method="post">
+                        <button className="text-xs hover:underline opacity-60">Sign out</button>
+                    </form>
                 </div>
             </aside>
-            <main className="p-5 md:p-8">
-                <header className="flex items-center justify-between mb-6">
-                    <h1 className="pp-h1">
-                        {titleFromPath(pathname)}
-                        {(pathname?.startsWith("/suggestions") || pathname?.startsWith("/provider")) && (
-                            <span className="ml-2 text-[10px] uppercase">Beta</span>
-                        )}
-                    </h1>
-                    <div className="text-sm opacity-80 flex items-center gap-2">
-                        {userEmail ? <span>{userEmail}</span> : <Link href="/sign-in">Sign in</Link>}
-                        {userEmail && <form action="/auth/signout" method="post"><button className="btn">Sign out</button></form>}
-                    </div>
-                </header>
-                {children}
-            </main>
+
+            {/* MAIN CONTENT AREA */}
+            <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-0">
+                {/* pb-20 ensures content isn't hidden behind mobile nav */}
+
+                {/* Mobile Header is inside children pages usually, or global header component */}
+                <main className="p-4 md:p-8 max-w-5xl w-full mx-auto animate-in fade-in duration-500">
+                    {children}
+                </main>
+            </div>
+
+            {/* MOBILE BOTTOM NAVIGATION (Hidden on desktop) */}
+            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-t border-border pb-safe">
+                <div className="flex items-center justify-around">
+                    {nav.slice(0, 5).map(n => { // Show max 5 items on mobile to fit
+                        const active = pathname?.startsWith(n.href)
+                        const Icon = n.icon
+                        return (
+                            <Link
+                                key={n.href}
+                                href={n.href}
+                                className={`
+                  flex-1 flex flex-col items-center justify-center py-3 gap-1
+                  transition-colors active:scale-95
+                  ${active ? "text-primary" : "text-muted-foreground hover:text-foreground"}
+                `}
+                            >
+                                <Icon className="size-6" strokeWidth={active ? 2.5 : 2} />
+                                <span className="text-[10px] font-medium">{n.label}</span>
+                            </Link>
+                        )
+                    })}
+                    {/* More Menu Item if needed, or stick to 5 */}
+                </div>
+            </nav>
+
         </div>
     )
-}
-
-function titleFromPath(path?: string | null) {
-    if (!path) return "Dashboard";
-    const seg = (path.split("/")[1] || "dashboard");
-    return seg[0].toUpperCase() + seg.slice(1);
 }

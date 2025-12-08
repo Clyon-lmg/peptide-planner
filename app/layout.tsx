@@ -11,8 +11,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1, // Prevents pinch-zoom
+    userScalable: false, // Makes it feel native
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

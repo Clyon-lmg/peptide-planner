@@ -86,7 +86,7 @@ export default async function InventoryPage() {
         if (activeProto?.id) {
             const { data: protoItems } = await supabase
                 .from("protocol_items")
-                .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg")
+                .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days")
                 .eq("protocol_id", activeProto.id)
                 .in("peptide_id", peptideIds);
 
@@ -99,7 +99,6 @@ export default async function InventoryPage() {
                         cycle_on_weeks: Number(pi.cycle_on_weeks || 0),
                         cycle_off_weeks: Number(pi.cycle_off_weeks || 0),
                         every_n_days: (pi.every_n_days as number | null) ?? null,
-
                     });
                 }
             }
@@ -180,9 +179,13 @@ export default async function InventoryPage() {
     const vialItems = vialRows
         .map((r) => {
             const proto = protocolItemsByPeptide.get(r.peptide_id);
+
+            // Calculate TRUE available mg: (vials * mg_per_vial) - currently_used
+            const totalMg = Math.max(0, (Number(r.vials || 0) * Number(r.mg_per_vial || 0)) - Number(r.current_used_mg || 0));
+
             const { remainingDoses, reorderDateISO } = proto
                 ? forecastRemainingDoses(
-                    Number(r.vials || 0) * Number(r.mg_per_vial || 0),
+                    totalMg,
                     proto.dose_mg_per_administration,
                     proto.schedule as Schedule,
                     proto.custom_days,
@@ -208,11 +211,13 @@ export default async function InventoryPage() {
     const capItems = capsRows
         .map((r) => {
             const proto = protocolItemsByPeptide.get(r.peptide_id);
+
+            // Calculate TRUE available mg: (bottles * caps/bottle * mg/cap) - currently_used
+            const totalMg = Math.max(0, (Number(r.bottles || 0) * Number(r.caps_per_bottle || 0) * Number(r.mg_per_cap || 0)) - Number(r.current_used_mg || 0));
+
             const { remainingDoses, reorderDateISO } = proto
                 ? forecastRemainingDoses(
-                    Number(r.bottles || 0) *
-                    Number(r.caps_per_bottle || 0) *
-                    Number(r.mg_per_cap || 0),
+                    totalMg,
                     proto.dose_mg_per_administration,
                     proto.schedule as Schedule,
                     proto.custom_days,
