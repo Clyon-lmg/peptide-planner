@@ -1,389 +1,188 @@
-// app/(app)/protocols/page.tsx
 "use client";
 import React from "react";
+import { Plus, Edit2, Trash2, List } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import ProtocolEditor from "./ProtocolEditor";
 import InjectionSiteListEditor from "./InjectionSiteListEditor";
+import { toast } from "sonner";
 
 type Protocol = {
-  id: number;
-  user_id: string;
-  is_active: boolean;
-  name: string;
-  start_date: string;
+    id: number;
+    user_id: string;
+    is_active: boolean;
+    name: string;
+    start_date: string;
 };
 
 type SiteList = {
-  id: number;
-  user_id: string;
-  name: string;
+    id: number;
+    user_id: string;
+    name: string;
 };
 
-/** Button-like row wrapper that isn't a <button> (avoids nested button hydration issues) */
-function RowButton({
-  className,
-  onClick,
-  children,
-}: {
-  className?: string;
-  onClick?: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      className={className}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (!onClick) return;
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          // Synthesize a click for keyboard activation
-          onClick(e as unknown as React.MouseEvent<HTMLDivElement, MouseEvent>);
-        }
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 export default function ProtocolsPage() {
-  const supabase = React.useMemo(() => getSupabaseBrowser(), []);
-  const [protocols, setProtocols] = React.useState<Protocol[]>([]);
-  const [selectedId, setSelectedId] = React.useState<number | null>(null);
-  const [creating, setCreating] = React.useState(false);
-  const [siteLists, setSiteLists] = React.useState<SiteList[]>([]);
-  const [selectedListId, setSelectedListId] = React.useState<number | null>(null);
-  const [creatingList, setCreatingList] = React.useState(false);
+    const supabase = React.useMemo(() => getSupabaseBrowser(), []);
+    const [protocols, setProtocols] = React.useState<Protocol[]>([]);
+    const [siteLists, setSiteLists] = React.useState<SiteList[]>([]);
+    const [selectedId, setSelectedId] = React.useState<number | null>(null);
+    const [selectedListId, setSelectedListId] = React.useState<number | null>(null);
 
-  const reload = React.useCallback(async () => {
-    const [protoRes, listRes] = await Promise.all([
-      supabase.from("protocols").select("*").order("id", { ascending: true }),
-      supabase
-        .from("injection_site_lists")
-        .select("*")
-        .order("id", { ascending: true }),
-    ]);
-    if (protoRes.error) console.error(protoRes.error);
-    if (listRes.error) console.error(listRes.error);
-    const protoData = protoRes.data || [];
-    const listData = listRes.data || [];
-    setProtocols(protoData);
-    setSiteLists(listData);
-    if (!selectedId && !selectedListId) {
-      if (protoData.length > 0) setSelectedId(protoData[0].id);
-      else if (listData.length > 0) setSelectedListId(listData[0].id);
-    }
-  }, [supabase, selectedId, selectedListId]);
+    // Mobile: Toggle visibility of the list
+    const [showListOnMobile, setShowListOnMobile] = React.useState(true);
 
-  React.useEffect(() => {
-    let active = true;
-    (async () => {
-      await reload();
-    })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, _session) => {
-      if (!active) return;
-      reload();
-    });
-    return () => {
-      active = false;
-      sub?.subscription.unsubscribe();
+    const reload = React.useCallback(async () => {
+        const [protoRes, listRes] = await Promise.all([
+            supabase.from("protocols").select("*").order("id", { ascending: true }),
+            supabase.from("injection_site_lists").select("*").order("id", { ascending: true }),
+        ]);
+        if (protoRes.data) setProtocols(protoRes.data);
+        if (listRes.data) setSiteLists(listRes.data);
+
+        // Auto-select first if nothing selected
+        if (!selectedId && !selectedListId) {
+            if (protoRes.data?.length) setSelectedId(protoRes.data[0].id);
+        }
+    }, [supabase, selectedId, selectedListId]);
+
+    React.useEffect(() => {
+        reload();
+    }, [reload]);
+
+    const createProtocol = async () => {
+        const name = prompt("Protocol Name:");
+        if (!name) return;
+        const { error } = await supabase.from("protocols").insert([{ name, is_active: false }]);
+        if (error) toast.error(error.message);
+        else {
+            await reload();
+            toast.success("Protocol created");
+        }
     };
-  }, [reload, supabase]);
 
-  const createProtocol = async () => {
-    setCreating(true);
-    try {
-      const name = prompt("Name your protocol");
-      if (!name) return;
-      // Insert without user_id; DB trigger fills it using auth.uid()
-      const { error } = await supabase
-        .from("protocols")
-        .insert([{ name, is_active: false }]);
-      if (error) throw error;
-      await reload();
-    } catch (e: any) {
-      console.error(e);
-      alert(e.message || "Failed to create protocol.");
-    } finally {
-      setCreating(false);
-    }
-  };
+    const deleteProtocol = async (id: number) => {
+        if (!confirm("Delete this protocol?")) return;
+        await supabase.from("protocols").delete().eq("id", id);
+        await reload();
+        setSelectedId(null); // Clear selection
+    };
 
-  const LIST_NAMES = [
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F",
-    "G",
-    "H",
-    "I",
-    "J",
-    "K",
-    "L",
-    "M",
-    "N",
-    "O",
-    "P",
-    "Q",
-    "R",
-    "S",
-    "T",
-    "U",
-    "V",
-    "W",
-    "X",
-    "Y",
-    "Z",
-    "Alpha",
-    "Beta",
-    "Gamma",
-    "Delta",
-    "Epsilon",
-    "Zeta",
-    "Eta",
-    "Theta",
-    "Iota",
-    "Kappa",
-    "Lambda",
-    "Mu",
-    "Nu",
-    "Xi",
-    "Omicron",
-    "Pi",
-    "Rho",
-    "Sigma",
-    "Tau",
-    "Upsilon",
-    "Phi",
-    "Chi",
-    "Psi",
-    "Omega",
-  ];
+    const createSiteList = async () => {
+        const { data, error } = await supabase.from("injection_site_lists").insert([{ name: "New Site List" }]).select().single();
+        if (error) toast.error(error.message);
+        else {
+            await reload();
+            setSelectedListId(data.id);
+            setSelectedId(null);
+        }
+    };
 
-  const createSiteList = async () => {
-    setCreatingList(true);
-    try {
-      const name = LIST_NAMES[siteLists.length] || `List ${siteLists.length + 1}`;
-      const { data, error } = await supabase
-        .from("injection_site_lists")
-        .insert([{ name }])
-        .select()
-        .single();
-      if (error) throw error;
-      await reload();
-      setSelectedId(null);
-      setSelectedListId(data.id);
-    } catch (e: any) {
-      console.error(e);
-      alert(e.message || "Failed to create list.");
-    } finally {
-      setCreatingList(false);
-    }
-  };
+    return (
+        <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-100px)]">
 
-  const renameSiteList = async (l: SiteList) => {
-    const name = prompt("Rename list", l.name);
-    if (!name) return;
-    const { error } = await supabase
-      .from("injection_site_lists")
-      .update({ name })
-      .eq("id", l.id);
-    if (error) {
-      console.error(error);
-      alert("Rename failed.");
-      return;
-    }
-    await reload();
-  };
+            {/* SIDEBAR LIST (Collapsible on mobile) */}
+            <aside className={`lg:w-72 shrink-0 space-y-6 ${showListOnMobile ? 'block' : 'hidden lg:block'}`}>
 
-  const deleteSiteList = async (l: SiteList) => {
-    if (!confirm(`Delete list "${l.name}"?`)) return;
-    const { error } = await supabase
-      .from("injection_site_lists")
-      .delete()
-      .eq("id", l.id);
-    if (error) {
-      console.error(error);
-      alert("Delete failed.");
-      return;
-    }
-    await reload();
-    setSelectedListId(null);
-  };
+                {/* Protocols Section */}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Protocols</h3>
+                        <button onClick={createProtocol} className="text-primary hover:bg-primary/10 p-1 rounded"><Plus className="size-4" /></button>
+                    </div>
 
-  const renameProtocol = async (p: Protocol) => {
-    const name = prompt("Rename protocol", p.name);
-    if (!name) return;
-    const { error } = await supabase
-      .from("protocols")
-      .update({ name })
-      .eq("id", p.id);
-    if (error) {
-      console.error(error);
-      alert("Rename failed.");
-      return;
-    }
-    await reload();
-  };
-
-  const deleteProtocol = async (p: Protocol) => {
-    if (
-      !confirm(
-        `Delete protocol "${p.name}"? This will remove its items and future doses.`
-      )
-    )
-      return;
-    const { error } = await supabase.from("protocols").delete().eq("id", p.id);
-    if (error) {
-      console.error(error);
-      alert("Delete failed.");
-      return;
-    }
-    await reload();
-    setSelectedId(null);
-  };
-
-  return (
-    <div className="max-w-5xl mx-auto p-4">
-      <div className="flex items-center justify-between mb-4">
-              <h1 className="pp-h1">Protocols</h1>
-              <button
-                  className="btn bg-success hover:bg-success/90 text-white disabled:opacity-60"
-                  onClick={createProtocol}
-                  disabled={creating}
-              >
-                  {creating ? "Creating…" : "New Protocol"}
-              </button>
-          </div>
-
-          <div className="grid grid-cols-12 gap-4">
-            <aside className="col-span-12 md:col-span-4 pp-card p-3">
-              <h2 className="font-semibold mb-2">Your Protocols</h2>
-              <ul className="space-y-1">
-                {protocols.map((p) => (
-                  <li key={p.id}>
-                    <RowButton
-                      className={
-                        "w-full text-left px-2 py-2 rounded hover:bg-card " +
-                        (selectedId === p.id ? "bg-card" : "")
-                      }
-                      onClick={() => {
-                        setSelectedId(p.id);
-                        setSelectedListId(null);
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{p.name}</div>
-                          {p.is_active && (
-                            <div className="text-xs text-success">Active</div>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            className="btn text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              renameProtocol(p);
-                            }}
-                          >
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            className="btn text-xs bg-destructive text-white hover:bg-destructive/90"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteProtocol(p);
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </RowButton>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="mt-4">
-                <h2 className="font-semibold mb-2">Injection Site Lists</h2>
-                <ul className="space-y-1">
-                  {siteLists.map((l) => (
-                    <li key={l.id}>
-                      <RowButton
-                        className={
-                          "w-full text-left px-2 py-2 rounded hover:bg-card " +
-                          (selectedListId === l.id ? "bg-card" : "")
-                        }
-                        onClick={() => {
-                          setSelectedListId(l.id);
-                          setSelectedId(null);
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">{l.name}</div>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              className="btn text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                renameSiteList(l);
-                              }}
+                    <div className="space-y-1">
+                        {protocols.map(p => (
+                            <div
+                                key={p.id}
+                                onClick={() => { setSelectedId(p.id); setSelectedListId(null); setShowListOnMobile(false); }}
+                                className={`
+                                group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all
+                                ${selectedId === p.id
+                                        ? "bg-primary text-primary-foreground shadow-md"
+                                        : "hover:bg-muted/50 text-foreground"
+                                    }
+                            `}
                             >
-                              Rename
-                            </button>
-                            <button
-                              type="button"
-                              className="btn text-xs bg-destructive text-white hover:bg-destructive/90"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteSiteList(l);
-                              }}
+                                <div className="min-w-0">
+                                    <div className="font-medium truncate">{p.name}</div>
+                                    {p.is_active && <div className="text-[10px] opacity-80 font-bold uppercase tracking-wide">Active</div>}
+                                </div>
+
+                                {/* Delete Action (only visible on hover or selection) */}
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); deleteProtocol(p.id); }}
+                                    className={`
+                                    p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity
+                                    ${selectedId === p.id ? "hover:bg-black/20 text-white" : "hover:bg-destructive/10 hover:text-destructive text-muted-foreground"}
+                                `}
+                                >
+                                    <Trash2 className="size-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Site Lists Section */}
+                <div className="space-y-3 pt-4 border-t border-border">
+                    <div className="flex items-center justify-between px-1">
+                        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Site Lists</h3>
+                        <button onClick={createSiteList} className="text-primary hover:bg-primary/10 p-1 rounded"><Plus className="size-4" /></button>
+                    </div>
+
+                    <div className="space-y-1">
+                        {siteLists.map(l => (
+                            <div
+                                key={l.id}
+                                onClick={() => { setSelectedListId(l.id); setSelectedId(null); setShowListOnMobile(false); }}
+                                className={`
+                                group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all
+                                ${selectedListId === l.id
+                                        ? "bg-muted text-foreground font-medium ring-1 ring-border"
+                                        : "hover:bg-muted/50 text-foreground"
+                                    }
+                            `}
                             >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </RowButton>
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  className="btn w-full mt-2 bg-success hover:bg-success/90 text-white disabled:opacity-60"
-                  onClick={createSiteList}
-                  disabled={creatingList}
-                >
-                  {creatingList ? "Creating…" : "Create Injection Site List"}
-                </button>
-              </div>
+                                <span className="truncate">{l.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </aside>
 
-            <main className="col-span-12 md:col-span-8">
-              {selectedId ? (
-                <ProtocolEditor
-                  protocol={protocols.find((p) => p.id === selectedId)!}
-                  onReload={reload}
-                />
-              ) : selectedListId ? (
-                <InjectionSiteListEditor
-                  list={siteLists.find((l) => l.id === selectedListId)!}
-                  onReload={reload}
-                />
-              ) : (
-                <div className="pp-card p-6 text-muted">
-                  Select or create a protocol or injection site list to begin.
+            {/* MAIN EDITOR AREA */}
+            <main className="flex-1 min-w-0">
+                {/* Mobile "Back to Menu" button */}
+                <div className="lg:hidden mb-4">
+                    <button
+                        onClick={() => setShowListOnMobile(!showListOnMobile)}
+                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        <List className="size-4" /> {showListOnMobile ? "Hide Menu" : "Show Menu"}
+                    </button>
                 </div>
-              )}
+
+                {!showListOnMobile && (
+                    <>
+                        {selectedId && protocols.find(p => p.id === selectedId) && (
+                            <ProtocolEditor
+                                protocol={protocols.find(p => p.id === selectedId)!}
+                                onReload={reload}
+                            />
+                        )}
+                        {selectedListId && siteLists.find(l => l.id === selectedListId) && (
+                            <InjectionSiteListEditor
+                                list={siteLists.find(l => l.id === selectedListId)!}
+                                onReload={reload}
+                            />
+                        )}
+                        {!selectedId && !selectedListId && (
+                            <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-border rounded-2xl">
+                                <p>Select a protocol to edit</p>
+                            </div>
+                        )}
+                    </>
+                )}
             </main>
-          </div>
         </div>
-      );
+    );
 }
