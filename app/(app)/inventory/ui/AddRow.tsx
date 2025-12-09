@@ -1,168 +1,76 @@
 ﻿"use client";
 
-// app/(app)/inventory/ui/AddRow.tsx
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import Card from "@/components/layout/Card";
-import {
-    addPeptideByIdAction,
-    addCapsuleByIdAction,
-    addCustomAction,
-    type KnownItem,
-} from "../actions";
+import { addCustomAction } from "../actions";
 
-type AddRowProps = {
-    peptidesForVials: KnownItem[];
-    peptidesForCapsules: KnownItem[];
-};
-
-/**
- * Client component rendering the "Add Peptide / Add Capsule / Add Custom" row.
- * Uses `useTransition` and `router.refresh()` to optimistically show progress
- * and optionally appends the added item to a local list for immediate feedback.
- */
-export default function AddRow({
-    peptidesForVials,
-    peptidesForCapsules,
-}: AddRowProps) {
+export default function AddRow() {
     const router = useRouter();
     const [isPending, startTransition] = React.useTransition();
-    const [addedItems, setAddedItems] = React.useState<string[]>([]);
+    const [name, setName] = React.useState("");
+    const [kind, setKind] = React.useState<"peptide" | "capsule">("peptide");
 
-    const handlePeptide = async (formData: FormData) => {
-        const id = Number(formData.get("peptide_id"));
-        const name = peptidesForVials.find((p) => p.id === id)?.canonical_name;
-        startTransition(async () => {
-            await addPeptideByIdAction(formData);
-            if (name) setAddedItems((prev) => [...prev, name]);
-            router.refresh();
-        });
-    };
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!name.trim()) return;
 
-    const handleCapsule = async (formData: FormData) => {
-        const id = Number(formData.get("peptide_id"));
-        const name = peptidesForCapsules.find((p) => p.id === id)?.canonical_name;
         startTransition(async () => {
-            await addCapsuleByIdAction(formData);
-            if (name) setAddedItems((prev) => [...prev, name]);
-            router.refresh();
-        });
-    };
-
-    const handleCustom = async (formData: FormData) => {
-        const name = String(formData.get("name") || "Custom item");
-        startTransition(async () => {
-            await addCustomAction(formData);
-            setAddedItems((prev) => [...prev, name]);
+            const fd = new FormData();
+            fd.set("name", name);
+            fd.set("kind", kind);
+            await addCustomAction(fd);
+            setName("");
             router.refresh();
         });
     };
 
     return (
-        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
-            {/* Add Peptide (filtered to vial-capable items) */}
-            <Card className="p-4">
-                <h2 className="pp-h2 mb-3">Add Peptide</h2>
-                <form action={handlePeptide} className="grid grid-cols-[1fr_auto] gap-3">
-                    <select
-                        name="peptide_id"
-                        className="input w-full max-w-full"
-                        defaultValue=""
-                        required
-                    >
-                        <option value="" disabled>
-                            Select peptide…
-                        </option>
-                        {peptidesForVials.map((p) => (
-                            <option key={p.id} value={p.id}>
-                                {p.canonical_name}
-                            </option>
-                        ))}
-                    </select>
-                    <button
-                        className="btn bg-success hover:bg-success/90 text-sm text-white"
-                        type="submit"
-                        disabled={isPending}
-                    >
-                        {isPending ? "Adding..." : "Add"}
-                    </button>
-                </form>
-            </Card>
-
-            {/* Add Capsule (filtered to capsule-capable items) */}
-            <Card className="p-4">
-                <h2 className="pp-h2 mb-3">Add Capsule</h2>
-                <form action={handleCapsule} className="grid grid-cols-[1fr_auto] gap-3">
-                    <select
-                        name="peptide_id"
-                        className="input w-full max-w-full"
-                        defaultValue=""
-                        required
-                    >
-                        <option value="" disabled>
-                            Select capsule…
-                        </option>
-                        {peptidesForCapsules.map((p) => (
-                            <option key={p.id} value={p.id}>
-                                {p.canonical_name}
-                            </option>
-                        ))}
-                    </select>
-                    <button
-                        className="btn bg-success hover:bg-success/90 text-sm text-white"
-                        type="submit"
-                        disabled={isPending}
-                    >
-                        {isPending ? "Adding..." : "Add"}
-                    </button>
-                </form>
-            </Card>
-
-            {/* Add Custom (radio: peptide or capsule) */}
-            <Card className="p-4">
-                <h2 className="pp-h2 mb-3">Add Custom</h2>
-                <form action={handleCustom} className="space-y-3">
-                    <label className="block text-sm">
-                        Name
-                        <input
-                            name="name"
-                            type="text"
-                            placeholder="e.g., BPC-157"
-                            className="mt-1 input !max-w-[22ch]"
-                            maxLength={22}
-                            required
-                        />
+        <Card className="max-w-xl">
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 items-start sm:items-end">
+                <div className="flex-1 w-full sm:w-auto">
+                    <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                        Item Name
                     </label>
-                    <div className="flex items-center gap-4 text-sm">
-                        <label className="inline-flex items-center gap-2">
-                            <input type="radio" name="kind" value="peptide" defaultChecked />
-                            Peptide (vial)
-                        </label>
-                        <label className="inline-flex items-center gap-2">
-                            <input type="radio" name="kind" value="capsule" />
-                            Capsule
-                        </label>
-                    </div>
-                    <button
-                        className="btn bg-success hover:bg-success/90 text-sm text-white"
-                        type="submit"
+                    <input
+                        name="name"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        placeholder="e.g. BPC-157"
+                        className="input h-10"
                         disabled={isPending}
-                    >
-                        {isPending ? "Adding..." : "Add"}
-                    </button>
-                </form>
-            </Card>
-
-            {addedItems.length > 0 && (
-                <div className="sm:col-span-2 md:col-span-3 pp-subtle">
-                    <h3 className="font-medium mb-1">Recently added</h3>
-                    <ul className="list-disc list-inside">
-                        {addedItems.map((name, idx) => (
-                            <li key={idx}>{name}</li>
-                        ))}
-                    </ul>
+                        required
+                    />
                 </div>
-            )}
-        </section>
+
+                <div className="flex bg-muted/20 p-1 rounded-xl shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setKind("peptide")}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${kind === "peptide" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                            }`}
+                    >
+                        Vial
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setKind("capsule")}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${kind === "capsule" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                            }`}
+                    >
+                        Capsule
+                    </button>
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={isPending || !name.trim()}
+                    className="btn bg-primary text-primary-foreground hover:bg-primary/90 h-10 w-full sm:w-auto min-w-[80px]"
+                >
+                    {isPending ? "..." : <><Plus className="w-4 h-4 mr-1" /> Add</>}
+                </button>
+            </form>
+        </Card>
     );
 }

@@ -1,7 +1,6 @@
 // app/(app)/inventory/page.tsx
 import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
 import Link from "next/link";
-import { revalidatePath } from "next/cache";
 
 import AddRow from "./ui/AddRow";
 import InventoryList from "./ui/InventoryList";
@@ -9,7 +8,6 @@ import InventoryList from "./ui/InventoryList";
 import {
     getVialInventory,
     getCapsInventory,
-    getKnownListsFiltered,
     deleteVialItemAction,
     deleteCapsuleItemAction,
     type VialRow,
@@ -47,12 +45,10 @@ export default async function InventoryPage() {
     }
 
     // Load inventory rows
-    const [vialRows, capsRows, knownLists] = await Promise.all([
+    const [vialRows, capsRows] = await Promise.all([
         getVialInventory(),
         getCapsInventory(),
-        getKnownListsFiltered(),
     ]);
-    const { peptidesForVials, peptidesForCapsules } = knownLists;
 
     // Get active protocol items for only the peptides we care about
     const peptideIds = [
@@ -105,7 +101,7 @@ export default async function InventoryPage() {
         }
     }
 
-    // ---------- Partial update server actions (no overwriting!) ----------
+    // ---------- Actions ----------
     const saveVial = async (p: SaveVialPayload) => {
         "use server";
         const sa = createServerActionSupabase();
@@ -175,12 +171,9 @@ export default async function InventoryPage() {
     };
     // --------------------------------------------------------------------
 
-    // Prepare serializable data for the client component, include forecasts
     const vialItems = vialRows
         .map((r) => {
             const proto = protocolItemsByPeptide.get(r.peptide_id);
-
-            // Calculate TRUE available mg: (vials * mg_per_vial) - currently_used
             const totalMg = Math.max(0, (Number(r.vials || 0) * Number(r.mg_per_vial || 0)) - Number(r.current_used_mg || 0));
 
             const { remainingDoses, reorderDateISO } = proto
@@ -211,8 +204,6 @@ export default async function InventoryPage() {
     const capItems = capsRows
         .map((r) => {
             const proto = protocolItemsByPeptide.get(r.peptide_id);
-
-            // Calculate TRUE available mg: (bottles * caps/bottle * mg/cap) - currently_used
             const totalMg = Math.max(0, (Number(r.bottles || 0) * Number(r.caps_per_bottle || 0) * Number(r.mg_per_cap || 0)) - Number(r.current_used_mg || 0));
 
             const { remainingDoses, reorderDateISO } = proto
@@ -241,18 +232,15 @@ export default async function InventoryPage() {
         .sort((a, b) => a.canonical_name.localeCompare(b.canonical_name));
 
     return (
-        <div className="mx-auto max-w-6xl p-4 space-y-8">
+        <div className="mx-auto max-w-6xl p-4 space-y-8 pb-32">
             <header className="flex items-center justify-between">
                 <h1 className="text-2xl font-semibold">Inventory</h1>
             </header>
 
-            {/* Adders row (client component) */}
-            <AddRow
-                peptidesForVials={peptidesForVials}
-                peptidesForCapsules={peptidesForCapsules}
-            />
+            {/* Simplified Adder */}
+            <AddRow />
 
-            {/* Inventory cards (client component) */}
+            {/* Inventory cards */}
             <InventoryList
                 vials={vialItems}
                 capsules={capItems}

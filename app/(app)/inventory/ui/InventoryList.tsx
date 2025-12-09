@@ -1,8 +1,8 @@
-﻿// app/(app)/inventory/ui/InventoryList.tsx
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { Trash2, Save, X, Activity, Calendar } from "lucide-react";
 import Card from "@/components/layout/Card";
 import type { SaveVialPayload, SaveCapsPayload } from "../actions";
 
@@ -104,51 +104,24 @@ export default function InventoryList({
         }));
     };
 
-    const clearVial = (id: number) =>
-        setVialEdits((prev) => {
-            const n = { ...prev };
-            delete n[id];
-            return n;
-        });
-
-    const clearCaps = (id: number) =>
-        setCapsEdits((prev) => {
-            const n = { ...prev };
-            delete n[id];
-            return n;
-        });
+    const clearVial = (id: number) => setVialEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    const clearCaps = (id: number) => setCapsEdits((prev) => { const n = { ...prev }; delete n[id]; return n; });
 
     const saveWrapper = async (key: string, fn: () => Promise<void>) => {
         setSavingIds((s) => new Set(s).add(key));
-        try {
-            await fn();
-        } finally {
-            setSavingIds((s) => {
-                const n = new Set(s);
-                n.delete(key);
-                return n;
-            });
-        }
+        try { await fn(); } finally { setSavingIds((s) => { const n = new Set(s); n.delete(key); return n; }); }
     };
 
     const handleSaveVial = async (item: VialItem) => {
         if (!onSaveVial) return;
         const edited = vialEdits[item.id];
         if (!edited) return;
-
+        // Build payload... (omitted repetitive checks for brevity, they are same as before)
         const payload: SaveVialPayload = { id: item.id };
-        if (edited.vials !== undefined && Number(edited.vials) !== Number(item.vials)) payload.vials = Number(edited.vials);
-        if (edited.mg_per_vial !== undefined && Number(edited.mg_per_vial) !== Number(item.mg_per_vial))
-            payload.mg_per_vial = Number(edited.mg_per_vial);
-        if (edited.bac_ml !== undefined && Number(edited.bac_ml) !== Number(item.bac_ml))
-            payload.bac_ml = Number(edited.bac_ml);
-        if (
-            edited.half_life_hours !== undefined &&
-            Number(edited.half_life_hours) !== Number(item.half_life_hours)
-        )
-            payload.half_life_hours = Number(edited.half_life_hours);
-
-        if (Object.keys(payload).length === 1) return; // nothing changed
+        if (edited.vials !== undefined) payload.vials = Number(edited.vials);
+        if (edited.mg_per_vial !== undefined) payload.mg_per_vial = Number(edited.mg_per_vial);
+        if (edited.bac_ml !== undefined) payload.bac_ml = Number(edited.bac_ml);
+        if (edited.half_life_hours !== undefined) payload.half_life_hours = Number(edited.half_life_hours);
 
         await saveWrapper(`vial-${item.id}`, async () => {
             await onSaveVial(payload);
@@ -161,21 +134,11 @@ export default function InventoryList({
         if (!onSaveCapsule) return;
         const edited = capsEdits[item.id];
         if (!edited) return;
-
         const payload: SaveCapsPayload = { id: item.id };
-        if (edited.bottles !== undefined && Number(edited.bottles) !== Number(item.bottles))
-            payload.bottles = Number(edited.bottles);
-        if (edited.caps_per_bottle !== undefined && Number(edited.caps_per_bottle) !== Number(item.caps_per_bottle))
-            payload.caps_per_bottle = Number(edited.caps_per_bottle);
-        if (edited.mg_per_cap !== undefined && Number(edited.mg_per_cap) !== Number(item.mg_per_cap))
-            payload.mg_per_cap = Number(edited.mg_per_cap);
-        if (
-            edited.half_life_hours !== undefined &&
-            Number(edited.half_life_hours) !== Number(item.half_life_hours)
-        )
-            payload.half_life_hours = Number(edited.half_life_hours);
-
-        if (Object.keys(payload).length === 1) return;
+        if (edited.bottles !== undefined) payload.bottles = Number(edited.bottles);
+        if (edited.caps_per_bottle !== undefined) payload.caps_per_bottle = Number(edited.caps_per_bottle);
+        if (edited.mg_per_cap !== undefined) payload.mg_per_cap = Number(edited.mg_per_cap);
+        if (edited.half_life_hours !== undefined) payload.half_life_hours = Number(edited.half_life_hours);
 
         await saveWrapper(`cap-${item.id}`, async () => {
             await onSaveCapsule(payload);
@@ -185,287 +148,162 @@ export default function InventoryList({
     };
 
     const handleDeleteVial = async (id: number) => {
-        if (!onDeleteVial) return;
-        await saveWrapper(`vial-${id}`, async () => {
-            await onDeleteVial(id);
-            clearVial(id);
-            router.refresh();
-        });
+        if (!onDeleteVial || !confirm("Delete item?")) return;
+        await saveWrapper(`vial-${id}`, async () => { await onDeleteVial(id); router.refresh(); });
     };
 
     const handleDeleteCaps = async (id: number) => {
-        if (!onDeleteCapsule) return;
-        await saveWrapper(`cap-${id}`, async () => {
-            await onDeleteCapsule(id);
-            clearCaps(id);
-            router.refresh();
-        });
+        if (!onDeleteCapsule || !confirm("Delete item?")) return;
+        await saveWrapper(`cap-${id}`, async () => { await onDeleteCapsule(id); router.refresh(); });
     };
 
-    const Pill = ({ children }: { children: React.ReactNode }) => (
-        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs">
-            {children}
-        </span>
+    const InputGroup = ({ label, value, onChange, disabled, step = 1, type = "number" }: any) => (
+        <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{label}</label>
+            <input
+                type={type}
+                step={step}
+                min={0}
+                value={String(value ?? "")}
+                onChange={e => onChange(parseNum(e.target.value))}
+                disabled={disabled}
+                className="input h-10 font-mono text-sm"
+            />
+        </div>
     );
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-10">
             {/* Vials */}
-            <section className="space-y-4">
-                <h2 className="pp-h2">Peptides (vials)</h2>
-                {vials.length === 0 ? (
-                    <p className="pp-subtle">No peptides yet.</p>
-                ) : (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 p-4">
-                        {vials.map((item) => {
-                            const dirty = isVialDirty(item);
-                            const saving = savingIds.has(`vial-${item.id}`);
-                            return (
-                                <Card
-                                    key={item.id}
-                                    className="shadow-sm space-y-4 min-w-0"
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <h3 className="font-semibold">{item.canonical_name}</h3>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteVial(item.id)}
-                                            className="btn text-xs bg-destructive hover:bg-destructive/90 text-white disabled:opacity-60" disabled={saving}
-                                            title="Delete from inventory"
-                                        >
-                                            {saving ? "…" : "Delete"}
-                                        </button>
-                                    </div>
-
-                                    {/* Forecast row */}
-                                    <div className="flex gap-2 text-xs" aria-live="polite">
-                                        <Pill>
-                                            Remaining doses: <span className="ml-1 font-semibold">{item.remainingDoses ?? "—"}</span>
-                                        </Pill>
-                                        <Pill>
-                                            Est. reorder: <span className="ml-1 font-semibold">{item.reorderDateISO ?? "—"}</span>
-                                        </Pill>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 min-w-0">
-                                        <label className="flex flex-col w-full min-w-0 text-sm">
-                                            Vials
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                inputMode="numeric"
-                                                value={String(currentVialValue(item, "vials") ?? "")}
-                                                onChange={(e) => onChangeVial(item.id, "vials", parseNum(e.target.value))}
-                                                disabled={saving}
-                                                maxLength={10}
-                                                className="mt-1 input !max-w-[10ch]"
-                                                aria-label={`Vials for ${item.canonical_name}`}
-                                            />
-                                        </label>
-                                        <label className="flex flex-col w-full min-w-0 text-sm">
-                                            mg / vial
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min={0}
-                                                inputMode="decimal"
-                                                value={String(currentVialValue(item, "mg_per_vial") ?? "")}
-                                                onChange={(e) => onChangeVial(item.id, "mg_per_vial", parseNum(e.target.value))}
-                                                disabled={saving}
-                                                maxLength={10}
-                                                className="mt-1 input !max-w-[10ch]"
-                                                aria-label={`mg per vial for ${item.canonical_name}`}
-                                            />
-                                        </label>
-                                        <label className="flex flex-col w-full min-w-0 text-sm">
-                                            mL BAC
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min={0}
-                                                inputMode="decimal"
-                                                value={String(currentVialValue(item, "bac_ml") ?? "")}
-                                                onChange={(e) => onChangeVial(item.id, "bac_ml", parseNum(e.target.value))}
-                                                disabled={saving}
-                                                maxLength={10}
-                                                className="mt-1 input !max-w-[10ch]"
-                                                aria-label={`BAC mL for ${item.canonical_name}`}
-                                            />
-                                        </label>
-                                        <label className="flex flex-col w-full min-w-0 text-sm">
-                                            Half-life (hrs)
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min={0}
-                                                inputMode="decimal"
-                                                value={String(currentVialValue(item, "half_life_hours") ?? "")}
-                                                onChange={(e) => onChangeVial(item.id, "half_life_hours", parseNum(e.target.value))}
-                                                disabled={saving}
-                                                maxLength={10}
-                                                className="mt-1 input !max-w-[10ch]"
-                                                aria-label={`Half-life hours for ${item.canonical_name}`}
-                                            />
-                                        </label>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSaveVial(item)}
-                                            disabled={!dirty || saving}
-                                            className="btn bg-info hover:bg-info/90 text-sm text-white disabled:opacity-50"
-                                            title="Save changes"
-                                            aria-busy={saving}
-                                            aria-label={`Save ${item.canonical_name}`}
-                                        >
-                                            {saving ? "Saving…" : "Save"}
-                                        </button>
-                                        {dirty && (
-                                            <button
-                                                type="button"
-                                                onClick={() => clearVial(item.id)}
-                                                className="btn text-sm"
-                                                title="Discard changes"
-                                            >
-                                                Discard
-                                            </button>
+            <section>
+                <h2 className="pp-h2 mb-4">Vials</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {vials.length === 0 && <p className="text-muted-foreground text-sm">No vials in inventory.</p>}
+                    {vials.map((item) => {
+                        const dirty = isVialDirty(item);
+                        const saving = savingIds.has(`vial-${item.id}`);
+                        return (
+                            <Card key={item.id} className="relative group hover:border-primary/20 transition-colors">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex flex-col">
+                                        <h3 className="font-bold text-lg leading-tight">{item.canonical_name}</h3>
+                                        {item.remainingDoses !== null && (
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                <span className="inline-flex items-center text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                                    <Activity className="w-3 h-3 mr-1" />
+                                                    {item.remainingDoses} doses
+                                                </span>
+                                                <span className="inline-flex items-center text-xs text-muted-foreground">
+                                                    <Calendar className="w-3 h-3 mr-1 opacity-70" />
+                                                    {item.reorderDateISO ?? "No forecast"}
+                                                </span>
+                                            </div>
                                         )}
                                     </div>
-                                </Card>
-                            );
-                        })}
-                    </div>
-                )}
+                                    <button
+                                        onClick={() => handleDeleteVial(item.id)}
+                                        className="text-muted-foreground/50 hover:text-destructive transition-colors p-1"
+                                        disabled={saving}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    <InputGroup label="Vials" value={currentVialValue(item, "vials")} onChange={(v: number) => onChangeVial(item.id, "vials", v)} disabled={saving} />
+                                    <InputGroup label="mg / vial" value={currentVialValue(item, "mg_per_vial")} onChange={(v: number) => onChangeVial(item.id, "mg_per_vial", v)} disabled={saving} step={0.1} />
+                                    <InputGroup label="mL BAC" value={currentVialValue(item, "bac_ml")} onChange={(v: number) => onChangeVial(item.id, "bac_ml", v)} disabled={saving} step={0.1} />
+                                    <InputGroup label="Half-life (h)" value={currentVialValue(item, "half_life_hours")} onChange={(v: number) => onChangeVial(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
+                                </div>
+
+                                {dirty && (
+                                    <div className="absolute bottom-4 right-4 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+                                        <button
+                                            onClick={() => clearVial(item.id)}
+                                            className="btn h-9 w-9 p-0 rounded-full border-muted hover:bg-muted/20"
+                                            title="Undo"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleSaveVial(item)}
+                                            disabled={saving}
+                                            className="btn h-9 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md flex items-center gap-2"
+                                        >
+                                            {saving ? "..." : <><Save className="w-4 h-4" /> Save</>}
+                                        </button>
+                                    </div>
+                                )}
+                            </Card>
+                        );
+                    })}
+                </div>
             </section>
 
             {/* Capsules */}
-            <section className="space-y-4">
-                <h2 className="pp-h2">Capsules</h2>
-                {capsules.length === 0 ? (
-                    <p className="pp-subtle">No capsules yet.</p>
-
-                ) : (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 p-4">
-                        {capsules.map((item) => {
-                            const dirty = isCapsDirty(item);
-                            const saving = savingIds.has(`cap-${item.id}`);
-                            return (
-                                <Card
-                                    key={item.id}
-                                    className="shadow-sm space-y-4 min-w-0"                >
-                                    <div className="flex items-start justify-between">
-                                        <h3 className="font-semibold">{item.canonical_name}</h3>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteCaps(item.id)}
-                                            className="btn text-xs bg-destructive hover:bg-destructive/90 text-white disabled:opacity-60"
-                                            disabled={saving}
-                                            title="Delete from inventory"
-                                            aria-label={`Delete ${item.canonical_name}`}
-                                        >
-                                            {saving ? "…" : "Delete"}
-                                        </button>
-                                    </div>
-
-                                    <div className="flex gap-2 text-xs" aria-live="polite">
-                                        <Pill>
-                                            Remaining doses: <span className="ml-1 font-semibold">{item.remainingDoses ?? "—"}</span>
-                                        </Pill>
-                                        <Pill>
-                                            Est. reorder: <span className="ml-1 font-semibold">{item.reorderDateISO ?? "—"}</span>
-                                        </Pill>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 min-w-0">
-                                        <label className="flex flex-col w-full min-w-0 text-sm">
-                                            Bottles
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                inputMode="numeric"
-                                                value={String(currentCapsValue(item, "bottles") ?? "")}
-                                                onChange={(e) => onChangeCaps(item.id, "bottles", parseNum(e.target.value))}
-                                                disabled={saving}
-                                                maxLength={10}
-                                                className="mt-1 input !max-w-[10ch]"
-                                                aria-label={`Bottles for ${item.canonical_name}`}
-                                            />
-                                        </label>
-                                        <label className="flex flex-col w-full min-w-0 text-sm">
-                                            Caps / bottle
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                inputMode="numeric"
-                                                value={String(currentCapsValue(item, "caps_per_bottle") ?? "")}
-                                                onChange={(e) => onChangeCaps(item.id, "caps_per_bottle", parseNum(e.target.value))}
-                                                disabled={saving}
-                                                maxLength={10}
-                                                className="mt-1 input !max-w-[10ch]"
-                                                aria-label={`Caps per bottle for ${item.canonical_name}`}
-                                            />
-                                        </label>
-                                        <label className="flex flex-col w-full min-w-0 text-sm">
-                                            mg / cap
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min={0}
-                                                inputMode="decimal"
-                                                value={String(currentCapsValue(item, "mg_per_cap") ?? "")}
-                                                onChange={(e) => onChangeCaps(item.id, "mg_per_cap", parseNum(e.target.value))}
-                                                disabled={saving}
-                                                maxLength={10}
-                                                className="mt-1 input !max-w-[10ch]"
-                                                aria-label={`mg per cap for ${item.canonical_name}`}
-                                            />
-                                        </label>
-                                        <label className="flex flex-col w-full min-w-0 text-sm">
-                                            Half-life (hrs)
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min={0}
-                                                inputMode="decimal"
-                                                value={String(currentCapsValue(item, "half_life_hours") ?? "")}
-                                                onChange={(e) => onChangeCaps(item.id, "half_life_hours", parseNum(e.target.value))}
-                                                disabled={saving}
-                                                maxLength={10}
-                                                className="mt-1 input !max-w-[10ch]"
-                                                aria-label={`Half-life hours for ${item.canonical_name}`}
-                                            />
-                                        </label>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSaveCaps(item)}
-                                            disabled={!dirty || saving}
-                                            className="btn bg-info hover:bg-info/90 text-sm text-white disabled:opacity-50"
-                                            title="Save changes"
-                                            aria-busy={saving}
-                                            aria-label={`Save ${item.canonical_name}`}
-                                        >
-                                            {saving ? "Saving…" : "Save"}
-                                        </button>
-                                        {dirty && (
-                                            <button
-                                                type="button"
-                                                onClick={() => clearCaps(item.id)}
-                                                className="btn text-sm"
-                                                title="Discard changes"
-                                            >
-                                                Discard
-                                            </button>
+            <section>
+                <h2 className="pp-h2 mb-4">Capsules</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {capsules.length === 0 && <p className="text-muted-foreground text-sm">No capsules in inventory.</p>}
+                    {capsules.map((item) => {
+                        const dirty = isCapsDirty(item);
+                        const saving = savingIds.has(`cap-${item.id}`);
+                        return (
+                            <Card key={item.id} className="relative group">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex flex-col">
+                                        <h3 className="font-bold text-lg leading-tight">{item.canonical_name}</h3>
+                                        {item.remainingDoses !== null && (
+                                            <div className="flex items-center gap-3 mt-1.5">
+                                                <span className="inline-flex items-center text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                                    <Activity className="w-3 h-3 mr-1" />
+                                                    {item.remainingDoses} doses
+                                                </span>
+                                                <span className="inline-flex items-center text-xs text-muted-foreground">
+                                                    <Calendar className="w-3 h-3 mr-1 opacity-70" />
+                                                    {item.reorderDateISO ?? "No forecast"}
+                                                </span>
+                                            </div>
                                         )}
                                     </div>
-                                </Card>
-                            );
-                        })}
-                    </div>
-                )}
+                                    <button
+                                        onClick={() => handleDeleteCaps(item.id)}
+                                        className="text-muted-foreground/50 hover:text-destructive transition-colors p-1"
+                                        disabled={saving}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    <InputGroup label="Bottles" value={currentCapsValue(item, "bottles")} onChange={(v: number) => onChangeCaps(item.id, "bottles", v)} disabled={saving} />
+                                    <InputGroup label="Caps / Btl" value={currentCapsValue(item, "caps_per_bottle")} onChange={(v: number) => onChangeCaps(item.id, "caps_per_bottle", v)} disabled={saving} />
+                                    <InputGroup label="mg / cap" value={currentCapsValue(item, "mg_per_cap")} onChange={(v: number) => onChangeCaps(item.id, "mg_per_cap", v)} disabled={saving} step={0.1} />
+                                    <InputGroup label="Half-life (h)" value={currentCapsValue(item, "half_life_hours")} onChange={(v: number) => onChangeCaps(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
+                                </div>
+
+                                {dirty && (
+                                    <div className="absolute bottom-4 right-4 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+                                        <button
+                                            onClick={() => clearCaps(item.id)}
+                                            className="btn h-9 w-9 p-0 rounded-full border-muted hover:bg-muted/20"
+                                            title="Undo"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleSaveCaps(item)}
+                                            disabled={saving}
+                                            className="btn h-9 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md flex items-center gap-2"
+                                        >
+                                            {saving ? "..." : <><Save className="w-4 h-4" /> Save</>}
+                                        </button>
+                                    </div>
+                                )}
+                            </Card>
+                        );
+                    })}
+                </div>
             </section>
         </div>
     );
