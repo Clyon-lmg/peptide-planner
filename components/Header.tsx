@@ -8,7 +8,9 @@ export default function Header() {
         <header className="lg:hidden w-full border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-40">
             <div className="px-4 h-14 flex items-center justify-between">
                 <Link href="/today" className="font-bold text-lg tracking-tight flex items-center gap-2">
-                    <span className="text-primary">PP</span>
+                    <div className="size-8 rounded-lg bg-blue-500 flex items-center justify-center text-white font-bold text-sm">
+                        PP
+                    </div>
                     <span>Peptide Planner</span>
                 </Link>
 

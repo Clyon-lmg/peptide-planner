@@ -1,80 +1,80 @@
-@config "../tailwind.config.mjs";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-    /* ... keep your existing colors ... */
-    --background: 255 255 255;
-    /* ... */
+@layer base {
+    :root {
+        --background: 255 255 255;
+        --foreground: 15 23 42;
+        --card: 255 255 255;
+        --border: 226 232 240;
+        --ring: 59 130 246;
+        --muted: 100 116 139;
+        --destructive: 239 68 68;
+        --success: 34 197 94;
+        --info: 59 130 246;
+        --warning: 234 179 8;
+    }
+
+    .dark {
+        --background: 3 7 18;
+        --foreground: 226 232 240;
+        --card: 15 23 42;
+        --border: 51 65 85;
+        --ring: 96 165 250;
+        --muted: 148 163 184;
+        --destructive: 248 113 113;
+        --success: 74 222 128;
+        --info: 96 165 250;
+        --warning: 250 204 21;
+    }
+
+    body {
+        @apply bg-[rgb(var(--background))] text-[rgb(var(--foreground))];
+        /* Prevent bounce on mobile */
+        overscroll-behavior-y: none;
+    }
 }
 
-/* ... keep html.dark ... */
+@layer components {
+    /* Polished Card Styling */
+    .pp-card {
+        @apply bg-[rgb(var(--card))] border border-[rgb(var(--border))] rounded-2xl p-4 shadow-sm transition-all duration-200;
+    }
 
-body {
-    background-color: rgb(var(--background));
-    color: rgb(var(--foreground));
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    /* PREVENT BOUNCE SCROLL on mobile body, handle scroll in main */
-    overscroll-behavior-y: none;
-}
+    /* Typography */
+    .pp-h1 {
+        @apply text-2xl font-bold tracking-tight;
+    }
 
-/* Custom Scrollbar for desktop */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
+    .pp-h2 {
+        @apply text-lg font-semibold tracking-tight;
+    }
 
-::-webkit-scrollbar-track {
-    background: transparent;
-}
+    .pp-subtle {
+        @apply text-sm text-[rgb(var(--muted))];
+    }
 
-::-webkit-scrollbar-thumb {
-    @apply bg-muted/30 rounded-full hover:bg-muted/50;
-}
+    /* Mobile-Friendly Inputs (Taller touch targets) */
+    .input {
+        @apply block w-full rounded-xl border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-4 py-3 text-base shadow-sm transition-colors;
+        @apply focus:border-[rgb(var(--ring))] focus:ring-1 focus:ring-[rgb(var(--ring))] focus:outline-none;
+        @apply placeholder:text-[rgb(var(--muted))]/60;
+    }
 
-/* Better Card styling */
-.pp-card {
-    @apply bg-card border border-border/50 rounded-2xl p-4 shadow-sm transition-all duration-200;
-    /* Subtle gloss effect */
-    @apply backdrop-blur-sm bg-opacity-95;
-}
+    /* Native-feeling Buttons */
+    .btn {
+        @apply inline-flex items-center justify-center font-medium transition-all active:scale-95;
+        @apply rounded-xl border border-[rgb(var(--border))] px-4 py-3 hover:bg-[rgb(var(--muted))]/10;
+        @apply focus:outline-none focus:ring-2 focus:ring-[rgb(var(--ring))] focus:ring-offset-1;
+    }
 
-.pp-h1 {
-    @apply text-2xl font-bold tracking-tight;
-}
+    /* Safe Area Utilities for iPhone Notch/Home Bar */
+    .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
 
-.pp-h2 {
-    @apply text-lg font-semibold tracking-tight;
-}
-
-.pp-subtle {
-    @apply text-sm text-muted;
-}
-
-/* Taller inputs for touch friendly fingers */
-.input {
-    @apply block w-full rounded-xl border border-border bg-card/50 px-4 py-3 text-base shadow-sm transition-colors;
-    @apply focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none;
-    @apply text-foreground placeholder:text-muted/60;
-}
-
-/* Bouncier, nicer buttons */
-.btn {
-    @apply inline-flex items-center justify-center font-medium transition-all active:scale-95;
-    @apply rounded-xl border border-border px-4 py-3 hover:bg-muted/10 hover:border-muted;
-    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1;
-}
-
-select {
-    @apply text-foreground bg-card;
-}
-
-/* Utilities for mobile safe areas (iPhone notch/home bar) */
-.pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 20px);
-}
-
-.pt-safe {
-    padding-top: env(safe-area-inset-top, 20px);
+    .pt-safe {
+        padding-top: env(safe-area-inset-top, 20px);
+    }
 }
