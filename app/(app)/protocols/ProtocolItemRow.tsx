@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { Trash2, Syringe } from "lucide-react";
+import { Trash2, Clock, Syringe, Check } from "lucide-react";
 
 export type InventoryPeptide = { id: number; canonical_name: string; half_life_hours: number };
 export type SiteList = { id: number; name: string };
@@ -99,7 +99,7 @@ export default function ProtocolItemRow({
                     </InputGroup>
                 </div>
 
-                {/* Time - Removed custom Icon/Padding to fix clipping */}
+                {/* Time */}
                 <div className="col-span-1 md:col-span-3">
                     <InputGroup label="Time">
                         <input
@@ -162,7 +162,7 @@ export default function ProtocolItemRow({
                     </div>
                 )}
 
-                {/* Cycles - Move to dedicated row if needed, but fitting here for now */}
+                {/* Cycles */}
                 <div className="col-span-1 md:col-span-2">
                     <InputGroup label="On (Wks)">
                         <input
@@ -191,7 +191,7 @@ export default function ProtocolItemRow({
             {(v.schedule === "CUSTOM" || isTitrating || true) && (
                 <div className="mt-5 pt-4 border-t border-border/50 flex flex-col gap-4">
 
-                    {/* Custom Days */}
+                    {/* Custom Days - UPDATED FOR HIGH CONTRAST */}
                     {v.schedule === "CUSTOM" && (
                         <div>
                             <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2 block">Active Days</label>
@@ -208,10 +208,12 @@ export default function ProtocolItemRow({
                                                 onChange({ ...v, custom_days: Array.from(set).sort() });
                                             }}
                                             className={`
-                                        h-9 px-3.5 rounded-lg text-xs font-medium transition-all border
+                                        h-9 px-3.5 rounded-lg text-xs font-semibold transition-all border
                                         ${isActive
-                                                    ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                                                    : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                                                    /* ACTIVE STATE: Solid dark/primary, white text */
+                                                    ? "bg-[rgb(var(--ring))] border-[rgb(var(--ring))] text-white shadow-md ring-2 ring-[rgb(var(--ring))]/20"
+                                                    /* INACTIVE STATE: White/Card bg, gray text */
+                                                    : "bg-[rgb(var(--card))] border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:border-[rgb(var(--ring))]/50 hover:text-[rgb(var(--foreground))]"
                                                 }
                                     `}
                                         >
@@ -224,11 +226,11 @@ export default function ProtocolItemRow({
                     )}
 
                     {/* Titration */}
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-muted/20 p-3 rounded-xl">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-muted/10 p-3 rounded-xl">
                         <label className="inline-flex items-center gap-2.5 cursor-pointer select-none shrink-0">
                             <input
                                 type="checkbox"
-                                className="rounded-md border-muted-foreground/30 w-4 h-4 text-primary focus:ring-primary/50"
+                                className="rounded-md border-muted-foreground/30 w-4 h-4 text-[rgb(var(--ring))] focus:ring-[rgb(var(--ring))]/50"
                                 checked={isTitrating}
                                 onChange={(e) => {
                                     if (!e.target.checked) {
