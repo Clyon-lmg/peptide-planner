@@ -94,7 +94,6 @@ export default function InventoryList({
         if (!onSaveVial) return;
         const edited = vialEdits[item.id];
         if (!edited) return;
-        // Fix: Spread 'edited' first, then overwrite 'id' to satisfy TS
         const payload: SaveVialPayload = { ...edited, id: item.id };
         await saveWrapper(`vial-${item.id}`, async () => { await onSaveVial(payload); clearVial(item.id); router.refresh(); });
     };
@@ -103,7 +102,6 @@ export default function InventoryList({
         if (!onSaveCapsule) return;
         const edited = capsEdits[item.id];
         if (!edited) return;
-        // Fix: Spread 'edited' first
         const payload: SaveCapsPayload = { ...edited, id: item.id };
         await saveWrapper(`cap-${item.id}`, async () => { await onSaveCapsule(payload); clearCaps(item.id); router.refresh(); });
     };
@@ -128,7 +126,7 @@ export default function InventoryList({
                 value={String(value ?? "")}
                 onChange={e => onChange(parseNum(e.target.value))}
                 disabled={disabled}
-                className="input font-mono text-sm px-2"
+                className="input font-mono text-sm px-2 w-full"
             />
         </div>
     );
@@ -170,7 +168,8 @@ export default function InventoryList({
                                     </button>
                                 </div>
 
-                                <div className="grid grid-cols-4 gap-3">
+                                {/* Increased grid columns for mobile legibility */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     <InputGroup label="Vials" value={currentVialValue(item, "vials")} onChange={(v: number) => onChangeVial(item.id, "vials", v)} disabled={saving} />
                                     <InputGroup label="mg/vial" value={currentVialValue(item, "mg_per_vial")} onChange={(v: number) => onChangeVial(item.id, "mg_per_vial", v)} disabled={saving} step={0.1} />
                                     <InputGroup label="mL BAC" value={currentVialValue(item, "bac_ml")} onChange={(v: number) => onChangeVial(item.id, "bac_ml", v)} disabled={saving} step={0.1} />
@@ -216,7 +215,7 @@ export default function InventoryList({
                                     <button onClick={() => handleDeleteCaps(item.id)} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors" disabled={saving}><Trash2 className="w-4 h-4" /></button>
                                 </div>
 
-                                <div className="grid grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     <InputGroup label="Bottles" value={currentCapsValue(item, "bottles")} onChange={(v: number) => onChangeCaps(item.id, "bottles", v)} disabled={saving} />
                                     <InputGroup label="Caps/Btl" value={currentCapsValue(item, "caps_per_bottle")} onChange={(v: number) => onChangeCaps(item.id, "caps_per_bottle", v)} disabled={saving} />
                                     <InputGroup label="mg/cap" value={currentCapsValue(item, "mg_per_cap")} onChange={(v: number) => onChangeCaps(item.id, "mg_per_cap", v)} disabled={saving} step={0.1} />

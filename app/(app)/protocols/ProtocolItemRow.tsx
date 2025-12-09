@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { Trash2, Clock, Syringe } from "lucide-react";
+import { Trash2, Syringe } from "lucide-react";
 
 export type InventoryPeptide = { id: number; canonical_name: string; half_life_hours: number };
 export type SiteList = { id: number; name: string };
@@ -38,8 +38,8 @@ export default function ProtocolItemRow({
     const isTitrating = (v.titration_interval_days || 0) > 0 || (v.titration_amount_mg || 0) > 0;
 
     const InputGroup = ({ label, children, className = "" }: { label: string, children: React.ReactNode, className?: string }) => (
-        <div className={`flex flex-col gap-1.5 ${className}`}>
-            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider whitespace-nowrap">{label}</label>
+        <div className={`flex flex-col gap-1.5 min-w-0 ${className}`}>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider whitespace-nowrap truncate">{label}</label>
             {children}
         </div>
     );
@@ -52,9 +52,9 @@ export default function ProtocolItemRow({
                     <Syringe className="size-5" />
                 </div>
 
-                <div className="flex-1 grid grid-cols-[1fr_auto_auto] gap-2 items-center">
+                <div className="flex-1 grid grid-cols-[1fr_auto_auto] gap-2 items-center min-w-0">
                     <select
-                        className="input font-medium truncate pr-8"
+                        className="input font-medium truncate pr-8 w-full"
                         value={v.peptide_id ?? ""}
                         onChange={(e) => onChange({ ...v, peptide_id: e.target.value ? Number(e.target.value) : null })}
                     >
@@ -66,7 +66,7 @@ export default function ProtocolItemRow({
 
                     <input
                         type="color"
-                        className="h-10 w-10 md:h-11 md:w-11 rounded-xl border border-border cursor-pointer p-1 bg-card"
+                        className="h-10 w-10 md:h-11 md:w-11 rounded-xl border border-border cursor-pointer p-1 bg-card shrink-0"
                         value={v.color}
                         onChange={(e) => onChange({ ...v, color: e.target.value })}
                         title="Label Color"
@@ -75,7 +75,7 @@ export default function ProtocolItemRow({
                     <button
                         type="button"
                         onClick={onDelete}
-                        className="h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-xl border border-transparent text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        className="h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-xl border border-transparent text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
                         title="Remove Item"
                     >
                         <Trash2 className="size-5" />
@@ -83,61 +83,59 @@ export default function ProtocolItemRow({
                 </div>
             </div>
 
-            {/* 2. Main Controls Grid (12 Columns) */}
+            {/* 2. Main Controls Grid */}
             <div className="grid grid-cols-2 md:grid-cols-12 gap-x-4 gap-y-5">
 
-                {/* Row 1 Mobile: Dose & Time */}
+                {/* Dose */}
                 <div className="col-span-1 md:col-span-2">
                     <InputGroup label="Dose (mg)">
                         <input
                             type="number"
                             step="0.01"
-                            className="input"
+                            className="input w-full"
                             value={v.dose_mg_per_administration}
                             onChange={(e) => onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })}
                         />
                     </InputGroup>
                 </div>
 
-                <div className="col-span-1 md:col-span-2">
+                {/* Time - Removed custom Icon/Padding to fix clipping */}
+                <div className="col-span-1 md:col-span-3">
                     <InputGroup label="Time">
-                        <div className="relative">
-                            <input
-                                type="time"
-                                className="input pl-9" // extra padding for clock icon
-                                value={v.time_of_day ?? ""}
-                                onChange={(e) => onChange({ ...v, time_of_day: e.target.value || null })}
-                            />
-                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70 pointer-events-none" />
-                        </div>
+                        <input
+                            type="time"
+                            className="input w-full"
+                            value={v.time_of_day ?? ""}
+                            onChange={(e) => onChange({ ...v, time_of_day: e.target.value || null })}
+                        />
                     </InputGroup>
                 </div>
 
-                {/* Row 2 Mobile: Schedule (Full Width) */}
-                <div className="col-span-2 md:col-span-4">
+                {/* Schedule */}
+                <div className="col-span-2 md:col-span-3">
                     <InputGroup label="Schedule">
                         <select
-                            className="input"
+                            className="input w-full"
                             value={v.schedule}
                             onChange={(e) => onChange({ ...v, schedule: e.target.value as any })}
                         >
                             <option value="EVERYDAY">Every Day</option>
-                            <option value="WEEKDAYS">Weekdays (Mon-Fri)</option>
+                            <option value="WEEKDAYS">Weekdays</option>
                             <option value="EVERY_N_DAYS">Every N Days</option>
                             <option value="CUSTOM">Custom Days</option>
                         </select>
                     </InputGroup>
                 </div>
 
-                {/* Row 3 Mobile: Site List (Full Width) */}
+                {/* Site List */}
                 <div className="col-span-2 md:col-span-4">
                     <InputGroup label="Site List">
                         <select
-                            className="input"
+                            className="input w-full"
                             value={v.site_list_id ?? ""}
                             onChange={(e) => onChange({ ...v, site_list_id: e.target.value ? Number(e.target.value) : null })}
                         >
-                            <option value="">None (No Rotation)</option>
+                            <option value="">None</option>
                             {siteLists.map((l) => (
                                 <option key={l.id} value={l.id}>{l.name}</option>
                             ))}
@@ -145,16 +143,16 @@ export default function ProtocolItemRow({
                     </InputGroup>
                 </div>
 
-                {/* Conditional: Frequency (Takes full row if visible) */}
+                {/* Conditional: Frequency */}
                 {v.schedule === "EVERY_N_DAYS" && (
-                    <div className="col-span-2 md:col-span-4 md:col-start-5">
+                    <div className="col-span-2 md:col-span-4 md:col-start-6">
                         <InputGroup label="Frequency">
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-muted-foreground whitespace-nowrap">Every</span>
                                 <input
                                     type="number"
                                     min={1}
-                                    className="input text-center"
+                                    className="input text-center w-full"
                                     value={v.every_n_days ?? 1}
                                     onChange={(e) => onChange({ ...v, every_n_days: Number(e.target.value || 1) })}
                                 />
@@ -164,12 +162,12 @@ export default function ProtocolItemRow({
                     </div>
                 )}
 
-                {/* Conditional: Cycles */}
+                {/* Cycles - Move to dedicated row if needed, but fitting here for now */}
                 <div className="col-span-1 md:col-span-2">
-                    <InputGroup label="Cycle On (Wks)">
+                    <InputGroup label="On (Wks)">
                         <input
                             type="number"
-                            className="input"
+                            className="input w-full"
                             placeholder="∞"
                             value={v.cycle_on_weeks || ""}
                             onChange={(e) => onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })}
@@ -177,10 +175,10 @@ export default function ProtocolItemRow({
                     </InputGroup>
                 </div>
                 <div className="col-span-1 md:col-span-2">
-                    <InputGroup label="Cycle Off (Wks)">
+                    <InputGroup label="Off (Wks)">
                         <input
                             type="number"
-                            className="input"
+                            className="input w-full"
                             placeholder="0"
                             value={v.cycle_off_weeks || ""}
                             onChange={(e) => onChange({ ...v, cycle_off_weeks: Number(e.target.value || 0) })}
