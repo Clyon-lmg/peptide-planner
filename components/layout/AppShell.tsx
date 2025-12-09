@@ -2,6 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Calendar, Package, Notebook, Home, Activity, Lightbulb } from "lucide-react"
+import { ThemeToggle } from "@/components/ThemeToggle"
 
 // Define navigation items (No Cart/Orders)
 const nav = [
@@ -20,8 +21,8 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
         <div className="min-h-[100dvh] flex flex-col lg:grid lg:grid-cols-[260px_1fr]">
 
             {/* --- DESKTOP SIDEBAR (Hidden on mobile) --- */}
-            <aside className="hidden lg:block sticky top-0 h-screen overflow-y-auto border-r border-border bg-card/50 backdrop-blur-xl p-5 space-y-8">
-                <div className="flex items-center gap-3 px-2">
+            <aside className="hidden lg:block sticky top-0 h-screen overflow-y-auto border-r border-border bg-card/50 backdrop-blur-xl p-5 flex flex-col">
+                <div className="flex items-center gap-3 px-2 mb-8">
                     <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 font-bold text-xl">
                         PP
                     </div>
@@ -52,12 +53,21 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
                     })}
                 </nav>
 
-                <div className="mt-auto px-2 pt-6 border-t border-border">
-                    <div className="text-xs font-medium text-muted-foreground mb-1">Signed in as</div>
-                    <div className="text-sm truncate opacity-80 mb-2 font-mono">{userEmail}</div>
-                    <form action="/auth/signout" method="post">
-                        <button className="text-xs hover:underline opacity-60">Sign out</button>
-                    </form>
+                <div className="mt-auto pt-6 border-t border-border space-y-4 px-2">
+                    {/* Theme Toggle Section */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">Appearance</span>
+                        <ThemeToggle />
+                    </div>
+
+                    {/* User Profile Section */}
+                    <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Signed in as</div>
+                        <div className="text-sm truncate opacity-80 mb-2 font-mono">{userEmail}</div>
+                        <form action="/auth/signout" method="post">
+                            <button className="text-xs hover:underline opacity-60">Sign out</button>
+                        </form>
+                    </div>
                 </div>
             </aside>
 
