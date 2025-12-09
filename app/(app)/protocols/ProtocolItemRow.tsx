@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { Trash2, Clock, Calendar, Syringe } from "lucide-react";
+import { Trash2, Clock, Syringe } from "lucide-react";
 
 export type InventoryPeptide = { id: number; canonical_name: string; half_life_hours: number };
 export type SiteList = { id: number; name: string };
@@ -37,25 +37,24 @@ export default function ProtocolItemRow({
     const v = value;
     const isTitrating = (v.titration_interval_days || 0) > 0 || (v.titration_amount_mg || 0) > 0;
 
-    // Helper for clean input groups
     const InputGroup = ({ label, children, className = "" }: { label: string, children: React.ReactNode, className?: string }) => (
         <div className={`flex flex-col gap-1.5 ${className}`}>
-            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{label}</label>
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider whitespace-nowrap">{label}</label>
             {children}
         </div>
     );
 
     return (
-        <div className="pp-card p-4 mb-3 relative group hover:border-primary/20 transition-all">
-            {/* Header: Peptide Select + Color + Delete */}
-            <div className="flex items-start gap-3 mb-4">
-                <div className="size-10 rounded-xl shrink-0 flex items-center justify-center" style={{ backgroundColor: v.color + '20', color: v.color }}>
+        <div className="pp-card p-4 mb-3 relative group hover:border-primary/30 transition-all shadow-sm">
+            {/* 1. Header Row: Icon + Peptide + Color + Delete */}
+            <div className="flex items-center gap-3 mb-5">
+                <div className="size-10 md:size-11 rounded-xl shrink-0 flex items-center justify-center shadow-inner" style={{ backgroundColor: v.color + '20', color: v.color }}>
                     <Syringe className="size-5" />
                 </div>
 
-                <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                <div className="flex-1 grid grid-cols-[1fr_auto_auto] gap-2 items-center">
                     <select
-                        className="input h-10 font-medium"
+                        className="input font-medium truncate pr-8"
                         value={v.peptide_id ?? ""}
                         onChange={(e) => onChange({ ...v, peptide_id: e.target.value ? Number(e.target.value) : null })}
                     >
@@ -65,106 +64,123 @@ export default function ProtocolItemRow({
                         ))}
                     </select>
 
-                    <div className="flex gap-2">
-                        <input
-                            type="color"
-                            className="h-10 w-14 rounded-lg border border-border cursor-pointer p-1 bg-card"
-                            value={v.color}
-                            onChange={(e) => onChange({ ...v, color: e.target.value })}
-                            title="Label Color"
-                        />
-                        <button
-                            type="button"
-                            onClick={onDelete}
-                            className="h-10 w-10 flex items-center justify-center rounded-lg border border-transparent text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                            title="Remove Item"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
-                    </div>
+                    <input
+                        type="color"
+                        className="h-10 w-10 md:h-11 md:w-11 rounded-xl border border-border cursor-pointer p-1 bg-card"
+                        value={v.color}
+                        onChange={(e) => onChange({ ...v, color: e.target.value })}
+                        title="Label Color"
+                    />
+
+                    <button
+                        type="button"
+                        onClick={onDelete}
+                        className="h-10 w-10 md:h-11 md:w-11 flex items-center justify-center rounded-xl border border-transparent text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title="Remove Item"
+                    >
+                        <Trash2 className="size-5" />
+                    </button>
                 </div>
             </div>
 
-            {/* Main Settings Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {/* 2. Main Controls Grid (12 Columns) */}
+            <div className="grid grid-cols-2 md:grid-cols-12 gap-x-4 gap-y-5">
 
-                <InputGroup label="Dose (mg)">
-                    <input
-                        type="number"
-                        step="0.01"
-                        className="input h-9"
-                        value={v.dose_mg_per_administration}
-                        onChange={(e) => onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })}
-                    />
-                </InputGroup>
-
-                <InputGroup label="Time">
-                    <div className="relative">
-                        <input
-                            type="time"
-                            className="input h-9 pl-8"
-                            value={v.time_of_day ?? ""}
-                            onChange={(e) => onChange({ ...v, time_of_day: e.target.value || null })}
-                        />
-                        <Clock className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
-                    </div>
-                </InputGroup>
-
-                <InputGroup label="Schedule" className="col-span-2 sm:col-span-2">
-                    <select
-                        className="input h-9"
-                        value={v.schedule}
-                        onChange={(e) => onChange({ ...v, schedule: e.target.value as any })}
-                    >
-                        <option value="EVERYDAY">Every Day</option>
-                        <option value="WEEKDAYS">Weekdays (M-F)</option>
-                        <option value="EVERY_N_DAYS">Every N Days</option>
-                        <option value="CUSTOM">Custom Days</option>
-                    </select>
-                </InputGroup>
-
-                {/* Conditional Schedule Inputs */}
-                {v.schedule === "EVERY_N_DAYS" && (
-                    <InputGroup label="Frequency (Days)">
+                {/* Row 1 Mobile: Dose & Time */}
+                <div className="col-span-1 md:col-span-2">
+                    <InputGroup label="Dose (mg)">
                         <input
                             type="number"
-                            min={1}
-                            className="input h-9"
-                            placeholder="e.g. 3"
-                            value={v.every_n_days ?? 1}
-                            onChange={(e) => onChange({ ...v, every_n_days: Number(e.target.value || 1) })}
+                            step="0.01"
+                            className="input"
+                            value={v.dose_mg_per_administration}
+                            onChange={(e) => onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })}
                         />
                     </InputGroup>
+                </div>
+
+                <div className="col-span-1 md:col-span-2">
+                    <InputGroup label="Time">
+                        <div className="relative">
+                            <input
+                                type="time"
+                                className="input pl-9" // extra padding for clock icon
+                                value={v.time_of_day ?? ""}
+                                onChange={(e) => onChange({ ...v, time_of_day: e.target.value || null })}
+                            />
+                            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70 pointer-events-none" />
+                        </div>
+                    </InputGroup>
+                </div>
+
+                {/* Row 2 Mobile: Schedule (Full Width) */}
+                <div className="col-span-2 md:col-span-4">
+                    <InputGroup label="Schedule">
+                        <select
+                            className="input"
+                            value={v.schedule}
+                            onChange={(e) => onChange({ ...v, schedule: e.target.value as any })}
+                        >
+                            <option value="EVERYDAY">Every Day</option>
+                            <option value="WEEKDAYS">Weekdays (Mon-Fri)</option>
+                            <option value="EVERY_N_DAYS">Every N Days</option>
+                            <option value="CUSTOM">Custom Days</option>
+                        </select>
+                    </InputGroup>
+                </div>
+
+                {/* Row 3 Mobile: Site List (Full Width) */}
+                <div className="col-span-2 md:col-span-4">
+                    <InputGroup label="Site List">
+                        <select
+                            className="input"
+                            value={v.site_list_id ?? ""}
+                            onChange={(e) => onChange({ ...v, site_list_id: e.target.value ? Number(e.target.value) : null })}
+                        >
+                            <option value="">None (No Rotation)</option>
+                            {siteLists.map((l) => (
+                                <option key={l.id} value={l.id}>{l.name}</option>
+                            ))}
+                        </select>
+                    </InputGroup>
+                </div>
+
+                {/* Conditional: Frequency (Takes full row if visible) */}
+                {v.schedule === "EVERY_N_DAYS" && (
+                    <div className="col-span-2 md:col-span-4 md:col-start-5">
+                        <InputGroup label="Frequency">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground whitespace-nowrap">Every</span>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    className="input text-center"
+                                    value={v.every_n_days ?? 1}
+                                    onChange={(e) => onChange({ ...v, every_n_days: Number(e.target.value || 1) })}
+                                />
+                                <span className="text-sm text-muted-foreground whitespace-nowrap">days</span>
+                            </div>
+                        </InputGroup>
+                    </div>
                 )}
 
-                <InputGroup label="Site List">
-                    <select
-                        className="input h-9"
-                        value={v.site_list_id ?? ""}
-                        onChange={(e) => onChange({ ...v, site_list_id: e.target.value ? Number(e.target.value) : null })}
-                    >
-                        <option value="">None</option>
-                        {siteLists.map((l) => (
-                            <option key={l.id} value={l.id}>{l.name}</option>
-                        ))}
-                    </select>
-                </InputGroup>
-
-                {/* Cycles (Optional - only show if non-zero or user wants to edit) */}
-                <div className="contents">
-                    <InputGroup label="On (Wks)">
+                {/* Conditional: Cycles */}
+                <div className="col-span-1 md:col-span-2">
+                    <InputGroup label="Cycle On (Wks)">
                         <input
                             type="number"
-                            className="input h-9"
+                            className="input"
                             placeholder="∞"
                             value={v.cycle_on_weeks || ""}
                             onChange={(e) => onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })}
                         />
                     </InputGroup>
-                    <InputGroup label="Off (Wks)">
+                </div>
+                <div className="col-span-1 md:col-span-2">
+                    <InputGroup label="Cycle Off (Wks)">
                         <input
                             type="number"
-                            className="input h-9"
+                            className="input"
                             placeholder="0"
                             value={v.cycle_off_weeks || ""}
                             onChange={(e) => onChange({ ...v, cycle_off_weeks: Number(e.target.value || 0) })}
@@ -173,15 +189,15 @@ export default function ProtocolItemRow({
                 </div>
             </div>
 
-            {/* Titration & Custom Days Area */}
-            {(v.schedule === "CUSTOM" || isTitrating || true) && ( // Always rendering container for spacing, logic inside
-                <div className="mt-4 pt-3 border-t border-border space-y-3">
+            {/* Footer: Titration & Custom Days */}
+            {(v.schedule === "CUSTOM" || isTitrating || true) && (
+                <div className="mt-5 pt-4 border-t border-border/50 flex flex-col gap-4">
 
-                    {/* Custom Days Selector */}
+                    {/* Custom Days */}
                     {v.schedule === "CUSTOM" && (
                         <div>
                             <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2 block">Active Days</label>
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-1.5">
                                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, idx) => {
                                     const isActive = v.custom_days?.includes(idx);
                                     return (
@@ -194,10 +210,10 @@ export default function ProtocolItemRow({
                                                 onChange({ ...v, custom_days: Array.from(set).sort() });
                                             }}
                                             className={`
-                                        h-8 px-3 rounded-lg text-xs font-medium transition-all
+                                        h-9 px-3.5 rounded-lg text-xs font-medium transition-all border
                                         ${isActive
-                                                    ? "bg-primary text-primary-foreground shadow-sm"
-                                                    : "bg-muted/10 text-muted-foreground hover:bg-muted/20"
+                                                    ? "bg-primary border-primary text-primary-foreground shadow-sm"
+                                                    : "bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
                                                 }
                                     `}
                                         >
@@ -209,12 +225,12 @@ export default function ProtocolItemRow({
                         </div>
                     )}
 
-                    {/* Titration Toggle & Inputs */}
-                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-                        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    {/* Titration */}
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-muted/20 p-3 rounded-xl">
+                        <label className="inline-flex items-center gap-2.5 cursor-pointer select-none shrink-0">
                             <input
                                 type="checkbox"
-                                className="rounded border-border w-4 h-4 text-primary focus:ring-primary"
+                                className="rounded-md border-muted-foreground/30 w-4 h-4 text-primary focus:ring-primary/50"
                                 checked={isTitrating}
                                 onChange={(e) => {
                                     if (!e.target.checked) {
@@ -224,29 +240,27 @@ export default function ProtocolItemRow({
                                     }
                                 }}
                             />
-                            <span className="text-xs font-medium">Enable Titration (Ramp up)</span>
+                            <span className="text-xs font-medium">Auto-Titrate (Ramp up)</span>
                         </label>
 
                         {isTitrating && (
-                            <div className="flex gap-2 animate-in fade-in slide-in-from-left-2">
-                                <div className="flex items-center gap-2 bg-muted/10 px-2 py-1 rounded-lg">
-                                    <span className="text-xs text-muted-foreground">Every</span>
-                                    <input
-                                        className="w-12 h-7 rounded border border-border px-1 text-center text-xs bg-background"
-                                        type="number"
-                                        value={v.titration_interval_days ?? 7}
-                                        onChange={(e) => onChange({ ...v, titration_interval_days: Number(e.target.value) })}
-                                    />
-                                    <span className="text-xs text-muted-foreground">days, add</span>
-                                    <input
-                                        className="w-12 h-7 rounded border border-border px-1 text-center text-xs bg-background"
-                                        type="number"
-                                        step="0.01"
-                                        value={v.titration_amount_mg ?? 0}
-                                        onChange={(e) => onChange({ ...v, titration_amount_mg: Number(e.target.value) })}
-                                    />
-                                    <span className="text-xs text-muted-foreground">mg</span>
-                                </div>
+                            <div className="flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-left-2 text-sm">
+                                <span className="text-muted-foreground">Every</span>
+                                <input
+                                    className="w-14 h-8 rounded-lg border border-border px-1 text-center text-sm bg-background shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                                    type="number"
+                                    value={v.titration_interval_days ?? 7}
+                                    onChange={(e) => onChange({ ...v, titration_interval_days: Number(e.target.value) })}
+                                />
+                                <span className="text-muted-foreground">days, add</span>
+                                <input
+                                    className="w-16 h-8 rounded-lg border border-border px-1 text-center text-sm bg-background shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                                    type="number"
+                                    step="0.01"
+                                    value={v.titration_amount_mg ?? 0}
+                                    onChange={(e) => onChange({ ...v, titration_amount_mg: Number(e.target.value) })}
+                                />
+                                <span className="text-muted-foreground">mg</span>
                             </div>
                         )}
                     </div>
