@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import Card from "@/components/layout/Card";
@@ -141,7 +141,7 @@ export default function WeightPage() {
                         <Card key={idx} className="flex justify-between items-center py-3 px-4">
                             <div>
                                 <span className="font-mono font-medium">{e.date}</span>
-                                <span className="mx-2 text-muted-foreground">�</span>
+                                <span className="mx-2 text-muted-foreground">•</span>
                                 <span className="font-bold">{e.weight}</span>
                             </div>
                             {e.note && <span className="text-sm text-muted-foreground truncate max-w-[200px]">{e.note}</span>}
