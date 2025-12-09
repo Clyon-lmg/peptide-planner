@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -6,265 +6,200 @@ import { getDosesForRange, type CalendarDoseRow } from './actions';
 
 // Helpers (client-side, uses user local system time)
 function isoDate(d: Date) {
-  // Use timezone-offset trick to produce YYYY-MM-DD in local tz
-  const t = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return t.toISOString().split('T')[0];
+    const t = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return t.toISOString().split('T')[0];
 }
 function startOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
+    return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 function addDays(d: Date, n: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
 }
 function startOfCalendarGrid(d: Date) {
-  // Sunday as first day: back up to Sunday of the week containing the 1st
-  const first = startOfMonth(d);
-  const dow = first.getDay(); // 0=Sun
-  return addDays(first, -dow);
+    const first = startOfMonth(d);
+    const dow = first.getDay(); // 0=Sun
+    return addDays(first, -dow);
 }
 function endOfCalendarGrid(d: Date) {
-  // 6 rows x 7 cols = 42 days for stable layout
-  const start = startOfCalendarGrid(d);
-  return addDays(start, 41);
+    const start = startOfCalendarGrid(d);
+    return addDays(start, 41);
 }
 
 type DosesByDay = Record<string, CalendarDoseRow[]>;
 
 export default function CalendarPage() {
-  const [cursor, setCursor] = useState<Date>(new Date());
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [byDay, setByDay] = useState<DosesByDay>({});
+    const [cursor, setCursor] = useState<Date>(new Date());
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const [byDay, setByDay] = useState<DosesByDay>({});
 
-  const gridStart = useMemo(() => startOfCalendarGrid(cursor), [cursor]);
-  const gridEnd = useMemo(() => endOfCalendarGrid(cursor), [cursor]);
+    const gridStart = useMemo(() => startOfCalendarGrid(cursor), [cursor]);
+    const gridEnd = useMemo(() => endOfCalendarGrid(cursor), [cursor]);
 
-  const [exportStart, setExportStart] = useState(isoDate(gridStart));
-  const [exportEnd, setExportEnd] = useState(isoDate(gridEnd));
+    const [exportStart, setExportStart] = useState(isoDate(gridStart));
+    const [exportEnd, setExportEnd] = useState(isoDate(gridEnd));
 
-  useEffect(() => {
-    setExportStart(isoDate(gridStart));
-    setExportEnd(isoDate(gridEnd));
-  }, [gridStart, gridEnd]);
+    useEffect(() => {
+        setExportStart(isoDate(gridStart));
+        setExportEnd(isoDate(gridEnd));
+    }, [gridStart, gridEnd]);
 
-  function downloadIcs(e: React.FormEvent) {
-    e.preventDefault();
-    const url = `/api/calendar/export?start=${exportStart}&end=${exportEnd}`;
-    window.location.assign(url);
-  }
+    function downloadIcs(e: React.FormEvent) {
+        e.preventDefault();
+        const url = `/api/calendar/export?start=${exportStart}&end=${exportEnd}`;
+        window.location.assign(url);
+    }
 
-  const monthLabel = useMemo(
-    () =>
-      cursor.toLocaleDateString(undefined, {
-        month: 'long',
-        year: 'numeric',
-      }),
-    [cursor]
-  );
+    const monthLabel = useMemo(
+        () =>
+            cursor.toLocaleDateString(undefined, {
+                month: 'long',
+                year: 'numeric',
+            }),
+        [cursor]
+    );
 
-  // Load all doses for the 6-week grid
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const rows = await getDosesForRange(isoDate(gridStart), isoDate(gridEnd));
-        const map: DosesByDay = {};
-        for (const r of rows) {
-          if (!map[r.date_for]) map[r.date_for] = [];
-          map[r.date_for].push(r);
-        }
-        Object.values(map).forEach((day) =>
-          day.sort((a, b) => {
-            const ta = a.time_of_day ?? '99:99';
-            const tb = b.time_of_day ?? '99:99';
-            if (ta === tb) {
-              return a.canonical_name.localeCompare(b.canonical_name);
+    useEffect(() => {
+        (async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const rows = await getDosesForRange(isoDate(gridStart), isoDate(gridEnd));
+                const map: DosesByDay = {};
+                for (const r of rows) {
+                    if (!map[r.date_for]) map[r.date_for] = [];
+                    map[r.date_for].push(r);
+                }
+                Object.values(map).forEach((day) =>
+                    day.sort((a, b) => {
+                        const ta = a.time_of_day ?? '99:99';
+                        const tb = b.time_of_day ?? '99:99';
+                        if (ta === tb) {
+                            return a.canonical_name.localeCompare(b.canonical_name);
+                        }
+                        return ta < tb ? -1 : 1;
+                    })
+                );
+                setByDay(map);
+            } catch (e) {
+                console.error('Failed to load doses', e);
+                setError(e instanceof Error ? e : new Error(String(e)));
+            } finally {
+                setLoading(false);
             }
-            return ta < tb ? -1 : 1;
-          })
-        );
-        setByDay(map);
-      } catch (e) {
-        console.error('Failed to load doses', e);
-        setError(e instanceof Error ? e : new Error(String(e)));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [gridStart, gridEnd]);
+        })();
+    }, [gridStart, gridEnd]);
 
-  // Build a stable 6x7 grid of dates
-  const days: Date[] = useMemo(() => {
-    const arr: Date[] = [];
-    for (let i = 0; i < 42; i++) arr.push(addDays(gridStart, i));
-    return arr;
-  }, [gridStart]);
+    const days: Date[] = useMemo(() => {
+        const arr: Date[] = [];
+        for (let i = 0; i < 42; i++) arr.push(addDays(gridStart, i));
+        return arr;
+    }, [gridStart]);
 
-  // Month navigation
-  function prevMonth() {
-      setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
-  }
-  function nextMonth() {
-      setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
-  }
-  function thisMonth() {
-      const now = new Date();
-      setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
-  }
+    function prevMonth() { setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)); }
+    function nextMonth() { setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)); }
+    function thisMonth() { const now = new Date(); setCursor(new Date(now.getFullYear(), now.getMonth(), 1)); }
 
-  const todayIso = isoDate(new Date());
-  const currentMonth = cursor.getMonth();
+    const todayIso = isoDate(new Date());
+    const currentMonth = cursor.getMonth();
 
-  return (
-    <div className="max-w-6xl mx-auto p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Calendar</h1>
-        <div className="flex gap-2">
-          <button onClick={prevMonth} className="rounded-lg border px-3 py-2 text-sm hover:bg-accent">← Prev</button>
-          <button onClick={thisMonth} className="rounded-lg border px-3 py-2 text-sm hover:bg-accent">Today</button>
-          <button onClick={nextMonth} className="rounded-lg border px-3 py-2 text-sm hover:bg-accent">Next →</button>
-        </div>
-      </div>
+    return (
+        <div className="max-w-6xl mx-auto p-4 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h1 className="text-2xl font-semibold">Calendar</h1>
 
-      <form onSubmit={downloadIcs} className="flex items-center gap-2 text-sm">
-        <input
-          type="date"
-          value={exportStart}
-          onChange={(e) => setExportStart(e.target.value)}
-          className="rounded border px-2 py-1"
-        />
-        <input
-          type="date"
-          value={exportEnd}
-          onChange={(e) => setExportEnd(e.target.value)}
-          className="rounded border px-2 py-1"
-        />
-        <button type="submit" className="rounded-lg border px-3 py-2 hover:bg-accent">
-          Export ICS
-        </button>
-      </form>
-
-      <div className="flex items-center justify_between mb-1">
-        <div className="text-lg font-medium">{monthLabel}</div>
-        {loading ? (
-                  <div className="text-sm text-muted">Loading…</div>
-        ) : error ? (
-                      <div className="text-sm text-destructive">Unable to load doses.</div>
-        ) : null}
-      </div>
-
-      {/* Weekday headers (Sun..Sat) */}
-          <div className="flex md:grid md:grid-cols-7 text-[11px] font-medium text-muted mb-1">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-          <div key={d} className="px-2 py-1 flex-1 text-center md:text-left">
-            {d}
-          </div>
-        ))}
-      </div>
-
-      {/* Month grid, 6 rows x 7 cols */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-2">
-        {days.map((d) => {
-          const dIso = isoDate(d);
-          const inMonth = d.getMonth() === currentMonth;
-          const isToday = dIso === todayIso;
-          const dayDoses = byDay[dIso] ?? [];
-          const counts = new Map<string, number>();
-          dayDoses.forEach((dr) => {
-            const t = dr.time_of_day ?? '';
-            counts.set(t, (counts.get(t) ?? 0) + 1);
-          });
-          
-          return (
-            <div
-              key={dIso}
-              className={`min-h-[160px] rounded-xl border p-2 bg-card relative
-                ${inMonth ? '' : 'opacity-60'}
-                ${isToday ? 'ring-2 ring-info' : ''}`}
-            >
-              {/* Date number top-left */}
-              <div className="text-xs font-semibold">{d.getDate()}</div>
-
-              {/* Doses list (READ-ONLY; color = status) */}
-              <div className="mt-2 flex flex-col gap-2">
-                {dayDoses.length === 0 ? (
-                          <div className="text-[12px] text-muted">No doses</div>
-                ) : (
-                  dayDoses.map((r, idx) => (
-                    <DoseBlock
-                      key={`${r.peptide_id}-${r.time_of_day ?? ''}-${idx}`}
-                      r={r}
-                      duplicate={
-                        !!r.time_of_day && (counts.get(r.time_of_day) ?? 0) > 1
-                      }
-                    />
-                  ))
-                )}
-              </div>
+                {/* FIXED: Date Picker & Export Row */}
+                <form onSubmit={downloadIcs} className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-1 shadow-sm">
+                        <input
+                            type="date"
+                            value={exportStart}
+                            onChange={(e) => setExportStart(e.target.value)}
+                            className="bg-transparent border-none text-foreground focus:ring-0 text-xs sm:text-sm h-8 px-2 [color-scheme:light] dark:[color-scheme:dark]"
+                        />
+                        <span className="text-muted-foreground">-</span>
+                        <input
+                            type="date"
+                            value={exportEnd}
+                            onChange={(e) => setExportEnd(e.target.value)}
+                            className="bg-transparent border-none text-foreground focus:ring-0 text-xs sm:text-sm h-8 px-2 [color-scheme:light] dark:[color-scheme:dark]"
+                        />
+                    </div>
+                    <button type="submit" className="btn h-10 text-xs px-3">
+                        Export ICS
+                    </button>
+                </form>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Legend */}
-          <div className="text-xs text-muted mt-2 flex gap-4">
-              <Legend className="border-l-4 border-success" label="Taken" />
-              <Legend className="border-l-4 border-destructive" label="Skipped" />
-              <Legend className="border-l-4 border-info" label="Pending" />
-          </div>
-    </div>
-  );
+            <div className="flex items-center justify-between mb-1">
+                <div className="text-lg font-medium">{monthLabel}</div>
+                <div className="flex gap-2">
+                    <button onClick={prevMonth} className="rounded-lg border px-3 py-1 text-sm hover:bg-accent">←</button>
+                    <button onClick={thisMonth} className="rounded-lg border px-3 py-1 text-sm hover:bg-accent">Today</button>
+                    <button onClick={nextMonth} className="rounded-lg border px-3 py-1 text-sm hover:bg-accent">→</button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-7 text-[11px] font-medium text-muted-foreground mb-1">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                    <div key={d} className="px-2 py-1 text-center md:text-left">
+                        {d}
+                    </div>
+                ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-7 gap-2 auto-rows-fr">
+                {days.map((d) => {
+                    const dIso = isoDate(d);
+                    const inMonth = d.getMonth() === currentMonth;
+                    const isToday = dIso === todayIso;
+                    const dayDoses = byDay[dIso] ?? [];
+                    const counts = new Map<string, number>();
+                    dayDoses.forEach((dr) => {
+                        const t = dr.time_of_day ?? '';
+                        counts.set(t, (counts.get(t) ?? 0) + 1);
+                    });
+
+                    return (
+                        <div
+                            key={dIso}
+                            className={`min-h-[120px] rounded-xl border p-2 bg-card relative transition-all
+                ${inMonth ? 'opacity-100' : 'opacity-40'}
+                ${isToday ? 'ring-2 ring-primary border-primary' : 'border-border'}
+              `}
+                        >
+                            <div className={`text-xs font-semibold mb-2 ${isToday ? 'text-primary' : ''}`}>{d.getDate()}</div>
+
+                            <div className="flex flex-col gap-1.5">
+                                {dayDoses.map((r, idx) => (
+                                    <DoseBlock
+                                        key={`${r.peptide_id}-${r.time_of_day ?? ''}-${idx}`}
+                                        r={r}
+                                        duplicate={!!r.time_of_day && (counts.get(r.time_of_day) ?? 0) > 1}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
 }
 
-function Legend({ className, label }: { className: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className={`inline-block h-3 ${className}`} />
-      {label}
-    </span>
-  );
-}
-
-/** Read-only block with status color (no actions) */
 function DoseBlock({ r, duplicate }: { r: CalendarDoseRow; duplicate?: boolean }) {
-  const border =
-    r.status === 'TAKEN'
-            ? 'border-success'
-            : r.status === 'SKIPPED'
-                ? 'border-destructive'
-                : 'border-info';
+    const statusColors = {
+        TAKEN: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+        SKIPPED: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20',
+        PENDING: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    };
+    const style = statusColors[r.status] || statusColors.PENDING;
 
-    const bg =
-        r.status === 'TAKEN'
-            ? 'bg-success/10 dark:bg-white/5'
-            : r.status === 'SKIPPED'
-                ? 'bg-destructive/10 dark:bg-white/5'
-                : 'bg-info/10 dark:bg-white/5';
-
-    const text =
-        r.status === 'TAKEN'
-            ? 'text-success'
-            : r.status === 'SKIPPED'
-                ? 'text-destructive'
-                : 'text-info';
-  const infoParts = [] as string[];
-  if (r.time_of_day) infoParts.push(r.time_of_day);
-  infoParts.push(`${r.dose_mg} mg`);
-  if (r.site_label) infoParts.push(r.site_label);
-  const info = infoParts.join(' • ');
-  return (
-    <div
-      className={`rounded-lg border ${border} border-l-4 ${bg} ${text} p-2 ${
-        duplicate ? 'ring-1 ring-warning' : ''
-      }`}
-    >
-      <div className="text-[13px] font-medium leading-5 break-words whitespace-normal">
-        {r.canonical_name}
-      </div>
-      <div className="text-[12px] opacity-80">{info}</div>
-    </div>
-  );
+    return (
+        <div className={`rounded-md border px-1.5 py-1 text-[10px] leading-tight font-medium truncate ${style}`}>
+            {r.canonical_name}
+        </div>
+    );
 }

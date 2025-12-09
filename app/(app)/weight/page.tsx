@@ -4,141 +4,151 @@ import { useState, useEffect } from "react";
 import Card from "@/components/layout/Card";
 import { Line } from "react-chartjs-2";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
 } from "chart.js";
 
 ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend
 );
 
 type Entry = {
-  date: string;
-  weight: number;
-  note: string;
+    date: string;
+    weight: number;
+    note: string;
 };
 
 export default function WeightPage() {
-  const [weight, setWeight] = useState("");
-  const [note, setNote] = useState("");
-  const [entries, setEntries] = useState<Entry[]>([]);
+    const [weight, setWeight] = useState("");
+    const [note, setNote] = useState("");
+    const [entries, setEntries] = useState<Entry[]>([]);
 
-  useEffect(() => {
-    const stored = localStorage.getItem("weightEntries");
-    if (stored) {
-      try {
-        setEntries(JSON.parse(stored));
-      } catch {
-        /* ignore */
-      }
+    useEffect(() => {
+        const stored = localStorage.getItem("weightEntries");
+        if (stored) {
+            try {
+                setEntries(JSON.parse(stored));
+            } catch {
+                /* ignore */
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem("weightEntries", JSON.stringify(entries));
+    }, [entries]);
+
+    function addEntry(e: React.FormEvent) {
+        e.preventDefault();
+        const w = parseFloat(weight);
+        if (Number.isNaN(w)) return;
+        const entry: Entry = {
+            date: new Date().toISOString().slice(0, 10),
+            weight: w,
+            note: note.trim(),
+        };
+        setEntries([...entries, entry]);
+        setWeight("");
+        setNote("");
     }
-  }, []);
 
-  useEffect(() => {
-    localStorage.setItem("weightEntries", JSON.stringify(entries));
-  }, [entries]);
-
-  function addEntry(e: React.FormEvent) {
-    e.preventDefault();
-    const w = parseFloat(weight);
-    if (Number.isNaN(w)) return;
-    const entry: Entry = {
-      date: new Date().toISOString().slice(0, 10),
-      weight: w,
-      note: note.trim(),
+    const data = {
+        labels: entries.map((e) => e.date),
+        datasets: [
+            {
+                label: "Weight",
+                data: entries.map((e) => e.weight),
+                borderColor: "rgb(59, 130, 246)",
+                backgroundColor: "rgba(59, 130, 246, 0.5)",
+                tension: 0.3,
+            },
+        ],
     };
-    setEntries([...entries, entry]);
-    setWeight("");
-    setNote("");
-  }
 
-  const data = {
-    labels: entries.map((e) => e.date),
-    datasets: [
-      {
-        label: "Weight",
-        data: entries.map((e) => e.weight),
-        borderColor: "rgb(53, 162, 235)",
-        backgroundColor: "rgba(53, 162, 235, 0.5)",
-      },
-    ],
-  };
+    return (
+        <div className="space-y-6 max-w-4xl mx-auto p-4">
+            <h1 className="pp-h1">Weight Tracker</h1>
 
-  return (
-    <div className="space-y-4">
-      <Card>
-        <form onSubmit={addEntry} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <label className="flex flex-col flex-none">
-            <span className="text-sm">Weight</span>
-            <input
-              type="number"
-              step="0.1"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              className="input"
-              style={{ width: "6ch" }}
-              max={999999}
-              maxLength={6}
-              size={6}
-              required
-            />
-          </label>
-          <label className="flex flex-col flex-1 min-w-0">
-            <span className="text-sm">Note</span>
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="input"
-              style={{ width: "200ch" }}
-              maxLength={200}
-              size={200}
-            />
-          </label>
-          <button type="submit" className="btn flex-none">
-            Add
-          </button>
-        </form>
-      </Card>
+            <Card>
+                <form onSubmit={addEntry} className="flex flex-col sm:flex-row gap-4 items-end">
+                    <label className="flex flex-col gap-1.5 w-full sm:w-32">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Weight</span>
+                        <input
+                            type="number"
+                            step="0.1"
+                            value={weight}
+                            onChange={(e) => setWeight(e.target.value)}
+                            className="input"
+                            placeholder="0.0"
+                            required
+                        />
+                    </label>
 
-      {entries.length > 0 && (
-        <Card>
-          <Line
-            data={data}
-            options={{
-              responsive: true,
-              plugins: { legend: { display: false } },
-            }}
-          />
-        </Card>
-      )}
+                    {/* FIXED: Removed fixed width, used flex-1 to fill space */}
+                    <label className="flex flex-col gap-1.5 flex-1 w-full">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</span>
+                        <input
+                            type="text"
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            className="input w-full"
+                            placeholder="Optional note..."
+                            maxLength={200}
+                        />
+                    </label>
 
-      {entries.length > 0 && (
-        <Card>
-          <ul className="space-y-2">
-            {entries.map((e, idx) => (
-              <li key={idx} className="flex justify-between">
-                <span>
-                  {e.date}: {e.weight}
-                </span>
-                {e.note && <span className="text-muted">{e.note}</span>}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-    </div>
-  );
+                    <button type="submit" className="btn bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto">
+                        Log Entry
+                    </button>
+                </form>
+            </Card>
+
+            {entries.length > 0 && (
+                <Card>
+                    <div className="h-[300px] w-full">
+                        <Line
+                            data={data}
+                            options={{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { display: false } },
+                                scales: {
+                                    x: { grid: { display: false } },
+                                    y: { grid: { color: 'rgba(0,0,0,0.05)' } }
+                                }
+                            }}
+                        />
+                    </div>
+                </Card>
+            )}
+
+            {entries.length > 0 && (
+                <div className="space-y-2">
+                    <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-1">History</h3>
+                    {entries.slice().reverse().map((e, idx) => (
+                        <Card key={idx} className="flex justify-between items-center py-3 px-4">
+                            <div>
+                                <span className="font-mono font-medium">{e.date}</span>
+                                <span className="mx-2 text-muted-foreground">•</span>
+                                <span className="font-bold">{e.weight}</span>
+                            </div>
+                            {e.note && <span className="text-sm text-muted-foreground truncate max-w-[200px]">{e.note}</span>}
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 }
