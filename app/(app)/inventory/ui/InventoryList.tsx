@@ -6,7 +6,6 @@ import { Trash2, Save, X, Activity, Calendar } from "lucide-react";
 import Card from "@/components/layout/Card";
 import type { SaveVialPayload, SaveCapsPayload } from "../actions";
 
-// ... (Keep existing types: VialItem, CapsuleItem, InventoryListProps, parseNum) ...
 export type VialItem = {
     id: number;
     peptide_id: number;
@@ -59,7 +58,6 @@ export default function InventoryList({
     const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
     const router = useRouter();
 
-    // ... (Keep existing helpers: currentVialValue, isVialDirty, etc. exactly as before) ...
     const currentVialValue = (item: VialItem, field: any) => (vialEdits[item.id] as any)?.[field] ?? (item as any)[field];
     const currentCapsValue = (item: CapsuleItem, field: any) => (capsEdits[item.id] as any)?.[field] ?? (item as any)[field];
 
@@ -96,7 +94,8 @@ export default function InventoryList({
         if (!onSaveVial) return;
         const edited = vialEdits[item.id];
         if (!edited) return;
-        const payload: SaveVialPayload = { id: item.id, ...edited };
+        // Fix: Spread 'edited' first, then overwrite 'id' to satisfy TS
+        const payload: SaveVialPayload = { ...edited, id: item.id };
         await saveWrapper(`vial-${item.id}`, async () => { await onSaveVial(payload); clearVial(item.id); router.refresh(); });
     };
 
@@ -104,7 +103,8 @@ export default function InventoryList({
         if (!onSaveCapsule) return;
         const edited = capsEdits[item.id];
         if (!edited) return;
-        const payload: SaveCapsPayload = { id: item.id, ...edited };
+        // Fix: Spread 'edited' first
+        const payload: SaveCapsPayload = { ...edited, id: item.id };
         await saveWrapper(`cap-${item.id}`, async () => { await onSaveCapsule(payload); clearCaps(item.id); router.refresh(); });
     };
 
@@ -118,7 +118,6 @@ export default function InventoryList({
         await saveWrapper(`cap-${id}`, async () => { await onDeleteCapsule(id); router.refresh(); });
     };
 
-    // Improved InputGroup
     const InputGroup = ({ label, value, onChange, disabled, step = 1, type = "number" }: any) => (
         <div className="flex flex-col gap-1.5 min-w-0">
             <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider truncate">{label}</label>
