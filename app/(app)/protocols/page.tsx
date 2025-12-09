@@ -1,10 +1,11 @@
 "use client";
 import React from "react";
-import { Plus, Edit2, Trash2, List } from "lucide-react";
+import { Plus, Trash2, Edit2, List, ChevronRight } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import ProtocolEditor from "./ProtocolEditor";
 import InjectionSiteListEditor from "./InjectionSiteListEditor";
 import { toast } from "sonner";
+import Card from "@/components/layout/Card"; // Ensure we use the Card component for consistency
 
 type Protocol = {
     id: number;
@@ -63,7 +64,14 @@ export default function ProtocolsPage() {
         if (!confirm("Delete this protocol?")) return;
         await supabase.from("protocols").delete().eq("id", id);
         await reload();
-        setSelectedId(null); // Clear selection
+        setSelectedId(null);
+    };
+
+    const renameProtocol = async (p: Protocol) => {
+        const name = prompt("Rename protocol:", p.name);
+        if (!name || name === p.name) return;
+        await supabase.from("protocols").update({ name }).eq("id", p.id);
+        await reload();
     };
 
     const createSiteList = async () => {
@@ -79,74 +87,100 @@ export default function ProtocolsPage() {
     return (
         <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-100px)]">
 
-            {/* SIDEBAR LIST (Collapsible on mobile) */}
-            <aside className={`lg:w-72 shrink-0 space-y-6 ${showListOnMobile ? 'block' : 'hidden lg:block'}`}>
+            {/* SIDEBAR LIST */}
+            <aside className={`lg:w-80 shrink-0 space-y-6 ${showListOnMobile ? 'block' : 'hidden lg:block'}`}>
 
                 {/* Protocols Section */}
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Protocols</h3>
-                        <button onClick={createProtocol} className="text-primary hover:bg-primary/10 p-1 rounded"><Plus className="size-4" /></button>
+                <Card className="p-0 overflow-hidden border-border/60">
+                    <div className="p-4 border-b border-border/60 flex items-center justify-between bg-muted/20">
+                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Your Protocols</h3>
+                        <button
+                            onClick={createProtocol}
+                            className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors"
+                            title="New Protocol"
+                        >
+                            <Plus className="size-4" />
+                        </button>
                     </div>
 
-                    <div className="space-y-1">
-                        {protocols.map(p => (
-                            <div
-                                key={p.id}
-                                onClick={() => { setSelectedId(p.id); setSelectedListId(null); setShowListOnMobile(false); }}
-                                className={`
-                                group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all
-                                ${selectedId === p.id
-                                        ? "bg-primary text-primary-foreground shadow-md"
-                                        : "hover:bg-muted/50 text-foreground"
-                                    }
-                            `}
-                            >
-                                <div className="min-w-0">
-                                    <div className="font-medium truncate">{p.name}</div>
-                                    {p.is_active && <div className="text-[10px] opacity-80 font-bold uppercase tracking-wide">Active</div>}
-                                </div>
-
-                                {/* Delete Action (only visible on hover or selection) */}
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); deleteProtocol(p.id); }}
+                    <div className="p-2 space-y-1">
+                        {protocols.length === 0 && <div className="p-4 text-center text-sm text-muted-foreground">No protocols yet.</div>}
+                        {protocols.map(p => {
+                            const isSelected = selectedId === p.id;
+                            return (
+                                <div
+                                    key={p.id}
+                                    onClick={() => { setSelectedId(p.id); setSelectedListId(null); setShowListOnMobile(false); }}
                                     className={`
-                                    p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity
-                                    ${selectedId === p.id ? "hover:bg-black/20 text-white" : "hover:bg-destructive/10 hover:text-destructive text-muted-foreground"}
+                                    group relative flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all
+                                    ${isSelected
+                                            ? "bg-primary/10 text-primary font-medium"
+                                            : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                                        }
                                 `}
                                 >
-                                    <Trash2 className="size-4" />
-                                </button>
-                            </div>
-                        ))}
+                                    <div className="min-w-0 flex flex-col">
+                                        <span className="truncate">{p.name}</span>
+                                        {p.is_active && <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wide">Active</span>}
+                                    </div>
+
+                                    {/* Hover Actions */}
+                                    <div className={`flex items-center gap-1 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); renameProtocol(p); }}
+                                            className="p-1.5 rounded-md hover:bg-background/50 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Edit2 className="size-3.5" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); deleteProtocol(p.id); }}
+                                            className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                                        >
+                                            <Trash2 className="size-3.5" />
+                                        </button>
+                                    </div>
+                                    {isSelected && <div className="absolute left-0 top-2 bottom-2 w-1 bg-primary rounded-r-full" />}
+                                </div>
+                            )
+                        })}
                     </div>
-                </div>
+                </Card>
 
                 {/* Site Lists Section */}
-                <div className="space-y-3 pt-4 border-t border-border">
-                    <div className="flex items-center justify-between px-1">
-                        <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Site Lists</h3>
-                        <button onClick={createSiteList} className="text-primary hover:bg-primary/10 p-1 rounded"><Plus className="size-4" /></button>
+                <Card className="p-0 overflow-hidden border-border/60">
+                    <div className="p-4 border-b border-border/60 flex items-center justify-between bg-muted/20">
+                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Site Lists</h3>
+                        <button
+                            onClick={createSiteList}
+                            className="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors"
+                            title="New Site List"
+                        >
+                            <Plus className="size-4" />
+                        </button>
                     </div>
 
-                    <div className="space-y-1">
-                        {siteLists.map(l => (
-                            <div
-                                key={l.id}
-                                onClick={() => { setSelectedListId(l.id); setSelectedId(null); setShowListOnMobile(false); }}
-                                className={`
-                                group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all
-                                ${selectedListId === l.id
-                                        ? "bg-muted text-foreground font-medium ring-1 ring-border"
-                                        : "hover:bg-muted/50 text-foreground"
-                                    }
-                            `}
-                            >
-                                <span className="truncate">{l.name}</span>
-                            </div>
-                        ))}
+                    <div className="p-2 space-y-1">
+                        {siteLists.map(l => {
+                            const isSelected = selectedListId === l.id;
+                            return (
+                                <div
+                                    key={l.id}
+                                    onClick={() => { setSelectedListId(l.id); setSelectedId(null); setShowListOnMobile(false); }}
+                                    className={`
+                                    group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all
+                                    ${isSelected
+                                            ? "bg-primary/10 text-primary font-medium"
+                                            : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                                        }
+                                `}
+                                >
+                                    <span className="truncate">{l.name}</span>
+                                    {isSelected && <ChevronRight className="size-4 opacity-50" />}
+                                </div>
+                            )
+                        })}
                     </div>
-                </div>
+                </Card>
             </aside>
 
             {/* MAIN EDITOR AREA */}
@@ -155,14 +189,14 @@ export default function ProtocolsPage() {
                 <div className="lg:hidden mb-4">
                     <button
                         onClick={() => setShowListOnMobile(!showListOnMobile)}
-                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors font-medium px-2 py-2 rounded-lg hover:bg-muted/30"
                     >
-                        <List className="size-4" /> {showListOnMobile ? "Hide Menu" : "Show Menu"}
+                        <List className="size-4" /> {showListOnMobile ? "Hide Menu" : "Back to List"}
                     </button>
                 </div>
 
                 {!showListOnMobile && (
-                    <>
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                         {selectedId && protocols.find(p => p.id === selectedId) && (
                             <ProtocolEditor
                                 protocol={protocols.find(p => p.id === selectedId)!}
@@ -176,11 +210,11 @@ export default function ProtocolsPage() {
                             />
                         )}
                         {!selectedId && !selectedListId && (
-                            <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-border rounded-2xl">
+                            <div className="h-64 flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed border-border/60 rounded-2xl bg-muted/5">
                                 <p>Select a protocol to edit</p>
                             </div>
                         )}
-                    </>
+                    </div>
                 )}
             </main>
         </div>
