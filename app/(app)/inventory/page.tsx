@@ -1,6 +1,7 @@
 // app/(app)/inventory/page.tsx
 import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
 import Link from "next/link";
+import { revalidatePath } from "next/cache"; // <--- Added this import
 
 import AddRow from "./ui/AddRow";
 import InventoryList from "./ui/InventoryList";
