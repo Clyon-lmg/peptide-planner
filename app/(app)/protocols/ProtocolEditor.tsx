@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Plus, Save, Play, AlertTriangle } from "lucide-react";
+import { Plus, Save, Play, Copy } from "lucide-react";
 import ProtocolItemRow, {
     ProtocolItemState,
     InventoryPeptide,
@@ -155,6 +155,54 @@ export default function ProtocolEditor({ protocol, onReload }: {
         }
     };
 
+    // --- Export Logic ---
+    const copyToReddit = async () => {
+        const pepMap = new Map(peptides.map(p => [p.id, p.canonical_name]));
+        const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+        // Header
+        let md = `**Protocol: ${protocol.name}**\n\n`;
+
+        // Table Header
+        md += `| Peptide | Dose | Schedule | Notes |\n`;
+        md += `|---|---|---|---|\n`;
+
+        // Rows
+        for (const item of items) {
+            if (!item.peptide_id) continue;
+            const name = pepMap.get(item.peptide_id) || "Unknown";
+            const dose = `${item.dose_mg_per_administration} mg`;
+
+            let sched = "";
+            if (item.schedule === "EVERYDAY") sched = "Daily";
+            else if (item.schedule === "WEEKDAYS") sched = "Mon-Fri";
+            else if (item.schedule === "EVERY_N_DAYS") sched = `E${item.every_n_days}D`;
+            else if (item.schedule === "CUSTOM") {
+                sched = (item.custom_days || []).map(d => DAYS[d]).join(", ");
+            }
+
+            const notesParts = [];
+            if (item.time_of_day) notesParts.push(`@ ${item.time_of_day}`);
+            if (item.cycle_on_weeks > 0) notesParts.push(`${item.cycle_on_weeks} wks ON / ${item.cycle_off_weeks} OFF`);
+            if ((item.titration_interval_days || 0) > 0) {
+                notesParts.push(`Titrate +${item.titration_amount_mg}mg / ${item.titration_interval_days} days`);
+            }
+            const notes = notesParts.join(", ") || "-";
+
+            md += `| ${name} | ${dose} | ${sched} | ${notes} |\n`;
+        }
+
+        // Footer
+        md += `\n*Generated via Peptide Planner*`;
+
+        try {
+            await navigator.clipboard.writeText(md);
+            toast.success("Copied Markdown to clipboard!");
+        } catch (err) {
+            toast.error("Failed to copy");
+        }
+    };
+
     return (
         <div className="space-y-6 pb-32">
             <div className="flex items-center justify-between">
@@ -202,22 +250,34 @@ export default function ProtocolEditor({ protocol, onReload }: {
             <ProtocolGraph items={items} peptides={peptides} />
 
             {/* Floating Action Bar */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border z-40 lg:pl-[280px]">
-                <div className="max-w-5xl mx-auto flex items-center justify-end gap-3">
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border z-40 lg:pl-[340px]">
+                <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+                    {/* Export Button (Left Side) */}
                     <button
-                        onClick={activate}
-                        disabled={activating}
-                        className={`btn bg-emerald-600 hover:bg-emerald-700 text-white border-transparent ${activating ? "opacity-50" : ""}`}
+                        onClick={copyToReddit}
+                        className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2"
+                        title="Copy for Reddit"
                     >
-                        {activating ? "Activating..." : "Set Active & Generate"}
+                        <Copy className="size-4" />
+                        <span className="hidden sm:inline">Export MD</span>
                     </button>
-                    <button
-                        onClick={save}
-                        disabled={saving}
-                        className="btn bg-primary text-primary-foreground hover:bg-primary/90 min-w-[100px]"
-                    >
-                        {saving ? "Saving..." : <><Save className="size-4 mr-2" /> Save</>}
-                    </button>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={activate}
+                            disabled={activating}
+                            className={`btn bg-emerald-600 hover:bg-emerald-700 text-white border-transparent ${activating ? "opacity-50" : ""}`}
+                        >
+                            {activating ? "Activating..." : "Set Active & Generate"}
+                        </button>
+                        <button
+                            onClick={save}
+                            disabled={saving}
+                            className="btn bg-primary text-primary-foreground hover:bg-primary/90 min-w-[100px]"
+                        >
+                            {saving ? "Saving..." : <><Save className="size-4 mr-2" /> Save</>}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
