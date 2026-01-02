@@ -1,21 +1,40 @@
 ﻿'use client';
 
 import React, { useState } from 'react';
-import { Moon, Sun, Beaker, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Moon, Sun, Beaker, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
 
 const LoginPage = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // New state for loading
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
   };
 
+  // --- NEW FUNCTION TO HANDLE MAGIC LINK ---
+  const handleMagicLink = async () => {
+    if (!email) {
+      alert("Please enter your email address first.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    // SIMULATE API CALL (Replace this with your actual DB/Auth call)
+    try {
+      console.log(`Sending magic link to: ${email}`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Fake 2s delay
+      alert(`Magic link sent to ${email}!`);
+    } catch (error) {
+      console.error("Error sending link:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    // FIX APPLIED HERE: 
-    // "fixed inset-0 z-50" forces this div to sit on top of all other layouts 
-    // and stretch to the exact edges of the browser window.
     <div className={`fixed inset-0 z-50 w-full h-full grid lg:grid-cols-2 ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300 overflow-y-auto`}>
       
       {/* Light/Dark Toggle */}
@@ -131,14 +150,25 @@ const LoginPage = () => {
             </div>
           </div>
 
+          {/* UPDATED MAGIC LINK BUTTON */}
           <button
+            onClick={handleMagicLink}
+            disabled={isLoading}
             className={`inline-flex items-center justify-center rounded-lg text-base font-medium transition-colors h-12 w-full border ${
               isDarkMode 
                 ? 'border-slate-800 bg-transparent hover:bg-slate-900 text-slate-200' 
                 : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-900'
-            }`}
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            Send Magic Link <ArrowRight className="ml-2 h-5 w-5" />
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Sending...
+              </>
+            ) : (
+              <>
+                Send Magic Link <ArrowRight className="ml-2 h-5 w-5" />
+              </>
+            )}
           </button>
 
           <p className={`text-center text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-400'}`}>
