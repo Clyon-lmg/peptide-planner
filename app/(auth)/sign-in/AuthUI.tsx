@@ -1,6 +1,7 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Moon, Sun, Beaker, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
 
 // Define the shape of the props this component expects
@@ -225,6 +226,20 @@ export default function AuthUI({
               </>
             )}
           </button>
+
+          {/* SIGN UP LINK */}
+          <div className="text-center text-sm">
+            <span className={isDarkMode ? 'text-slate-400' : 'text-slate-500'}>
+              Don't have an account?{' '}
+            </span>
+            <Link 
+              href="/sign-up" 
+              className="font-medium text-blue-600 hover:text-blue-500 hover:underline underline-offset-4 transition-colors"
+            >
+              Sign up
+            </Link>
+          </div>
+
         </div>
       </div>
     </div>
