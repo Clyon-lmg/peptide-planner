@@ -77,11 +77,31 @@ export default function ProtocolEditor({ protocol, onReload }: {
             ]);
 
         const merged: Record<number, InventoryPeptide> = {};
-        const process = (rows: any[]) => rows?.forEach((r: any) => {
-            if (r.peptides) merged[r.peptides.id] = { id: r.peptides.id, canonical_name: r.peptides.canonical_name, half_life_hours: Number(r.half_life_hours || 0) };
+        
+        // Process Vials
+        vialInv?.forEach((r: any) => {
+            if (r.peptides) {
+                merged[r.peptides.id] = { 
+                    id: r.peptides.id, 
+                    canonical_name: r.peptides.canonical_name, 
+                    half_life_hours: Number(r.half_life_hours || 0),
+                    kind: 'vial' // Mark as Vial
+                };
+            }
         });
-        process(vialInv || []);
-        process(capInv || []);
+
+        // Process Capsules (Overwrites vial if duplicate, or we can flag 'both')
+        capInv?.forEach((r: any) => {
+            if (r.peptides) {
+                const existing = merged[r.peptides.id];
+                merged[r.peptides.id] = { 
+                    id: r.peptides.id, 
+                    canonical_name: r.peptides.canonical_name, 
+                    half_life_hours: Number(r.half_life_hours || 0),
+                    kind: existing ? 'both' : 'capsule' // Mark as Cap or Both
+                };
+            }
+        });
 
         setPeptides(Object.values(merged).sort((a, b) => a.canonical_name.localeCompare(b.canonical_name)));
         setSiteLists(listData || []);
@@ -163,16 +183,21 @@ export default function ProtocolEditor({ protocol, onReload }: {
     };
 
     const copyToReddit = async () => {
-        const pepMap = new Map(peptides.map(p => [p.id, p.canonical_name]));
+        const pepMap = new Map(peptides.map(p => [p.id, p]));
         const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
         let md = `**Protocol: ${protocol.name}**\n\n`;
-        md += `| Peptide | Dose | Schedule | Notes |\n`;
-        md += `|---|---|---|---|\n`;
+        // Added 'Type' column
+        md += `| Peptide | Type | Dose | Schedule | Notes |\n`;
+        md += `|---|---|---|---|---|\n`;
 
         for (const item of items) {
             if (!item.peptide_id) continue;
-            const name = pepMap.get(item.peptide_id) || "Unknown";
+            const p = pepMap.get(item.peptide_id);
+            const name = p?.canonical_name || "Unknown";
+            
+            // Determine Type label
+            const typeLabel = p?.kind === 'capsule' ? 'Capsule' : (p?.kind === 'both' ? 'Mixed' : 'Vial');
             const dose = `${item.dose_mg_per_administration} mg`;
 
             let sched = "";
@@ -191,7 +216,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
             }
             const notes = notesParts.join(", ") || "-";
 
-            md += `| ${name} | ${dose} | ${sched} | ${notes} |\n`;
+            md += `| ${name} | ${typeLabel} | ${dose} | ${sched} | ${notes} |\n`;
         }
         md += `\n*Generated via Peptide Planner*`;
 
@@ -213,13 +238,36 @@ export default function ProtocolEditor({ protocol, onReload }: {
             for (const line of lines) {
                 if (!line.includes("|") || line.includes("---|---")) continue;
                 const parts = line.split("|").map(s => s.trim()).filter(s => s);
+                // We expect at least 3 parts, but now we check for Type at index 1
                 if (parts.length < 3) continue;
                 if (parts[0].toLowerCase() === "peptide") continue; // Header row
 
-                const [name, doseRaw, schedRaw, notesRaw] = parts;
+                // Determine if column 1 is Type or Dose (backwards compatibility)
+                // If parts[1] is "Vial" or "Capsule", then it's Type. Otherwise treat as Dose.
+                let name = parts[0];
+                let typeRaw = "vial"; // Default
+                let doseRaw = "";
+                let schedRaw = "";
+                
+                // Helper to check if string looks like type
+                const isType = (s: string) => ["vial", "capsule", "cap", "mixed"].includes(s.toLowerCase());
 
-                // 1. Ensure Peptide exists (Server Action)
-                const { peptideId } = await ensurePeptideAndInventory(name, 'peptide');
+                if (isType(parts[1])) {
+                    // New Format: Name | Type | Dose | Schedule
+                    typeRaw = parts[1];
+                    doseRaw = parts[2];
+                    schedRaw = parts[3] || "";
+                } else {
+                    // Old Format: Name | Dose | Schedule
+                    doseRaw = parts[1];
+                    schedRaw = parts[2] || "";
+                }
+
+                // Determine Kind for Backend
+                const kind = typeRaw.toLowerCase().includes("cap") ? 'capsule' : 'peptide';
+
+                // 1. Ensure Peptide exists (Server Action) - PASS KIND!
+                const { peptideId } = await ensurePeptideAndInventory(name, kind);
 
                 // 2. Parse Dose
                 const dose = parseFloat(doseRaw.replace(/[^0-9.]/g, ""));
@@ -329,9 +377,14 @@ export default function ProtocolEditor({ protocol, onReload }: {
                         </div>
                         <div className="p-4 flex-1 overflow-y-auto">
                             <p className="text-sm text-muted-foreground mb-2">Paste a Markdown table here. We will auto-create any missing peptides.</p>
+                            <div className="bg-muted/10 p-2 rounded text-xs font-mono mb-2">
+                                | Peptide | Type | Dose | Schedule |<br/>
+                                | BPC-157 | Vial | 5mg | Daily |<br/>
+                                | 5-Amino | Cap | 50mg | Daily |
+                            </div>
                             <textarea
                                 className="w-full h-64 input font-mono text-xs"
-                                placeholder="| Peptide | Dose | Schedule | ... |"
+                                placeholder="| Peptide | Type | Dose | Schedule |"
                                 value={importText}
                                 onChange={e => setImportText(e.target.value)}
                             />
