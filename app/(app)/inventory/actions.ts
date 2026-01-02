@@ -1,5 +1,5 @@
-﻿"use server";
-// Updated: 2024-Inventory-Fix-v2
+"use server";
+// Updated: 2024-Inventory-Fix-v3 (Safe Import)
 
 import { revalidatePath } from "next/cache";
 import { createServerActionSupabase } from "@/lib/supabaseServer";
@@ -21,32 +21,62 @@ export async function ensurePeptideAndInventory(
   kind: 'peptide' | 'capsule'
 ): Promise<{ peptideId: number, inventoryId: number }> {
   const { supabase, userId } = await getAuthed();
+  
+  // Normalize: remove non-alphanumeric, lowercase
   const normalized_key = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const cleanName = name.trim();
 
-  // 1. Find or Create Peptide in global dictionary
-  const { data: pep, error: pepErr } = await supabase
+  // 1. SAFELY FIND PEPTIDE
+  // Check both canonical_name AND normalized_key to avoid unique constraint collisions
+  let { data: existingPeptide } = await supabase
     .from("peptides")
-    .upsert(
-      { canonical_name: name, normalized_key, aliases: [] },
-      { onConflict: "normalized_key" }
-    )
     .select("id")
-    .single();
+    .or(`normalized_key.eq.${normalized_key},canonical_name.eq.${cleanName}`)
+    .maybeSingle();
 
-  if (pepErr) throw new Error(`Peptide error: ${pepErr.message}`);
-  const peptideId = pep.id;
+  let peptideId = existingPeptide?.id;
 
-  // 2. Ensure it exists in the user's inventory
+  // 2. CREATE IF MISSING
+  if (!peptideId) {
+    const { data: newPeptide, error: createErr } = await supabase
+      .from("peptides")
+      .insert({ 
+        canonical_name: cleanName, 
+        normalized_key: normalized_key, 
+        aliases: [] 
+      })
+      .select("id")
+      .single();
+
+    if (createErr) {
+      // Race condition handle: If it was created by another process ms ago, fetch it again
+      if (createErr.code === '23505') { // Postgres Unique Violation
+         const { data: retry } = await supabase
+           .from("peptides")
+           .select("id")
+           .or(`normalized_key.eq.${normalized_key},canonical_name.eq.${cleanName}`)
+           .single();
+         if (!retry) throw new Error(`Peptide creation failed: ${createErr.message}`);
+         peptideId = retry.id;
+      } else {
+         throw new Error(`Peptide error: ${createErr.message}`);
+      }
+    } else {
+      peptideId = newPeptide.id;
+    }
+  }
+
+  // 3. Ensure it exists in the user's inventory
   const table = kind === 'capsule' ? 'inventory_capsules' : 'inventory_items';
   
-  const { data: existing } = await supabase
+  const { data: existingInv } = await supabase
     .from(table)
     .select('id')
     .eq('user_id', userId)
     .eq('peptide_id', peptideId)
     .maybeSingle();
 
-  if (existing) return { peptideId, inventoryId: existing.id };
+  if (existingInv) return { peptideId, inventoryId: existingInv.id };
 
   // Create empty inventory slot
   const { data: newInv, error: invErr } = await supabase
@@ -233,7 +263,6 @@ export async function addCapsuleByIdAction(formData: FormData): Promise<ActionRe
   return { ok: true };
 }
 
-// THIS IS THE FUNCTION THAT WAS MISSING IN YOUR BUILD
 export async function importInventoryItemAction(
     name: string, 
     kind: 'peptide' | 'capsule',
