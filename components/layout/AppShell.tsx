@@ -2,15 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Calendar, Package, Notebook, Home, Activity } from "lucide-react" // Removed Lightbulb
+import { Calendar, Package, Notebook, Home, Activity } from "lucide-react"
 import { ThemeToggle } from "@/components/ThemeToggle"
 
-// Define navigation items (Removed Tips)
 const nav = [
     { href: "/today", label: "Today", icon: Home },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/inventory", label: "Inv", icon: Package },
-    { href: "/protocol", label: "Plan", icon: Notebook },
+    { href: "/protocols", label: "Plan", icon: Notebook }, // <--- CHANGED TO PLURAL
     { href: "/weight", label: "Stats", icon: Activity },
 ]
 
@@ -20,7 +19,7 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
     return (
         <div className="min-h-[100dvh] flex flex-col lg:grid lg:grid-cols-[260px_1fr]">
 
-            {/* --- DESKTOP SIDEBAR (Hidden on mobile) --- */}
+            {/* --- DESKTOP SIDEBAR --- */}
             <aside className="hidden lg:block sticky top-0 h-screen overflow-y-auto border-r border-border bg-card/50 backdrop-blur-xl p-5 flex flex-col">
                 <div className="flex items-center gap-3 px-2 mb-8">
                     <div className="size-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 font-bold text-xl">
@@ -53,13 +52,11 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
                 </nav>
 
                 <div className="mt-auto pt-6 border-t border-border space-y-4 px-2">
-                    {/* Theme Toggle Section */}
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-muted-foreground">Appearance</span>
                         <ThemeToggle />
                     </div>
 
-                    {/* User Profile Section */}
                     <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Signed in as</div>
                         <div className="text-sm truncate opacity-80 mb-2 font-mono">{userEmail}</div>
@@ -72,14 +69,12 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
 
             {/* --- MAIN CONTENT AREA --- */}
             <div className="flex-1 flex flex-col min-w-0 pb-24 lg:pb-0">
-                {/* pb-24 ensures content isn't hidden behind the mobile bottom nav */}
-
                 <main className="p-4 md:p-8 max-w-5xl w-full mx-auto animate-in fade-in duration-500">
                     {children}
                 </main>
             </div>
 
-            {/* --- MOBILE BOTTOM NAVIGATION (Hidden on desktop) --- */}
+            {/* --- MOBILE NAV --- */}
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-lg border-t border-border pb-safe pt-2">
                 <div className="flex items-center justify-around px-2">
                     {nav.map(n => {
