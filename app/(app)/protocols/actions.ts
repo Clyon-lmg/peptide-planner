@@ -1,4 +1,4 @@
-'use server';
+"use server";
 
 import { createServerActionSupabase } from "@/lib/supabaseServer";
 import { revalidatePath } from "next/cache";
@@ -35,6 +35,7 @@ export async function createImportedProtocolAction(name: string, items: ImportIt
     // 2. Process and Insert Items
     for (const item of items) {
         // Ensure Peptide exists (or create it)
+        // Using existing ensurePeptideAndInventory from inventory/actions
         const { peptideId } = await ensurePeptideAndInventory(item.name, item.kind);
 
         // Insert Protocol Item
