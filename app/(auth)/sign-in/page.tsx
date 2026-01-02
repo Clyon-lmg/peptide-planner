@@ -13,13 +13,15 @@ const LoginPage = () => {
   };
 
   return (
-    // changed flex to grid for robust 50/50 split
-    <div className={`min-h-screen w-full grid lg:grid-cols-2 ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300`}>
+    // FIX APPLIED HERE: 
+    // "fixed inset-0 z-50" forces this div to sit on top of all other layouts 
+    // and stretch to the exact edges of the browser window.
+    <div className={`fixed inset-0 z-50 w-full h-full grid lg:grid-cols-2 ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'} transition-colors duration-300 overflow-y-auto`}>
       
       {/* Light/Dark Toggle */}
       <button 
         onClick={toggleTheme}
-        className={`absolute top-6 right-6 z-50 p-3 rounded-full transition-colors ${
+        className={`absolute top-6 right-6 z-[60] p-3 rounded-full transition-colors ${
           isDarkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200' : 'bg-white hover:bg-slate-100 text-slate-700 shadow-sm border border-slate-200'
         }`}
       >
@@ -27,11 +29,9 @@ const LoginPage = () => {
       </button>
 
       {/* LEFT PANE */}
-      {/* increased padding (p-16) and content max-width */}
       <div className={`hidden lg:flex flex-col justify-center p-16 relative overflow-hidden ${
         isDarkMode ? 'bg-slate-900' : 'bg-slate-100'
       }`}>
-        {/* Background Gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-transparent to-transparent opacity-40 pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-2xl mx-auto">
@@ -68,9 +68,8 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* RIGHT PANE - Login Form */}
-      {/* Centered content, increased max-width to xl */}
-      <div className="flex items-center justify-center p-8 w-full">
+      {/* RIGHT PANE */}
+      <div className="flex items-center justify-center p-8 w-full h-full">
         <div className="w-full max-w-xl space-y-10">
           
           <div className="text-center">
