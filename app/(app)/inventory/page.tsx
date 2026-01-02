@@ -1,195 +1,257 @@
-"use client";
-import * as React from "react";
+﻿import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
-import { Copy, Upload, X } from "lucide-react";
-import { createServerComponentSupabase } from "@/lib/supabaseServer"; // Note: this is for server component part, but we are mixing client logic for import.
-// Actually, since I need client state for the modal, let's make the Page Client Component wrapper or just inject interactive parts.
-// Strategy: I will keep the page server-side but add a Client Component for the Header Actions.
 
 import AddRow from "./ui/AddRow";
 import InventoryList from "./ui/InventoryList";
-import { importInventoryItemAction } from "./actions"; // New Action
-import { toast } from "sonner";
-
-// ... existing imports ...
-import {
-    getVialInventory,
-    getCapsInventory,
-    deleteVialItemAction,
-    deleteCapsuleItemAction,
-    // ...
-} from "./actions";
-
-// ERROR: I cannot make the whole page client side easily because it does data fetching. 
-// FIX: I will add a new client component `InventoryActions.tsx` and place it in the header.
-
-/* --------------------------------------------------------------------------------
-   PLEASE CREATE THIS NEW FILE: app/(app)/inventory/ui/InventoryActions.tsx
-   -------------------------------------------------------------------------------- */
-/*
-"use client";
-import React, { useState } from 'react';
-import { Copy, Upload, X } from "lucide-react";
-import { toast } from "sonner";
-import { importInventoryItemAction } from "../actions";
-
-export default function InventoryActions({ vials, capsules }: { vials: any[], capsules: any[] }) {
-    const [showImport, setShowImport] = useState(false);
-    const [importText, setImportText] = useState("");
-    const [loading, setLoading] = useState(false);
-
-    const handleExport = async () => {
-        let md = `**Inventory List**\n\n`;
-        md += `| Name | Type | Stock | Conc | Note |\n`;
-        md += `|---|---|---|---|---|\n`;
-        
-        vials.forEach(v => {
-            md += `| ${v.canonical_name} | Vial | ${v.vials} | ${v.mg_per_vial} mg/vial | ${v.bac_ml}ml BAC |\n`;
-        });
-        capsules.forEach(c => {
-            md += `| ${c.canonical_name} | Cap | ${c.bottles} | ${c.mg_per_cap} mg/cap | ${c.caps_per_bottle} caps/btl |\n`;
-        });
-        
-        try {
-            await navigator.clipboard.writeText(md);
-            toast.success("Copied Inventory List!");
-        } catch (e) { toast.error("Failed to copy"); }
-    };
-
-    const handleImport = async () => {
-        setLoading(true);
-        try {
-            const lines = importText.split("\n");
-            let count = 0;
-            for (const line of lines) {
-                if (!line.includes("|") || line.includes("---|---")) continue;
-                const parts = line.split("|").map(s => s.trim()).filter(s => s);
-                if (parts.length < 3) continue;
-                if (parts[0].toLowerCase() === "name") continue;
-
-                const name = parts[0];
-                const typeRaw = parts[1].toLowerCase();
-                const stock = parseFloat(parts[2].replace(/[^0-9.]/g, ""));
-                const conc = parseFloat(parts[3].replace(/[^0-9.]/g, ""));
-                // Optional 2nd conc (bac or caps/btl)
-                let conc2 = 0;
-                if (parts[4]) conc2 = parseFloat(parts[4].replace(/[^0-9.]/g, ""));
-
-                const kind = typeRaw.includes("cap") ? "capsule" : "peptide";
-                
-                await importInventoryItemAction(name, kind, isNaN(stock)?0:stock, isNaN(conc)?0:conc, isNaN(conc2)?0:conc2);
-                count++;
-            }
-            toast.success(`Imported/Updated ${count} items`);
-            setShowImport(false);
-            setImportText("");
-        } catch (e: any) {
-            toast.error("Import failed: " + e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <>
-            <div className="flex gap-2">
-                <button onClick={handleExport} className="btn h-9 px-3 text-xs bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground flex items-center gap-2">
-                    <Copy className="size-4" /> Export Inventory List
-                </button>
-                <button onClick={() => setShowImport(true)} className="btn h-9 px-3 text-xs bg-card border-border hover:bg-muted text-muted-foreground hover:text-foreground flex items-center gap-2">
-                    <Upload className="size-4" /> Import Inventory Item
-                </button>
-            </div>
-
-             {showImport && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-                    <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh]">
-                        <div className="p-4 border-b border-border flex items-center justify-between">
-                            <h3 className="font-bold">Import Inventory</h3>
-                            <button onClick={() => setShowImport(false)}><X className="size-5" /></button>
-                        </div>
-                        <div className="p-4 flex-1 overflow-y-auto">
-                            <p className="text-sm text-muted-foreground mb-2">Paste a Markdown table row to update stock. We auto-create missing items.</p>
-                            <div className="bg-muted/30 p-2 rounded mb-2 text-xs font-mono text-muted-foreground">
-                                | Name | Type | Stock | Conc | Note/Vol |<br/>
-                                | BPC-157 | Vial | 5 | 5mg | 3ml |
-                            </div>
-                            <textarea 
-                                className="w-full h-48 input font-mono text-xs" 
-                                placeholder="| Name | Type | ..."
-                                value={importText}
-                                onChange={e => setImportText(e.target.value)}
-                            />
-                        </div>
-                        <div className="p-4 border-t border-border flex justify-end gap-2">
-                            <button onClick={() => setShowImport(false)} className="btn hover:bg-muted">Cancel</button>
-                            <button onClick={handleImport} className="btn bg-primary text-primary-foreground" disabled={loading}>
-                                {loading ? "Importing..." : "Process"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
-    )
-}
-*/
-
-// NOW, UPDATE THE MAIN PAGE TO USE THIS COMPONENT
 import InventoryActions from "./ui/InventoryActions";
-// ... imports ...
+
+import {
+  getVialInventory,
+  getCapsInventory,
+  deleteVialItemAction,
+  deleteCapsuleItemAction,
+  type VialRow,
+  type CapsRow,
+  type SaveVialPayload,
+  type SaveCapsPayload,
+} from "./actions";
 import { forecastRemainingDoses, type Schedule } from "@/lib/forecast";
 
 export const dynamic = "force-dynamic";
 
 async function getUser() {
-    const supabase = createServerComponentSupabase();
-    const { data } = await supabase.auth.getUser();
-    return { supabase, user: data?.user ?? null };
+  const supabase = createServerComponentSupabase();
+  const { data } = await supabase.auth.getUser();
+  return { supabase, user: data?.user ?? null };
 }
 
 export default async function InventoryPage() {
-    const { supabase, user } = await getUser();
-    if (!user) {
-        // ... same auth check ...
-        return <div>Not signed in</div>;
-    }
+  const { supabase, user } = await getUser();
+  if (!user) {
+    return (
+        <div className="mx-auto max-w-4xl p-4">
+            <div className="rounded-xl border p-4">
+                <h1 className="text-2xl font-semibold">Inventory</h1>
+          <p className="mt-2 text-sm">
+            You’re not signed in.{" "}
+            <Link href="/sign-in" className="underline">
+              Sign in
+            </Link>{" "}
+            to manage inventory.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
+  // Load inventory rows
     const [vialRows, capsRows] = await Promise.all([
         getVialInventory(),
         getCapsInventory(),
     ]);
 
-    // ... (Keep existing forecast calculation logic) ...
-    // [Copy the existing peptideIds, protocolItemsByPeptide, loop logic here from previous file]
-    // For brevity in this response, I assume you retain the forecast logic logic previously provided.
-    // ...
+  // Get active protocol items for only the peptides we care about
+  const peptideIds = [
+    ...new Set([
+      ...vialRows.map((r: VialRow) => r.peptide_id),
+      ...capsRows.map((r: CapsRow) => r.peptide_id),
+    ]),
+  ];
 
-    // Re-map for the client components
-    // ... (vialItems and capItems mapping logic) ...
-    // (Assuming you have the 'vialItems' and 'capItems' calculated)
+  let protocolItemsByPeptide = new Map<
+    number,
+    {
+      dose_mg_per_administration: number;
+      schedule: Schedule;
+      custom_days: number[] | null;
+      cycle_on_weeks: number;
+      cycle_off_weeks: number;
+      every_n_days: number | null;
+    }
+  >();
 
-    // NOTE: I will output the render function below assuming the data prep is done as before.
+  if (peptideIds.length > 0) {
+    // Query active protocol + items for this user
+    const { data: activeProto } = await supabase
+      .from("protocols")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .maybeSingle();
 
-    return (
-        <div className="mx-auto max-w-6xl p-4 space-y-8 pb-32">
-            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h1 className="text-2xl font-semibold">Inventory</h1>
-                {/* New Actions Component */}
-                <InventoryActions vials={vialRows} capsules={capsRows} />
-            </header>
+    if (activeProto?.id) {
+      const { data: protoItems } = await supabase
+        .from("protocol_items")
+        .select("peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days")
+        .eq("protocol_id", activeProto.id)
+        .in("peptide_id", peptideIds);
 
-            <AddRow />
+      if (protoItems) {
+        for (const pi of protoItems) {
+          protocolItemsByPeptide.set(pi.peptide_id, {
+            dose_mg_per_administration: Number(pi.dose_mg_per_administration || 0),
+            schedule: String(pi.schedule || "EVERYDAY") as Schedule,
+            custom_days: (pi.custom_days as number[] | null) ?? null,
+            cycle_on_weeks: Number(pi.cycle_on_weeks || 0),
+            cycle_off_weeks: Number(pi.cycle_off_weeks || 0),
+            every_n_days: (pi.every_n_days as number | null) ?? null,
+          });
+        }
+      }
+    }
+  }
 
-            <InventoryList
-                vials={vialItems} // Ensure these variables are defined via the forecast logic
-                capsules={capItems}
-                onSaveVial={saveVial}
-                onSaveCapsule={saveCapsule}
-                onDeleteVial={deleteVial}
-                onDeleteCapsule={deleteCapsule}
-            />
-        </div>
-    );
+  // ---------- Actions ----------
+  const saveVial = async (p: SaveVialPayload) => {
+    "use server";
+    const sa = createServerActionSupabase();
+    const { data: auth } = await sa.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) throw new Error("Not signed in");
+
+    const update: Record<string, number> = {};
+    if (p.vials !== undefined) update.vials = Number(p.vials);
+    if (p.mg_per_vial !== undefined) update.mg_per_vial = Number(p.mg_per_vial);
+    if (p.bac_ml !== undefined) update.bac_ml = Number(p.bac_ml);
+    if (p.half_life_hours !== undefined)
+      update.half_life_hours = Number(p.half_life_hours);
+
+    if (Object.keys(update).length === 0) return;
+
+    const { error } = await sa
+      .from("inventory_items")
+      .update(update)
+      .eq("id", p.id)
+      .eq("user_id", uid);
+
+      if (error) throw error;
+      revalidatePath("/inventory");
+      return;
+  };
+
+  const saveCapsule = async (p: SaveCapsPayload) => {
+    "use server";
+    const sa = createServerActionSupabase();
+    const { data: auth } = await sa.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) throw new Error("Not signed in");
+
+    const update: Record<string, number> = {};
+    if (p.bottles !== undefined) update.bottles = Number(p.bottles);
+    if (p.caps_per_bottle !== undefined) update.caps_per_bottle = Number(p.caps_per_bottle);
+    if (p.mg_per_cap !== undefined) update.mg_per_cap = Number(p.mg_per_cap);
+    if (p.half_life_hours !== undefined)
+      update.half_life_hours = Number(p.half_life_hours);
+
+    if (Object.keys(update).length === 0) return;
+
+    const { error } = await sa
+      .from("inventory_capsules")
+      .update(update)
+      .eq("id", p.id)
+      .eq("user_id", uid);
+
+      if (error) throw error;
+      revalidatePath("/inventory");
+      return;
+  };
+
+  const deleteVial = async (id: number) => {
+    "use server";
+    const fd = new FormData();
+    fd.set("id", String(id));
+    await deleteVialItemAction(fd);
+  };
+
+  const deleteCapsule = async (id: number) => {
+    "use server";
+    const fd = new FormData();
+    fd.set("id", String(id));
+    await deleteCapsuleItemAction(fd);
+  };
+  // --------------------------------------------------------------------
+
+  const vialItems = vialRows
+    .map((r) => {
+      const proto = protocolItemsByPeptide.get(r.peptide_id);
+      const totalMg = Math.max(0, (Number(r.vials || 0) * Number(r.mg_per_vial || 0)) - Number(r.current_used_mg || 0));
+
+      const { remainingDoses, reorderDateISO } = proto
+        ? forecastRemainingDoses(
+            totalMg,
+            proto.dose_mg_per_administration,
+            proto.schedule as Schedule,
+            proto.custom_days,
+            proto.cycle_on_weeks,
+            proto.cycle_off_weeks,
+            proto.every_n_days
+          )
+        : { remainingDoses: null, reorderDateISO: null };
+      return {
+        id: r.id,
+        peptide_id: r.peptide_id,
+        canonical_name: r.name,
+        vials: r.vials,
+        mg_per_vial: r.mg_per_vial,
+        bac_ml: r.bac_ml,
+        half_life_hours: r.half_life_hours,
+        remainingDoses,
+        reorderDateISO,
+      };
+    })
+    .sort((a, b) => a.canonical_name.localeCompare(b.canonical_name));
+
+  const capItems = capsRows
+    .map((r) => {
+      const proto = protocolItemsByPeptide.get(r.peptide_id);
+      const totalMg = Math.max(0, (Number(r.bottles || 0) * Number(r.caps_per_bottle || 0) * Number(r.mg_per_cap || 0)) - Number(r.current_used_mg || 0));
+
+      const { remainingDoses, reorderDateISO } = proto
+        ? forecastRemainingDoses(
+            totalMg,
+            proto.dose_mg_per_administration,
+            proto.schedule as Schedule,
+            proto.custom_days,
+            proto.cycle_on_weeks,
+            proto.cycle_off_weeks,
+            proto.every_n_days
+          )
+        : { remainingDoses: null, reorderDateISO: null };
+      return {
+        id: r.id,
+        peptide_id: r.peptide_id,
+        canonical_name: r.name,
+        bottles: r.bottles,
+        caps_per_bottle: r.caps_per_bottle,
+        mg_per_cap: r.mg_per_cap,
+        half_life_hours: r.half_life_hours,
+        remainingDoses,
+        reorderDateISO,
+      };
+    })
+    .sort((a, b) => a.canonical_name.localeCompare(b.canonical_name));
+
+  return (
+      <div className="mx-auto max-w-6xl p-4 space-y-8 pb-32">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">Inventory</h1>
+        {/* New Actions Component */}
+        <InventoryActions vials={vialRows} capsules={capsRows} />
+      </header>
+
+      {/* Simplified Adder */}
+      <AddRow />
+
+      {/* Inventory cards */}
+      <InventoryList
+        vials={vialItems}
+        capsules={capItems}
+        onSaveVial={saveVial}
+        onSaveCapsule={saveCapsule}
+        onDeleteVial={deleteVial}
+        onDeleteCapsule={deleteCapsule}
+      />
+    </div>
+  );
 }
