@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Plus, Save, Play, Copy } from "lucide-react";
+import { Plus, Save, Play, Copy, Upload, X } from "lucide-react";
 import ProtocolItemRow, {
     ProtocolItemState,
     InventoryPeptide,
@@ -10,6 +10,7 @@ import ProtocolGraph from "./ProtocolGraph";
 import { onProtocolUpdated, setActiveProtocolAndRegenerate } from "@/lib/protocolEngine";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { toast } from "sonner";
+import { ensurePeptideAndInventory } from "@/app/(app)/inventory/actions";
 
 const COLOR_PALETTE = [
     "#f87171", "#60a5fa", "#34d399", "#fbbf24",
@@ -34,15 +35,16 @@ export default function ProtocolEditor({ protocol, onReload }: {
     const [siteLists, setSiteLists] = useState<SiteList[]>([]);
     const [saving, setSaving] = useState(false);
     const [activating, setActivating] = useState(false);
+    const [showImport, setShowImport] = useState(false);
+    const [importText, setImportText] = useState("");
 
     useEffect(() => {
         (async () => {
-            const { data: rawItems, error: itemsErr } = await supabase
+            const { data: rawItems } = await supabase
                 .from("protocol_items")
                 .select("*")
                 .eq("protocol_id", protocol.id)
                 .order("id", { ascending: true });
-            if (itemsErr) console.error(itemsErr);
 
             const mapped: ProtocolItemState[] = (rawItems || []).map((r: any, idx: number) => ({
                 id: r.id,
@@ -61,24 +63,29 @@ export default function ProtocolEditor({ protocol, onReload }: {
             }));
             setItems(mapped);
 
-            const [{ data: vialInv }, { data: capInv }, { data: listData }] =
-                await Promise.all([
-                    supabase.from("inventory_items").select("peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )"),
-                    supabase.from("inventory_capsules").select("peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )"),
-                    supabase.from("injection_site_lists").select("id, name").order("id", { ascending: true }),
-                ]);
-
-            const merged: Record<number, InventoryPeptide> = {};
-            const process = (rows: any[]) => rows?.forEach((r: any) => {
-                if (r.peptides) merged[r.peptides.id] = { id: r.peptides.id, canonical_name: r.peptides.canonical_name, half_life_hours: Number(r.half_life_hours || 0) };
-            });
-            process(vialInv || []);
-            process(capInv || []);
-
-            setPeptides(Object.values(merged).sort((a, b) => a.canonical_name.localeCompare(b.canonical_name)));
-            setSiteLists(listData || []);
+            // Load inventory to get peptide list
+            loadInventory();
         })();
     }, [protocol.id, supabase]);
+
+    const loadInventory = async () => {
+        const [{ data: vialInv }, { data: capInv }, { data: listData }] =
+            await Promise.all([
+                supabase.from("inventory_items").select("peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )"),
+                supabase.from("inventory_capsules").select("peptide_id, half_life_hours, peptides:peptide_id ( id, canonical_name )"),
+                supabase.from("injection_site_lists").select("id, name").order("id", { ascending: true }),
+            ]);
+
+        const merged: Record<number, InventoryPeptide> = {};
+        const process = (rows: any[]) => rows?.forEach((r: any) => {
+            if (r.peptides) merged[r.peptides.id] = { id: r.peptides.id, canonical_name: r.peptides.canonical_name, half_life_hours: Number(r.half_life_hours || 0) };
+        });
+        process(vialInv || []);
+        process(capInv || []);
+
+        setPeptides(Object.values(merged).sort((a, b) => a.canonical_name.localeCompare(b.canonical_name)));
+        setSiteLists(listData || []);
+    };
 
     const addItem = () => {
         setItems(prev => [
@@ -155,19 +162,14 @@ export default function ProtocolEditor({ protocol, onReload }: {
         }
     };
 
-    // --- Export Logic ---
     const copyToReddit = async () => {
         const pepMap = new Map(peptides.map(p => [p.id, p.canonical_name]));
         const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-        // Header
         let md = `**Protocol: ${protocol.name}**\n\n`;
-
-        // Table Header
         md += `| Peptide | Dose | Schedule | Notes |\n`;
         md += `|---|---|---|---|\n`;
 
-        // Rows
         for (const item of items) {
             if (!item.peptide_id) continue;
             const name = pepMap.get(item.peptide_id) || "Unknown";
@@ -191,15 +193,83 @@ export default function ProtocolEditor({ protocol, onReload }: {
 
             md += `| ${name} | ${dose} | ${sched} | ${notes} |\n`;
         }
-
-        // Footer
         md += `\n*Generated via Peptide Planner*`;
 
         try {
             await navigator.clipboard.writeText(md);
-            toast.success("Copied Markdown to clipboard!");
+            toast.success("Copied Protocol to clipboard!");
         } catch (err) {
             toast.error("Failed to copy");
+        }
+    };
+
+    // --- Import Logic ---
+    const handleImport = async () => {
+        setSaving(true);
+        try {
+            const lines = importText.split("\n");
+            const newItems: ProtocolItemState[] = [];
+
+            for (const line of lines) {
+                if (!line.includes("|") || line.includes("---|---")) continue;
+                const parts = line.split("|").map(s => s.trim()).filter(s => s);
+                if (parts.length < 3) continue;
+                if (parts[0].toLowerCase() === "peptide") continue; // Header row
+
+                const [name, doseRaw, schedRaw, notesRaw] = parts;
+
+                // 1. Ensure Peptide exists (Server Action)
+                const { peptideId } = await ensurePeptideAndInventory(name, 'peptide');
+
+                // 2. Parse Dose
+                const dose = parseFloat(doseRaw.replace(/[^0-9.]/g, ""));
+
+                // 3. Parse Schedule
+                let schedule: any = "EVERYDAY";
+                let every_n: number | null = null;
+                let custom_days: number[] = [];
+
+                const s = schedRaw.toLowerCase();
+                if (s.includes("daily") || s.includes("everyday")) schedule = "EVERYDAY";
+                else if (s.includes("mon-fri") || s.includes("weekdays")) schedule = "WEEKDAYS";
+                else if (s.match(/e(\d+)d/)) {
+                    schedule = "EVERY_N_DAYS";
+                    const match = s.match(/e(\d+)d/);
+                    if (match) every_n = parseInt(match[1]);
+                } else if (s.includes(",")) {
+                    schedule = "CUSTOM";
+                    const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+                    custom_days = DAYS.map((d, i) => s.includes(d) ? i : -1).filter(i => i !== -1);
+                }
+
+                newItems.push({
+                    peptide_id: peptideId,
+                    site_list_id: null,
+                    dose_mg_per_administration: isNaN(dose) ? 0 : dose,
+                    schedule,
+                    every_n_days: every_n,
+                    custom_days,
+                    cycle_on_weeks: 0,
+                    cycle_off_weeks: 0,
+                    color: COLOR_PALETTE[newItems.length % COLOR_PALETTE.length],
+                    time_of_day: "08:00"
+                });
+            }
+
+            if (newItems.length > 0) {
+                setItems(prev => [...prev, ...newItems]);
+                await loadInventory(); // Reload dropdowns to include new items
+                toast.success(`Imported ${newItems.length} items`);
+                setShowImport(false);
+                setImportText("");
+            } else {
+                toast.error("No valid items found in Markdown");
+            }
+
+        } catch (e: any) {
+            toast.error("Import failed: " + e.message);
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -249,18 +319,53 @@ export default function ProtocolEditor({ protocol, onReload }: {
 
             <ProtocolGraph items={items} peptides={peptides} />
 
+            {/* Import Modal */}
+            {showImport && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                    <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh]">
+                        <div className="p-4 border-b border-border flex items-center justify-between">
+                            <h3 className="font-bold">Import Protocol</h3>
+                            <button onClick={() => setShowImport(false)}><X className="size-5" /></button>
+                        </div>
+                        <div className="p-4 flex-1 overflow-y-auto">
+                            <p className="text-sm text-muted-foreground mb-2">Paste a Markdown table here. We will auto-create any missing peptides.</p>
+                            <textarea
+                                className="w-full h-64 input font-mono text-xs"
+                                placeholder="| Peptide | Dose | Schedule | ... |"
+                                value={importText}
+                                onChange={e => setImportText(e.target.value)}
+                            />
+                        </div>
+                        <div className="p-4 border-t border-border flex justify-end gap-2">
+                            <button onClick={() => setShowImport(false)} className="btn hover:bg-muted">Cancel</button>
+                            <button onClick={handleImport} className="btn bg-primary text-primary-foreground" disabled={saving}>
+                                {saving ? "Importing..." : "Parse & Import"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Floating Action Bar */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border z-40 lg:pl-[340px]">
                 <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-                    {/* Export Button (Left Side) */}
-                    <button
-                        onClick={copyToReddit}
-                        className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2"
-                        title="Copy for Reddit"
-                    >
-                        <Copy className="size-4" />
-                        <span className="hidden sm:inline">Export MD</span>
-                    </button>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={copyToReddit}
+                            className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2"
+                            title="Copy for Reddit"
+                        >
+                            <Copy className="size-4" />
+                            <span className="hidden sm:inline">Export Protocol</span>
+                        </button>
+                        <button
+                            onClick={() => setShowImport(true)}
+                            className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2"
+                        >
+                            <Upload className="size-4" />
+                            <span className="hidden sm:inline">Import Protocol</span>
+                        </button>
+                    </div>
 
                     <div className="flex items-center gap-3">
                         <button

@@ -1,34 +1,5 @@
-"use client";
-import * as React from "react";
-import Link from "next/link";
-import { revalidatePath } from "next/cache";
-import { Copy, Upload, X } from "lucide-react";
-import { createServerComponentSupabase } from "@/lib/supabaseServer"; // Note: this is for server component part, but we are mixing client logic for import.
-// Actually, since I need client state for the modal, let's make the Page Client Component wrapper or just inject interactive parts.
-// Strategy: I will keep the page server-side but add a Client Component for the Header Actions.
+﻿"use client";
 
-import AddRow from "./ui/AddRow";
-import InventoryList from "./ui/InventoryList";
-import { importInventoryItemAction } from "./actions"; // New Action
-import { toast } from "sonner";
-
-// ... existing imports ...
-import {
-    getVialInventory,
-    getCapsInventory,
-    deleteVialItemAction,
-    deleteCapsuleItemAction,
-    // ...
-} from "./actions";
-
-// ERROR: I cannot make the whole page client side easily because it does data fetching. 
-// FIX: I will add a new client component `InventoryActions.tsx` and place it in the header.
-
-/* --------------------------------------------------------------------------------
-   PLEASE CREATE THIS NEW FILE: app/(app)/inventory/ui/InventoryActions.tsx
-   -------------------------------------------------------------------------------- */
-/*
-"use client";
 import React, { useState } from 'react';
 import { Copy, Upload, X } from "lucide-react";
 import { toast } from "sonner";
@@ -45,10 +16,10 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
         md += `|---|---|---|---|---|\n`;
         
         vials.forEach(v => {
-            md += `| ${v.canonical_name} | Vial | ${v.vials} | ${v.mg_per_vial} mg/vial | ${v.bac_ml}ml BAC |\n`;
+            md += `| ${v.name} | Vial | ${v.vials} | ${v.mg_per_vial} mg/vial | ${v.bac_ml}ml BAC |\n`;
         });
         capsules.forEach(c => {
-            md += `| ${c.canonical_name} | Cap | ${c.bottles} | ${c.mg_per_cap} mg/cap | ${c.caps_per_bottle} caps/btl |\n`;
+            md += `| ${c.name} | Cap | ${c.bottles} | ${c.mg_per_cap} mg/cap | ${c.caps_per_bottle} caps/btl |\n`;
         });
         
         try {
@@ -66,7 +37,7 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
                 if (!line.includes("|") || line.includes("---|---")) continue;
                 const parts = line.split("|").map(s => s.trim()).filter(s => s);
                 if (parts.length < 3) continue;
-                if (parts[0].toLowerCase() === "name") continue;
+                if (parts[0].toLowerCase() === "name") continue; // Skip header
 
                 const name = parts[0];
                 const typeRaw = parts[1].toLowerCase();
@@ -133,63 +104,4 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
             )}
         </>
     )
-}
-*/
-
-// NOW, UPDATE THE MAIN PAGE TO USE THIS COMPONENT
-import InventoryActions from "./ui/InventoryActions";
-// ... imports ...
-import { forecastRemainingDoses, type Schedule } from "@/lib/forecast";
-
-export const dynamic = "force-dynamic";
-
-async function getUser() {
-    const supabase = createServerComponentSupabase();
-    const { data } = await supabase.auth.getUser();
-    return { supabase, user: data?.user ?? null };
-}
-
-export default async function InventoryPage() {
-    const { supabase, user } = await getUser();
-    if (!user) {
-        // ... same auth check ...
-        return <div>Not signed in</div>;
-    }
-
-    const [vialRows, capsRows] = await Promise.all([
-        getVialInventory(),
-        getCapsInventory(),
-    ]);
-
-    // ... (Keep existing forecast calculation logic) ...
-    // [Copy the existing peptideIds, protocolItemsByPeptide, loop logic here from previous file]
-    // For brevity in this response, I assume you retain the forecast logic logic previously provided.
-    // ...
-
-    // Re-map for the client components
-    // ... (vialItems and capItems mapping logic) ...
-    // (Assuming you have the 'vialItems' and 'capItems' calculated)
-
-    // NOTE: I will output the render function below assuming the data prep is done as before.
-
-    return (
-        <div className="mx-auto max-w-6xl p-4 space-y-8 pb-32">
-            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h1 className="text-2xl font-semibold">Inventory</h1>
-                {/* New Actions Component */}
-                <InventoryActions vials={vialRows} capsules={capsRows} />
-            </header>
-
-            <AddRow />
-
-            <InventoryList
-                vials={vialItems} // Ensure these variables are defined via the forecast logic
-                capsules={capItems}
-                onSaveVial={saveVial}
-                onSaveCapsule={saveCapsule}
-                onDeleteVial={deleteVial}
-                onDeleteCapsule={deleteCapsule}
-            />
-        </div>
-    );
 }
