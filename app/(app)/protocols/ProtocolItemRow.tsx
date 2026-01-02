@@ -1,8 +1,15 @@
 "use client";
 import React from "react";
-import { Trash2, Clock, Syringe, Check } from "lucide-react";
+import { Trash2, Clock, Syringe, Check, Pill, FlaskConical } from "lucide-react";
 
-export type InventoryPeptide = { id: number; canonical_name: string; half_life_hours: number };
+// Updated type to include 'kind'
+export type InventoryPeptide = { 
+    id: number; 
+    canonical_name: string; 
+    half_life_hours: number;
+    kind?: 'vial' | 'capsule' | 'both'; 
+};
+
 export type SiteList = { id: number; name: string };
 
 export type ProtocolItemState = {
@@ -37,6 +44,10 @@ export default function ProtocolItemRow({
     const v = value;
     const isTitrating = (v.titration_interval_days || 0) > 0 || (v.titration_amount_mg || 0) > 0;
 
+    // Helper to find the current selected peptide's kind
+    const selectedPeptide = peptides.find(p => p.id === v.peptide_id);
+    const kindIcon = selectedPeptide?.kind === 'capsule' ? <Pill className="size-5" /> : <FlaskConical className="size-5" />;
+
     const InputGroup = ({ label, children, className = "" }: { label: string, children: React.ReactNode, className?: string }) => (
         <div className={`flex flex-col gap-1.5 min-w-0 ${className}`}>
             <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider whitespace-nowrap truncate">{label}</label>
@@ -49,7 +60,8 @@ export default function ProtocolItemRow({
             {/* 1. Header Row: Icon + Peptide + Color + Delete */}
             <div className="flex items-center gap-3 mb-5">
                 <div className="size-10 md:size-11 rounded-xl shrink-0 flex items-center justify-center shadow-inner" style={{ backgroundColor: v.color + '20', color: v.color }}>
-                    <Syringe className="size-5" />
+                    {/* Dynamic Icon based on inventory type */}
+                    {kindIcon}
                 </div>
 
                 <div className="flex-1 grid grid-cols-[1fr_auto_auto] gap-2 items-center min-w-0">
@@ -60,7 +72,9 @@ export default function ProtocolItemRow({
                     >
                         <option value="">Select Peptide...</option>
                         {peptides.map((p) => (
-                            <option key={p.id} value={p.id}>{p.canonical_name}</option>
+                            <option key={p.id} value={p.id}>
+                                {p.canonical_name} {p.kind === 'capsule' ? '(Cap)' : ''}
+                            </option>
                         ))}
                     </select>
 
@@ -191,7 +205,7 @@ export default function ProtocolItemRow({
             {(v.schedule === "CUSTOM" || isTitrating || true) && (
                 <div className="mt-5 pt-4 border-t border-border/50 flex flex-col gap-4">
 
-                    {/* Custom Days - UPDATED FOR HIGH CONTRAST */}
+                    {/* Custom Days */}
                     {v.schedule === "CUSTOM" && (
                         <div>
                             <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2 block">Active Days</label>
@@ -210,9 +224,7 @@ export default function ProtocolItemRow({
                                             className={`
                                         h-9 px-3.5 rounded-lg text-xs font-semibold transition-all border
                                         ${isActive
-                                                    /* ACTIVE STATE: Solid dark/primary, white text */
                                                     ? "bg-[rgb(var(--ring))] border-[rgb(var(--ring))] text-white shadow-md ring-2 ring-[rgb(var(--ring))]/20"
-                                                    /* INACTIVE STATE: White/Card bg, gray text */
                                                     : "bg-[rgb(var(--card))] border-[rgb(var(--border))] text-[rgb(var(--muted))] hover:border-[rgb(var(--ring))]/50 hover:text-[rgb(var(--foreground))]"
                                                 }
                                     `}
