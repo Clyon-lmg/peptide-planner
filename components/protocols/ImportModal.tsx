@@ -37,6 +37,7 @@ export default function ImportModal({
                 if (parts[0].toLowerCase() === "peptide") continue; // Skip Header
 
                 // Parse columns: | Name | Type | Dose | Schedule |
+                // Supports both "Name | Type | Dose" (New) and "Name | Dose | Schedule" (Old)
                 let name = parts[0];
                 let typeRaw = "vial";
                 let doseRaw = "";
@@ -66,7 +67,8 @@ export default function ImportModal({
                 if (s.includes("mon-fri") || s.includes("weekdays")) schedule = "WEEKDAYS";
                 else if (s.match(/e(\d+)d/)) {
                     schedule = "EVERY_N_DAYS";
-                    every_n = parseInt(s.match(/e(\d+)d/)![1]);
+                    const match = s.match(/e(\d+)d/);
+                    if (match) every_n = parseInt(match[1]);
                 } else if (s.includes(",")) {
                     schedule = "CUSTOM";
                     const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
