@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState } from 'react';
 import { Copy, Upload, X } from "lucide-react";
@@ -19,7 +19,8 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
             md += `| ${v.name} | Vial | ${v.vials} | ${v.mg_per_vial} mg/vial | ${v.bac_ml}ml BAC |\n`;
         });
         capsules.forEach(c => {
-            md += `| ${c.name} | Cap | ${c.bottles} | ${c.mg_per_cap} mg/cap | ${c.caps_per_bottle} caps/btl |\n`;
+            // Changed "Cap" to "Capsule" to match Protocol Editor export
+            md += `| ${c.name} | Capsule | ${c.bottles} | ${c.mg_per_cap} mg/cap | ${c.caps_per_bottle} caps/btl |\n`;
         });
         
         try {
@@ -39,17 +40,28 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
                 if (parts.length < 3) continue;
                 if (parts[0].toLowerCase() === "name") continue; // Skip header
 
+                // Supports both "Name | Type | Stock" and "Peptide | Type | Dose" (Protocol format)
                 const name = parts[0];
-                const typeRaw = parts[1].toLowerCase();
-                const stock = parseFloat(parts[2].replace(/[^0-9.]/g, ""));
-                const conc = parseFloat(parts[3].replace(/[^0-9.]/g, ""));
+                const typeRaw = parts[1].toLowerCase(); // e.g. "Vial", "Capsule", "Cap"
+                
+                // Parse numbers (handle empty/missing)
+                const stock = parseFloat(parts[2]?.replace(/[^0-9.]/g, "") || "0");
+                const conc = parseFloat(parts[3]?.replace(/[^0-9.]/g, "") || "0");
+                
                 // Optional 2nd conc (bac or caps/btl)
                 let conc2 = 0;
                 if (parts[4]) conc2 = parseFloat(parts[4].replace(/[^0-9.]/g, ""));
 
-                const kind = typeRaw.includes("cap") ? "capsule" : "peptide";
+                // Normalized Kind detection
+                const kind = (typeRaw.includes("cap") || typeRaw.includes("mixed")) ? "capsule" : "peptide";
                 
-                await importInventoryItemAction(name, kind, isNaN(stock)?0:stock, isNaN(conc)?0:conc, isNaN(conc2)?0:conc2);
+                await importInventoryItemAction(
+                    name, 
+                    kind, 
+                    isNaN(stock) ? 0 : stock, 
+                    isNaN(conc) ? 0 : conc, 
+                    isNaN(conc2) ? 0 : conc2
+                );
                 count++;
             }
             toast.success(`Imported/Updated ${count} items`);
@@ -84,7 +96,8 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
                             <p className="text-sm text-muted-foreground mb-2">Paste a Markdown table row to update stock. We auto-create missing items.</p>
                             <div className="bg-muted/30 p-2 rounded mb-2 text-xs font-mono text-muted-foreground">
                                 | Name | Type | Stock | Conc | Note/Vol |<br/>
-                                | BPC-157 | Vial | 5 | 5mg | 3ml |
+                                | BPC-157 | Vial | 5 | 5mg | 3ml |<br/>
+                                | 5-Amino | Capsule | 2 | 50mg | 60 |
                             </div>
                             <textarea 
                                 className="w-full h-48 input font-mono text-xs" 
