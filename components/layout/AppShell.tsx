@@ -1,17 +1,17 @@
 "use client"
+
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Calendar, Package, Notebook, Home, Activity, Lightbulb } from "lucide-react"
+import { Calendar, Package, Notebook, Home, Activity } from "lucide-react" // Removed Lightbulb
 import { ThemeToggle } from "@/components/ThemeToggle"
 
-// Define navigation items (No Cart/Orders)
+// Define navigation items (Removed Tips)
 const nav = [
     { href: "/today", label: "Today", icon: Home },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/inventory", label: "Inv", icon: Package },
     { href: "/protocol", label: "Plan", icon: Notebook },
     { href: "/weight", label: "Stats", icon: Activity },
-//    { href: "/suggestions", label: "Tips", icon: Lightbulb, beta: true },
 ]
 
 export default function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
@@ -47,7 +47,6 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
                             >
                                 <Icon className={`size-5 ${active ? "fill-current/20" : ""}`} strokeWidth={active ? 2.5 : 2} />
                                 <span>{n.label}</span>
-                                {n.beta && <span className="ml-auto text-[10px] font-bold uppercase tracking-wider opacity-60">Beta</span>}
                             </Link>
                         )
                     })}
@@ -83,7 +82,7 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
             {/* --- MOBILE BOTTOM NAVIGATION (Hidden on desktop) --- */}
             <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-lg border-t border-border pb-safe pt-2">
                 <div className="flex items-center justify-around px-2">
-                    {nav.slice(0, 5).map(n => { // Show first 5 items to fit screen
+                    {nav.map(n => {
                         const active = pathname?.startsWith(n.href)
                         const Icon = n.icon
                         return (
