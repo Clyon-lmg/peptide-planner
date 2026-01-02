@@ -3,6 +3,7 @@
 import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { getDosesForRange, type CalendarDoseRow } from './actions';
+import DayDetailModal from '@/components/calendar/DayDetailModal';
 
 // Helpers (client-side, uses user local system time)
 function isoDate(d: Date) {
@@ -34,6 +35,10 @@ export default function CalendarPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const [byDay, setByDay] = useState<DosesByDay>({});
+
+    // --- NEW STATE FOR MODAL ---
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [refreshKey, setRefreshKey] = useState(0); // Used to trigger re-fetch
 
     const gridStart = useMemo(() => startOfCalendarGrid(cursor), [cursor]);
     const gridEnd = useMemo(() => endOfCalendarGrid(cursor), [cursor]);
@@ -90,7 +95,7 @@ export default function CalendarPage() {
                 setLoading(false);
             }
         })();
-    }, [gridStart, gridEnd]);
+    }, [gridStart, gridEnd, refreshKey]); // Added refreshKey here
 
     const days: Date[] = useMemo(() => {
         const arr: Date[] = [];
@@ -105,12 +110,31 @@ export default function CalendarPage() {
     const todayIso = isoDate(new Date());
     const currentMonth = cursor.getMonth();
 
+    // --- HELPER FOR CLICK ---
+    const handleDayClick = (d: Date) => {
+        setSelectedDate(d);
+    };
+
     return (
         <div className="max-w-6xl mx-auto p-4 space-y-4">
+             {/* --- MODAL --- */}
+             {selectedDate && (
+                <DayDetailModal 
+                    isOpen={!!selectedDate}
+                    onClose={() => setSelectedDate(null)}
+                    date={selectedDate}
+                    doses={byDay[isoDate(selectedDate)] || []}
+                    onUpdateSuccess={() => {
+                        // Keep modal open? Usually better UX to just refresh data
+                        setRefreshKey(k => k + 1);
+                    }}
+                />
+            )}
+
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <h1 className="text-2xl font-semibold">Calendar</h1>
 
-                {/* FIXED: Date Picker & Export Row */}
+                {/* Date Picker & Export Row */}
                 <form onSubmit={downloadIcs} className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-1 shadow-sm">
                         <input
@@ -165,7 +189,8 @@ export default function CalendarPage() {
                     return (
                         <div
                             key={dIso}
-                            className={`min-h-[120px] rounded-xl border p-2 bg-card relative transition-all
+                            onClick={() => handleDayClick(d)}
+                            className={`min-h-[120px] rounded-xl border p-2 bg-card relative transition-all cursor-pointer hover:border-primary/50
                 ${inMonth ? 'opacity-100' : 'opacity-40'}
                 ${isToday ? 'ring-2 ring-primary border-primary' : 'border-border'}
               `}

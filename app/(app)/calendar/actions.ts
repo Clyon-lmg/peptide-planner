@@ -4,6 +4,7 @@
 import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { isDoseDayUTC, type ScheduleItem } from '@/lib/scheduleEngine';
 import type { DoseStatus } from '../today/actions';
+import { revalidatePath } from 'next/cache';
 
 export type CalendarDoseRow = {
   date_for: string;          // YYYY-MM-DD
@@ -138,4 +139,54 @@ export async function getDosesForRange(
     return a.canonical_name.localeCompare(b.canonical_name);
   });
   return rows;
+}
+
+/**
+ * Marks a dose as TAKEN or SKIPPED.
+ * Performs an UPSERT: if the row doesn't exist (PENDING), it creates it.
+ */
+export async function updateDoseStatus(
+    dateIso: string,
+    peptideId: number,
+    status: DoseStatus,
+    doseMg: number
+  ) {
+    const supabase = createServerActionSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+  
+    // 1. Get the active protocol ID
+    const { data: protocol } = await supabase
+      .from('protocols')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+  
+    if (!protocol) throw new Error('No active protocol found');
+  
+    // 2. Upsert the dose record
+    // We match on the unique constraint: user_id + protocol_id + date_for + peptide_id
+    const { error } = await supabase
+      .from('doses')
+      .upsert({
+        user_id: user.id,
+        protocol_id: protocol.id,
+        date_for: dateIso,
+        peptide_id: peptideId,
+        status: status,
+        dose_mg: doseMg,
+        // Optional: capture timestamp if taking it now
+        completed_at: status === 'TAKEN' ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id, protocol_id, date_for, peptide_id'
+      });
+  
+    if (error) {
+      console.error("Update failed:", error);
+      throw new Error('Failed to update dose status');
+    }
+  
+    revalidatePath('/calendar');
 }
