@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Upload, FileText, ChevronRight } from 'lucide-react';
 import ProtocolEditor from './ProtocolEditor';
-import ImportModal from '@/components/protocols/ImportModal'; // Import the new modal
+import ImportModal from '@/components/protocols/ImportModal';
 
-// You'll need to define or import your Protocol type here if not global
+// Shared Type Definition
 type Protocol = {
     id: number;
     user_id: string;
@@ -16,7 +16,7 @@ type Protocol = {
 };
 
 export default function ProtocolsPage({ 
-    protocols = [] // Assuming you pass data or fetch it here
+    protocols = [] 
 }: { 
     protocols?: Protocol[] 
 }) {
@@ -28,9 +28,8 @@ export default function ProtocolsPage({
     const selectedProtocol = protocols.find(p => p.id === selectedId);
 
     const handleCreate = async () => {
-        // Your existing create logic (or redirect to a create action)
-        // For now, let's assume it creates a blank one and refreshes
-        // router.refresh();
+        // Trigger import modal to start new protocol
+        setShowImport(true);
     };
 
     return (
@@ -46,7 +45,7 @@ export default function ProtocolsPage({
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2">
-                        {/* NEW: Import Button */}
+                        {/* Import Button */}
                         <button 
                             onClick={() => setShowImport(true)}
                             className="btn h-9 text-xs border border-border bg-background hover:bg-muted/50 text-muted-foreground hover:text-foreground flex items-center justify-center gap-2"
@@ -54,6 +53,7 @@ export default function ProtocolsPage({
                             <Upload className="size-3.5" /> Import
                         </button>
                         
+                        {/* New Button */}
                         <button 
                             onClick={handleCreate}
                             className="btn h-9 text-xs bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2"
