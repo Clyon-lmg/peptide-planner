@@ -1,5 +1,5 @@
 "use server";
-// Updated: 2024-Inventory-Fix-v3 (Safe Import)
+// Updated: 2024-Inventory-Fix-v5 (Schema Mismatch Fix)
 
 import { revalidatePath } from "next/cache";
 import { createServerActionSupabase } from "@/lib/supabaseServer";
@@ -27,7 +27,6 @@ export async function ensurePeptideAndInventory(
   const cleanName = name.trim();
 
   // 1. SAFELY FIND PEPTIDE
-  // Check both canonical_name AND normalized_key to avoid unique constraint collisions
   let { data: existingPeptide } = await supabase
     .from("peptides")
     .select("id")
@@ -36,7 +35,7 @@ export async function ensurePeptideAndInventory(
 
   let peptideId = existingPeptide?.id;
 
-  // 2. CREATE IF MISSING
+  // 2. CREATE PEPTIDE IF MISSING
   if (!peptideId) {
     const { data: newPeptide, error: createErr } = await supabase
       .from("peptides")
@@ -49,14 +48,13 @@ export async function ensurePeptideAndInventory(
       .single();
 
     if (createErr) {
-      // Race condition handle: If it was created by another process ms ago, fetch it again
-      if (createErr.code === '23505') { // Postgres Unique Violation
+      if (createErr.code === '23505') { // Unique constraint violation (Race condition)
          const { data: retry } = await supabase
            .from("peptides")
            .select("id")
            .or(`normalized_key.eq.${normalized_key},canonical_name.eq.${cleanName}`)
            .single();
-         if (!retry) throw new Error(`Peptide creation failed: ${createErr.message}`);
+         if (!retry) throw new Error(`Peptide creation failed (Duplicate): ${createErr.message}`);
          peptideId = retry.id;
       } else {
          throw new Error(`Peptide error: ${createErr.message}`);
@@ -66,7 +64,7 @@ export async function ensurePeptideAndInventory(
     }
   }
 
-  // 3. Ensure it exists in the user's inventory
+  // 3. ENSURE INVENTORY SLOT EXISTS
   const table = kind === 'capsule' ? 'inventory_capsules' : 'inventory_items';
   
   const { data: existingInv } = await supabase
@@ -78,16 +76,29 @@ export async function ensurePeptideAndInventory(
 
   if (existingInv) return { peptideId, inventoryId: existingInv.id };
 
-  // Create empty inventory slot
+  // 4. CREATE EMPTY INVENTORY SLOT (Corrected Fields)
+  // We must only insert fields that exist on the target table
+  const insertPayload: any = {
+      user_id: userId,
+      peptide_id: peptideId,
+      half_life_hours: 0
+  };
+
+  if (kind === 'capsule') {
+      // Fields specific to inventory_capsules
+      insertPayload.bottles = 0;
+      insertPayload.caps_per_bottle = 0;
+      insertPayload.mg_per_cap = 0;
+  } else {
+      // Fields specific to inventory_items (vials)
+      insertPayload.vials = 0;
+      insertPayload.mg_per_vial = 0;
+      insertPayload.bac_ml = 0;
+  }
+
   const { data: newInv, error: invErr } = await supabase
     .from(table)
-    .insert({
-        user_id: userId,
-        peptide_id: peptideId,
-        // Defaults
-        vials: 0, mg_per_vial: 0, bac_ml: 0, half_life_hours: 0,
-        bottles: 0, caps_per_bottle: 0, mg_per_cap: 0,
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
     
