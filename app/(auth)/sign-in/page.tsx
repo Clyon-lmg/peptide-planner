@@ -2,22 +2,20 @@
 import { Suspense } from "react";
 import { FlaskConical } from "lucide-react";
 
-// Force dynamic rendering to prevent build-time Supabase connection issues
+// Force dynamic rendering
 export const dynamic = "force-dynamic";
 
 export default function SignInPage() {
   return (
-    <div className="min-h-screen w-full lg:grid lg:grid-cols-2">
+    // FIX: Changed grid cols to give the Left Pane (1fr) more space than the Right Pane (fixed 600px)
+    <div className="min-h-screen w-full lg:grid lg:grid-cols-[1fr_600px] xl:grid-cols-[1fr_700px]">
       
       {/* LEFT COLUMN: Branding / Splash (Hidden on mobile) */}
-      <div className="hidden lg:flex flex-col justify-between bg-zinc-900 text-white p-12 relative overflow-hidden">
+      <div className="hidden lg:flex flex-col justify-between bg-zinc-900 text-white p-8 lg:p-12 relative overflow-hidden">
           {/* Ambient Background Effects */}
           <div className="absolute inset-0 bg-zinc-900"></div>
-          {/* Blue glow top right */}
           <div className="absolute top-0 right-0 -mr-32 -mt-32 w-[600px] h-[600px] bg-blue-600/20 rounded-full blur-[120px]"></div>
-          {/* Emerald glow bottom left */}
           <div className="absolute bottom-0 left-0 -ml-32 -mb-32 w-[600px] h-[600px] bg-emerald-600/10 rounded-full blur-[120px]"></div>
-          {/* Grid pattern overlay */}
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-soft-light"></div>
 
           {/* Logo Top Left */}
@@ -29,17 +27,18 @@ export default function SignInPage() {
           </div>
 
           {/* Hero Content */}
-          <div className="relative z-10 space-y-6 max-w-lg mb-20">
-             <h1 className="text-5xl font-bold tracking-tight leading-tight">
+          <div className="relative z-10 space-y-6 max-w-2xl mb-20">
+             {/* Scaled text size to prevent wrapping issues */}
+             <h1 className="text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight leading-tight">
                 Research with <br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">precision.</span>
              </h1>
-             <p className="text-zinc-400 text-lg leading-relaxed">
+             <p className="text-zinc-400 text-lg leading-relaxed max-w-md">
                 Track your inventory, visualize blood concentration levels, and optimize your protocols in one secure lab notebook.
              </p>
              
              {/* Feature pills */}
-             <div className="flex gap-3 pt-4">
+             <div className="flex flex-wrap gap-3 pt-4">
                 <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-zinc-300">Inventory Tracking</div>
                 <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-zinc-300">Dose Forecasting</div>
                 <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-zinc-300">Protocol Sharing</div>
@@ -53,8 +52,8 @@ export default function SignInPage() {
       </div>
 
       {/* RIGHT COLUMN: Form */}
-      <div className="flex flex-col items-center justify-center p-6 bg-background relative">
-          <div className="w-full max-w-[380px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col items-center justify-center p-6 bg-background relative border-l border-border">
+          <div className="w-full max-w-[380px] space-y-8 animate-in fade-in slide-in-from-right-4 duration-700">
              
              {/* Header */}
              <div className="flex flex-col space-y-2 text-center">
