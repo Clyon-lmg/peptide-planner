@@ -11,7 +11,7 @@ const nav = [
     { href: "/inventory", label: "Inv", icon: Package },
     { href: "/protocol", label: "Plan", icon: Notebook },
     { href: "/weight", label: "Stats", icon: Activity },
-    { href: "/suggestions", label: "Tips", icon: Lightbulb, beta: true },
+//    { href: "/suggestions", label: "Tips", icon: Lightbulb, beta: true },
 ]
 
 export default function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
