@@ -1,4 +1,6 @@
-﻿import React, { useState } from 'react';
+﻿'use client';
+
+import React, { useState } from 'react';
 import { Moon, Sun, Beaker, CheckCircle2, ArrowRight, Lock } from 'lucide-react';
 
 const LoginPage = () => {
