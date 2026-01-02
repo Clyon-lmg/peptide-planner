@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Save, X, Activity, Calendar } from "lucide-react";
+import { Trash2, Save, X, Activity, Calendar, Syringe, Pill } from "lucide-react";
 import Card from "@/components/layout/Card";
 import type { SaveVialPayload, SaveCapsPayload } from "../actions";
 
@@ -135,7 +135,9 @@ export default function InventoryList({
         <div className="space-y-10">
             {/* Vials */}
             <section>
-                <h2 className="pp-h2 mb-4">Vials</h2>
+                <h2 className="pp-h2 mb-4 flex items-center gap-2">
+                    <Syringe className="size-5 text-blue-500" /> Vials
+                </h2>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     {vials.length === 0 && <p className="text-muted-foreground text-sm">No vials in inventory.</p>}
                     {vials.map((item) => {
@@ -144,20 +146,26 @@ export default function InventoryList({
                         return (
                             <Card key={item.id} className="relative group hover:border-primary/20 transition-colors">
                                 <div className="flex items-start justify-between mb-5">
-                                    <div className="flex flex-col min-w-0">
-                                        <h3 className="font-bold text-lg leading-tight truncate pr-2">{item.canonical_name}</h3>
-                                        {item.remainingDoses !== null && (
-                                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                                                <span className="inline-flex items-center text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded">
-                                                    <Activity className="w-3 h-3 mr-1" />
-                                                    {item.remainingDoses} doses
-                                                </span>
-                                                <span className="inline-flex items-center text-xs text-muted-foreground bg-muted/10 px-2 py-0.5 rounded">
-                                                    <Calendar className="w-3 h-3 mr-1 opacity-70" />
-                                                    {item.reorderDateISO ?? "—"}
-                                                </span>
-                                            </div>
-                                        )}
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        {/* Added Icon for visual clarity */}
+                                        <div className="size-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+                                            <Syringe className="size-5" />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <h3 className="font-bold text-lg leading-tight truncate pr-2">{item.canonical_name}</h3>
+                                            {item.remainingDoses !== null && (
+                                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                                    <span className="inline-flex items-center text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                                        <Activity className="w-3 h-3 mr-1" />
+                                                        {item.remainingDoses} doses
+                                                    </span>
+                                                    <span className="inline-flex items-center text-xs text-muted-foreground bg-muted/10 px-2 py-0.5 rounded">
+                                                        <Calendar className="w-3 h-3 mr-1 opacity-70" />
+                                                        {item.reorderDateISO ?? "—"}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <button
                                         onClick={() => handleDeleteVial(item.id)}
@@ -168,7 +176,6 @@ export default function InventoryList({
                                     </button>
                                 </div>
 
-                                {/* Increased grid columns for mobile legibility */}
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     <InputGroup label="Vials" value={currentVialValue(item, "vials")} onChange={(v: number) => onChangeVial(item.id, "vials", v)} disabled={saving} />
                                     <InputGroup label="mg/vial" value={currentVialValue(item, "mg_per_vial")} onChange={(v: number) => onChangeVial(item.id, "mg_per_vial", v)} disabled={saving} step={0.1} />
@@ -192,25 +199,33 @@ export default function InventoryList({
 
             {/* Capsules */}
             <section>
-                <h2 className="pp-h2 mb-4">Capsules</h2>
+                <h2 className="pp-h2 mb-4 flex items-center gap-2">
+                    <Pill className="size-5 text-purple-500" /> Capsules
+                </h2>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     {capsules.length === 0 && <p className="text-muted-foreground text-sm">No capsules in inventory.</p>}
                     {capsules.map((item) => {
                         const dirty = isCapsDirty(item);
                         const saving = savingIds.has(`cap-${item.id}`);
                         return (
-                            <Card key={item.id} className="relative group">
+                            <Card key={item.id} className="relative group hover:border-primary/20 transition-colors">
                                 <div className="flex items-start justify-between mb-5">
-                                    <div className="flex flex-col min-w-0">
-                                        <h3 className="font-bold text-lg leading-tight truncate pr-2">{item.canonical_name}</h3>
-                                        {item.remainingDoses !== null && (
-                                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                                                <span className="inline-flex items-center text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded">
-                                                    <Activity className="w-3 h-3 mr-1" />
-                                                    {item.remainingDoses} doses
-                                                </span>
-                                            </div>
-                                        )}
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        {/* Added Icon for visual clarity */}
+                                        <div className="size-10 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
+                                            <Pill className="size-5" />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <h3 className="font-bold text-lg leading-tight truncate pr-2">{item.canonical_name}</h3>
+                                            {item.remainingDoses !== null && (
+                                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                                    <span className="inline-flex items-center text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                                        <Activity className="w-3 h-3 mr-1" />
+                                                        {item.remainingDoses} doses
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <button onClick={() => handleDeleteCaps(item.id)} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors" disabled={saving}><Trash2 className="w-4 h-4" /></button>
                                 </div>
