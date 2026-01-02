@@ -1,5 +1,5 @@
 "use server";
-// Updated: 2024-Inventory-Fix-v5 (Schema Mismatch Fix)
+// Updated: 2024-Inventory-Fix-v6 (Case-Insensitive Matching)
 
 import { revalidatePath } from "next/cache";
 import { createServerActionSupabase } from "@/lib/supabaseServer";
@@ -26,11 +26,12 @@ export async function ensurePeptideAndInventory(
   const normalized_key = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const cleanName = name.trim();
 
-  // 1. SAFELY FIND PEPTIDE
+  // 1. SAFELY FIND PEPTIDE (Case-Insensitive)
+  // We use .ilike() for the name to catch "BPC-157" vs "bpc-157"
   let { data: existingPeptide } = await supabase
     .from("peptides")
     .select("id")
-    .or(`normalized_key.eq.${normalized_key},canonical_name.eq.${cleanName}`)
+    .or(`normalized_key.eq.${normalized_key},canonical_name.ilike.${cleanName}`)
     .maybeSingle();
 
   let peptideId = existingPeptide?.id;
@@ -52,7 +53,7 @@ export async function ensurePeptideAndInventory(
          const { data: retry } = await supabase
            .from("peptides")
            .select("id")
-           .or(`normalized_key.eq.${normalized_key},canonical_name.eq.${cleanName}`)
+           .or(`normalized_key.eq.${normalized_key},canonical_name.ilike.${cleanName}`)
            .single();
          if (!retry) throw new Error(`Peptide creation failed (Duplicate): ${createErr.message}`);
          peptideId = retry.id;
@@ -76,8 +77,7 @@ export async function ensurePeptideAndInventory(
 
   if (existingInv) return { peptideId, inventoryId: existingInv.id };
 
-  // 4. CREATE EMPTY INVENTORY SLOT (Corrected Fields)
-  // We must only insert fields that exist on the target table
+  // 4. CREATE EMPTY INVENTORY SLOT
   const insertPayload: any = {
       user_id: userId,
       peptide_id: peptideId,
@@ -85,12 +85,10 @@ export async function ensurePeptideAndInventory(
   };
 
   if (kind === 'capsule') {
-      // Fields specific to inventory_capsules
       insertPayload.bottles = 0;
       insertPayload.caps_per_bottle = 0;
       insertPayload.mg_per_cap = 0;
   } else {
-      // Fields specific to inventory_items (vials)
       insertPayload.vials = 0;
       insertPayload.mg_per_vial = 0;
       insertPayload.bac_ml = 0;
