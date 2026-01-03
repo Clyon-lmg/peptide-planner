@@ -29,10 +29,37 @@
         --warning: 250 204 21;
     }
 
+    /* --- MOBILE POLISH START --- */
+    html {
+        /* Disable 300ms tap delay */
+        touch-action: manipulation;
+        /* Use native iOS momentum scrolling */
+        -webkit-overflow-scrolling: touch;
+    }
+    /* --- MOBILE POLISH END --- */
+
     body {
         @apply bg-[rgb(var(--background))] text-[rgb(var(--foreground))];
+        
+        /* Prevent 'pull-to-refresh' bounce on the body */
         overscroll-behavior-y: none;
+
+        /* --- MOBILE POLISH START --- */
+        /* Disable text selection app-wide (feels native) */
+        -webkit-user-select: none;
+        user-select: none;
+        /* Prevent highlight color on tap */
+        -webkit-tap-highlight-color: transparent;
+        /* --- MOBILE POLISH END --- */
     }
+
+    /* --- MOBILE POLISH START --- */
+    /* Re-enable text selection for inputs so users can edit text */
+    input, textarea, [contenteditable="true"] {
+        -webkit-user-select: text;
+        user-select: text;
+    }
+    /* --- MOBILE POLISH END --- */
 }
 
 @layer components {
