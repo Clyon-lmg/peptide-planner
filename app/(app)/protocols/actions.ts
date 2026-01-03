@@ -13,6 +13,7 @@ export type ImportItem = {
     custom_days?: number[];
 };
 
+// --- EXISTING IMPORT ACTION ---
 export async function createImportedProtocolAction(name: string, items: ImportItem[]) {
     const supabase = createServerActionSupabase();
     const { data: { user } } = await supabase.auth.getUser();
@@ -50,7 +51,30 @@ export async function createImportedProtocolAction(name: string, items: ImportIt
     return proto;
 }
 
-// 🟢 NEW: Delete Action
+// --- NEW CREATE ACTION ---
+export async function createProtocolAction(name: string, startDate: string) {
+    const supabase = createServerActionSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const { data: proto, error } = await supabase
+        .from('protocols')
+        .insert({
+            user_id: user.id,
+            name: name || "New Protocol",
+            is_active: false,
+            start_date: startDate || new Date().toISOString().split('T')[0]
+        })
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/protocols');
+    return proto;
+}
+
+// --- EXISTING DELETE ACTION ---
 export async function deleteProtocolAction(id: number) {
     const supabase = createServerActionSupabase();
     const { data: { user } } = await supabase.auth.getUser();
@@ -60,7 +84,7 @@ export async function deleteProtocolAction(id: number) {
         .from('protocols')
         .delete()
         .eq('id', id)
-        .eq('user_id', user.id); // Security: Ensure ownership
+        .eq('user_id', user.id);
 
     if (error) throw new Error(error.message);
 
