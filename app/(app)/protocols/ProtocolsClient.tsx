@@ -2,12 +2,12 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Upload, FileText, ChevronRight, Trash2, MapPin } from 'lucide-react';
+import { Plus, Upload, FileText, ChevronRight, Trash2, MapPin, X, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import ProtocolEditor from './ProtocolEditor';
 import ImportModal from '@/components/protocols/ImportModal';
-import InjectionSiteListEditor from './InjectionSiteListEditor'; // Re-import this
-import { deleteProtocolAction } from './actions';
+import InjectionSiteListEditor from './InjectionSiteListEditor';
+import { deleteProtocolAction, createProtocolAction } from './actions';
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type Protocol = {
@@ -32,19 +32,25 @@ export default function ProtocolsClient({
     const router = useRouter();
     const supabase = getSupabaseBrowser();
     
-    // TABS: 'protocols' or 'sites'
+    // TABS
     const [activeTab, setActiveTab] = useState<'protocols' | 'sites'>('protocols');
     
-    // Protocol State
+    // STATES
     const [selectedProtocolId, setSelectedProtocolId] = useState<number | null>(null);
     const [showImport, setShowImport] = useState(false);
+    const [showCreate, setShowCreate] = useState(false); // NEW: Create Modal State
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // CREATE FORM STATE
+    const [newName, setNewName] = useState("");
+    const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+    const [creating, setCreating] = useState(false);
 
     // Site List State
     const [siteLists, setSiteLists] = useState<InjectionSiteList[]>([]);
     const [selectedSiteListId, setSelectedSiteListId] = useState<number | null>(null);
 
-    // Fetch Site Lists on tab change (lazy load)
+    // Fetch Site Lists on tab change
     React.useEffect(() => {
         if (activeTab === 'sites') {
             (async () => {
@@ -54,7 +60,24 @@ export default function ProtocolsClient({
         }
     }, [activeTab, supabase]);
 
-    const handleCreateProtocol = () => setShowImport(true);
+    // --- HANDLERS ---
+
+    const handleCreateSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setCreating(true);
+        try {
+            const proto = await createProtocolAction(newName, newDate);
+            toast.success("Protocol created");
+            setShowCreate(false);
+            setNewName("");
+            router.refresh();
+            setSelectedProtocolId(proto.id); // Open the new empty protocol
+        } catch (err: any) {
+            toast.error(err.message || "Failed to create");
+        } finally {
+            setCreating(false);
+        }
+    };
 
     const handleCreateSiteList = async () => {
         const name = prompt("Name for new Rotation List (e.g. 'Stomach Rotation')");
@@ -63,7 +86,7 @@ export default function ProtocolsClient({
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
+        const { data } = await supabase
             .from('injection_site_lists')
             .insert({ user_id: user.id, name })
             .select()
@@ -94,7 +117,6 @@ export default function ProtocolsClient({
     const handleDeleteSiteList = async (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
         if (!confirm("Delete this site list?")) return;
-        
         const { error } = await supabase.from('injection_site_lists').delete().eq('id', id);
         if (!error) {
             setSiteLists(prev => prev.filter(l => l.id !== id));
@@ -105,7 +127,6 @@ export default function ProtocolsClient({
         }
     };
 
-    // Render Logic
     const selectedProtocol = protocols.find(p => p.id === selectedProtocolId);
     const selectedSiteList = siteLists.find(l => l.id === selectedSiteListId);
 
@@ -138,7 +159,10 @@ export default function ProtocolsClient({
                         </h2>
                         {activeTab === 'protocols' ? (
                             <div className="flex gap-2">
-                                <button onClick={handleCreateProtocol} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
+                                <button onClick={() => setShowImport(true)} className="btn h-8 px-3 text-xs border border-border bg-background hover:bg-muted/50">
+                                    <Upload className="size-3.5 mr-1" /> Import
+                                </button>
+                                <button onClick={() => setShowCreate(true)} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
                                     <Plus className="size-3.5 mr-1" /> New
                                 </button>
                             </div>
@@ -153,7 +177,6 @@ export default function ProtocolsClient({
                 {/* List Content */}
                 <div className="flex-1 overflow-y-auto p-2 space-y-1">
                     {activeTab === 'protocols' ? (
-                        // PROTOCOLS LIST
                         protocols.length === 0 ? (
                             <div className="text-center py-10 px-4 text-muted-foreground text-sm">
                                 No protocols yet.<br/>Create or import one.
@@ -190,7 +213,6 @@ export default function ProtocolsClient({
                             ))
                         )
                     ) : (
-                        // SITES LIST
                         siteLists.length === 0 ? (
                             <div className="text-center py-10 px-4 text-muted-foreground text-sm">
                                 No rotation lists yet.<br/>Create one (e.g. "Stomach").
@@ -227,8 +249,6 @@ export default function ProtocolsClient({
 
             {/* RIGHT MAIN */}
             <div className={`flex-1 flex flex-col min-w-0 bg-background ${!selectedProtocolId && !selectedSiteListId ? 'hidden md:flex' : 'flex'}`}>
-                
-                {/* Back Button (Mobile) */}
                 {(selectedProtocolId || selectedSiteListId) && (
                     <div className="md:hidden p-4 pb-0">
                         <button 
@@ -240,7 +260,6 @@ export default function ProtocolsClient({
                     </div>
                 )}
 
-                {/* CONTENT AREA */}
                 {activeTab === 'protocols' ? (
                     selectedProtocol ? (
                         <div className="h-full overflow-y-auto p-4 md:p-8">
@@ -254,7 +273,11 @@ export default function ProtocolsClient({
                             icon={FileText} 
                             title="Select a Protocol" 
                             desc="Choose from the list or create new."
-                            action={<button onClick={() => setShowImport(true)} className="mt-4 btn border border-border">Import</button>}
+                            action={
+                                <button onClick={() => setShowCreate(true)} className="mt-4 btn bg-primary text-primary-foreground">
+                                    Create New Protocol
+                                </button>
+                            }
                         />
                     )
                 ) : (
@@ -262,7 +285,7 @@ export default function ProtocolsClient({
                         <div className="h-full overflow-y-auto p-4 md:p-8">
                             <InjectionSiteListEditor 
                                 list={selectedSiteList} 
-                                onReload={() => { /* No global reload needed for site lists usually */ }} 
+                                onReload={() => {}} 
                             />
                         </div>
                     ) : (
@@ -275,7 +298,7 @@ export default function ProtocolsClient({
                 )}
             </div>
 
-            {/* IMPORT MODAL */}
+            {/* MODALS */}
             <ImportModal 
                 isOpen={showImport} 
                 onClose={() => setShowImport(false)}
@@ -285,11 +308,54 @@ export default function ProtocolsClient({
                     setActiveTab('protocols');
                 }}
             />
+
+            {/* CREATE PROTOCOL MODAL */}
+            {showCreate && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-card w-full max-w-sm rounded-2xl shadow-2xl border border-border p-5">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg">New Protocol</h3>
+                            <button onClick={() => setShowCreate(false)}><X className="size-5 text-muted-foreground" /></button>
+                        </div>
+                        <form onSubmit={handleCreateSubmit} className="space-y-4">
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground uppercase">Name</label>
+                                <input 
+                                    className="input mt-1" 
+                                    placeholder="e.g. Bulking Stack" 
+                                    value={newName}
+                                    onChange={e => setNewName(e.target.value)}
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-medium text-muted-foreground uppercase">Start Date</label>
+                                <div className="relative">
+                                    <input 
+                                        type="date"
+                                        className="input mt-1 pl-10" 
+                                        value={newDate}
+                                        onChange={e => setNewDate(e.target.value)}
+                                        required
+                                    />
+                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                                </div>
+                            </div>
+                            <div className="flex gap-2 justify-end pt-2">
+                                <button type="button" onClick={() => setShowCreate(false)} className="btn hover:bg-muted">Cancel</button>
+                                <button type="submit" disabled={creating} className="btn bg-primary text-primary-foreground">
+                                    {creating ? "Creating..." : "Create Protocol"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
-// Helper Component for Empty States
 function EmptyState({ icon: Icon, title, desc, action }: any) {
     return (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
