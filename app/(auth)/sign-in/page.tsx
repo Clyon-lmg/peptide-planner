@@ -1,7 +1,7 @@
-﻿import { headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerActionSupabase } from "@/lib/supabaseServer";
-import AuthUI from "./AuthUI"; // Import the new design
+import AuthUI from "./AuthUI"; 
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,12 +24,15 @@ export default function SignInPage({ searchParams }: PageProps) {
     const hdrs = headers();
     const protocol = hdrs.get("x-forwarded-proto") || "http";
     const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "localhost:3000";
+    
+    // Construct the base URL safely
     const redirectBase = process.env.NEXT_PUBLIC_SITE_URL || `${protocol}://${host}`;
     
+    // CRITICAL FIX: Point to /callback, NOT /auth/callback
     const next = String(formData.get("redirect") || "");
     const emailRedirectTo = next
-      ? `${redirectBase}/auth/callback?next=${encodeURIComponent(next)}`
-      : `${redirectBase}/auth/callback`;
+      ? `${redirectBase}/callback?next=${encodeURIComponent(next)}`
+      : `${redirectBase}/callback`;
 
     await supabase.auth.signInWithOtp({
       email,
