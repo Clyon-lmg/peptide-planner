@@ -63,6 +63,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
             }));
             setItems(mapped);
 
+            // Load inventory to get peptide list
             loadInventory();
         })();
     }, [protocol.id, supabase]);
@@ -77,17 +78,19 @@ export default function ProtocolEditor({ protocol, onReload }: {
 
         const merged: Record<number, InventoryPeptide> = {};
         
+        // Process Vials
         vialInv?.forEach((r: any) => {
             if (r.peptides) {
                 merged[r.peptides.id] = { 
                     id: r.peptides.id, 
                     canonical_name: r.peptides.canonical_name, 
                     half_life_hours: Number(r.half_life_hours || 0),
-                    kind: 'vial'
+                    kind: 'vial' // Mark as Vial
                 };
             }
         });
 
+        // Process Capsules (Overwrites vial if duplicate, or we can flag 'both')
         capInv?.forEach((r: any) => {
             if (r.peptides) {
                 const existing = merged[r.peptides.id];
@@ -95,7 +98,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                     id: r.peptides.id, 
                     canonical_name: r.peptides.canonical_name, 
                     half_life_hours: Number(r.half_life_hours || 0),
-                    kind: existing ? 'both' : 'capsule'
+                    kind: existing ? 'both' : 'capsule' // Mark as Cap or Both
                 };
             }
         });
@@ -184,14 +187,16 @@ export default function ProtocolEditor({ protocol, onReload }: {
         const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
         let md = `**Protocol: ${protocol.name}**\n\n`;
-        md += `Peptide | Type | Dose | Schedule | Notes\n`;
-        md += `---|---|---|---|---\n`;
+        // Added 'Type' column
+        md += `| Peptide | Type | Dose | Schedule | Notes |\n`;
+        md += `|---|---|---|---|---|\n`;
 
         for (const item of items) {
             if (!item.peptide_id) continue;
             const p = pepMap.get(item.peptide_id);
             const name = p?.canonical_name || "Unknown";
             
+            // Determine Type label
             const typeLabel = p?.kind === 'capsule' ? 'Capsule' : (p?.kind === 'both' ? 'Mixed' : 'Vial');
             const dose = `${item.dose_mg_per_administration} mg`;
 
@@ -211,7 +216,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
             }
             const notes = notesParts.join(", ") || "-";
 
-            md += `${name} | ${typeLabel} | ${dose} | ${sched} | ${notes}\n`;
+            md += `| ${name} | ${typeLabel} | ${dose} | ${sched} | ${notes} |\n`;
         }
         md += `\n*Generated via Peptide Planner*`;
 
@@ -223,22 +228,57 @@ export default function ProtocolEditor({ protocol, onReload }: {
         }
     };
 
-    // Updated Import Logic to support Mangled Text
+    // --- Import Logic ---
     const handleImport = async () => {
         setSaving(true);
         try {
             const lines = importText.split("\n");
             const newItems: ProtocolItemState[] = [];
 
-            const parseItem = (name: string, typeRaw: string, doseRaw: string, schedRaw: string) => {
-                const kind = typeRaw.toLowerCase().includes("cap") ? 'capsule' : 'peptide';
-                const dose = parseFloat(doseRaw.replace(/[^0-9.]/g, ""));
+            for (const line of lines) {
+                if (!line.includes("|") || line.includes("---|---")) continue;
+                const parts = line.split("|").map(s => s.trim()).filter(s => s);
+                // We expect at least 3 parts, but now we check for Type at index 1
+                if (parts.length < 3) continue;
+                if (parts[0].toLowerCase() === "peptide") continue; // Header row
+
+                // Determine if column 1 is Type or Dose (backwards compatibility)
+                // If parts[1] is "Vial" or "Capsule", then it's Type. Otherwise treat as Dose.
+                let name = parts[0];
+                let typeRaw = "vial"; // Default
+                let doseRaw = "";
+                let schedRaw = "";
                 
+                // Helper to check if string looks like type
+                const isType = (s: string) => ["vial", "capsule", "cap", "mixed"].includes(s.toLowerCase());
+
+                if (isType(parts[1])) {
+                    // New Format: Name | Type | Dose | Schedule
+                    typeRaw = parts[1];
+                    doseRaw = parts[2];
+                    schedRaw = parts[3] || "";
+                } else {
+                    // Old Format: Name | Dose | Schedule
+                    doseRaw = parts[1];
+                    schedRaw = parts[2] || "";
+                }
+
+                // Determine Kind for Backend
+                const kind = typeRaw.toLowerCase().includes("cap") ? 'capsule' : 'peptide';
+
+                // 1. Ensure Peptide exists (Server Action) - PASS KIND!
+                // FIX: Explicitly cast 'kind' to the union type required by the function
+                const { peptideId } = await ensurePeptideAndInventory(name, kind as "peptide" | "capsule");
+
+                // 2. Parse Dose
+                const dose = parseFloat(doseRaw.replace(/[^0-9.]/g, ""));
+
+                // 3. Parse Schedule
                 let schedule: any = "EVERYDAY";
                 let every_n: number | null = null;
                 let custom_days: number[] = [];
-                const s = schedRaw.toLowerCase();
 
+                const s = schedRaw.toLowerCase();
                 if (s.includes("daily") || s.includes("everyday")) schedule = "EVERYDAY";
                 else if (s.includes("mon-fri") || s.includes("weekdays")) schedule = "WEEKDAYS";
                 else if (s.match(/e(\d+)d/)) {
@@ -251,62 +291,28 @@ export default function ProtocolEditor({ protocol, onReload }: {
                     custom_days = DAYS.map((d, i) => s.includes(d) ? i : -1).filter(i => i !== -1);
                 }
 
-                return { name, kind, dose, schedule, every_n, custom_days };
-            };
-
-            for (const line of lines) {
-                const l = line.trim();
-                if (!l || l.startsWith("|---") || l.toLowerCase().startsWith("peptide")) continue;
-
-                let parsed = null;
-
-                // 1. Try Pipe
-                if (l.includes("|")) {
-                    const parts = l.split("|").map(s => s.trim()).filter(s => s);
-                    if (parts.length >= 3) {
-                         // Check legacy vs new
-                        const isType = (s: string) => ["vial", "capsule", "cap", "mixed"].some(k => s.toLowerCase().includes(k));
-                        if (isType(parts[1])) {
-                             parsed = parseItem(parts[0], parts[1], parts[2], parts[3]||"");
-                        } else {
-                             parsed = parseItem(parts[0], "vial", parts[1], parts[2]||"");
-                        }
-                    }
-                } 
-                // 2. Try Smart Regex
-                else {
-                    const mangledRegex = /^(.+?)(Vial|Capsule|Cap|Mixed)([\d\.]+)\s*(mg|mcg)(.+?)(@\s*\d{1,2}:\d{2})?$/i;
-                    const match = l.match(mangledRegex);
-                    if (match) {
-                        parsed = parseItem(match[1], match[2], match[3]+match[4], match[5]);
-                    }
-                }
-
-                if (parsed) {
-                     const { peptideId } = await ensurePeptideAndInventory(parsed.name, parsed.kind);
-                     newItems.push({
-                        peptide_id: peptideId,
-                        site_list_id: null,
-                        dose_mg_per_administration: isNaN(parsed.dose) ? 0 : parsed.dose,
-                        schedule: parsed.schedule,
-                        every_n_days: parsed.every_n,
-                        custom_days: parsed.custom_days,
-                        cycle_on_weeks: 0,
-                        cycle_off_weeks: 0,
-                        color: COLOR_PALETTE[newItems.length % COLOR_PALETTE.length],
-                        time_of_day: "08:00"
-                    });
-                }
+                newItems.push({
+                    peptide_id: peptideId,
+                    site_list_id: null,
+                    dose_mg_per_administration: isNaN(dose) ? 0 : dose,
+                    schedule,
+                    every_n_days: every_n,
+                    custom_days,
+                    cycle_on_weeks: 0,
+                    cycle_off_weeks: 0,
+                    color: COLOR_PALETTE[newItems.length % COLOR_PALETTE.length],
+                    time_of_day: "08:00"
+                });
             }
 
             if (newItems.length > 0) {
                 setItems(prev => [...prev, ...newItems]);
-                await loadInventory();
+                await loadInventory(); // Reload dropdowns to include new items
                 toast.success(`Imported ${newItems.length} items`);
                 setShowImport(false);
                 setImportText("");
             } else {
-                toast.error("No valid items recognized.");
+                toast.error("No valid items found in Markdown");
             }
 
         } catch (e: any) {
@@ -362,6 +368,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
 
             <ProtocolGraph items={items} peptides={peptides} />
 
+            {/* Import Modal */}
             {showImport && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
                     <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border flex flex-col max-h-[90vh]">
@@ -370,10 +377,15 @@ export default function ProtocolEditor({ protocol, onReload }: {
                             <button onClick={() => setShowImport(false)}><X className="size-5" /></button>
                         </div>
                         <div className="p-4 flex-1 overflow-y-auto">
-                            <p className="text-sm text-muted-foreground mb-2">Paste Protocol Text (Markdown or Copied from Reddit).</p>
+                            <p className="text-sm text-muted-foreground mb-2">Paste a Markdown table here. We will auto-create any missing peptides.</p>
+                            <div className="bg-muted/10 p-2 rounded text-xs font-mono mb-2">
+                                | Peptide | Type | Dose | Schedule |<br/>
+                                | BPC-157 | Vial | 5mg | Daily |<br/>
+                                | 5-Amino | Cap | 50mg | Daily |
+                            </div>
                             <textarea
                                 className="w-full h-64 input font-mono text-xs"
-                                placeholder="Paste here..."
+                                placeholder="| Peptide | Type | Dose | Schedule |"
                                 value={importText}
                                 onChange={e => setImportText(e.target.value)}
                             />
@@ -388,22 +400,24 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 </div>
             )}
 
+            {/* Floating Action Bar */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border z-40 lg:pl-[340px]">
                 <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
                     <div className="flex gap-2">
                         <button
                             onClick={copyToReddit}
                             className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2"
+                            title="Copy for Reddit"
                         >
                             <Copy className="size-4" />
-                            <span className="hidden sm:inline">Export</span>
+                            <span className="hidden sm:inline">Export Protocol</span>
                         </button>
                         <button
                             onClick={() => setShowImport(true)}
                             className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2"
                         >
                             <Upload className="size-4" />
-                            <span className="hidden sm:inline">Import</span>
+                            <span className="hidden sm:inline">Import Protocol</span>
                         </button>
                     </div>
 
