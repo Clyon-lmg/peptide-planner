@@ -9,7 +9,7 @@ const nav = [
     { href: "/today", label: "Today", icon: Home },
     { href: "/calendar", label: "Calendar", icon: Calendar },
     { href: "/inventory", label: "Inv", icon: Package },
-    { href: "/protocols", label: "Plan", icon: Notebook }, // <--- CHANGED TO PLURAL
+    { href: "/protocols", label: "Plan", icon: Notebook },
     { href: "/weight", label: "Stats", icon: Activity },
 ]
 
@@ -60,7 +60,9 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
                     <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Signed in as</div>
                         <div className="text-sm truncate opacity-80 mb-2 font-mono">{userEmail}</div>
-                        <form action="/auth/signout" method="post">
+                        
+                        {/* UPDATE: Point to the new API route */}
+                        <form action="/api/auth/signout" method="post">
                             <button className="text-xs hover:underline opacity-60">Sign out</button>
                         </form>
                     </div>
