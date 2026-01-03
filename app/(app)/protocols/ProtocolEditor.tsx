@@ -184,7 +184,6 @@ export default function ProtocolEditor({ protocol, onReload }: {
         const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
         let md = `**Protocol: ${protocol.name}**\n\n`;
-        // Removed leading/trailing pipes for Reddit compatibility
         md += `Peptide | Type | Dose | Schedule | Notes\n`;
         md += `---|---|---|---|---\n`;
 
@@ -212,7 +211,6 @@ export default function ProtocolEditor({ protocol, onReload }: {
             }
             const notes = notesParts.join(", ") || "-";
 
-            // No leading/trailing pipes
             md += `${name} | ${typeLabel} | ${dose} | ${sched} | ${notes}\n`;
         }
         md += `\n*Generated via Peptide Planner*`;
@@ -225,50 +223,22 @@ export default function ProtocolEditor({ protocol, onReload }: {
         }
     };
 
+    // Updated Import Logic to support Mangled Text
     const handleImport = async () => {
         setSaving(true);
         try {
             const lines = importText.split("\n");
             const newItems: ProtocolItemState[] = [];
 
-            for (const line of lines) {
-                if (!line.includes("|") || line.includes("---|---")) continue;
-                const parts = line.split("|").map(s => s.trim()).filter(s => s);
-                // Adjust length check since we might not have empty strings at ends anymore
-                if (parts.length < 3) continue;
-                
-                // If the first part is empty string (from leading pipe), shift
-                // But with trim() and split("|"), usually " | A | B | " -> ["", "A", "B", ""]
-                // "A | B" -> ["A", "B"]
-                // We'll filter empty strings above, so parts[0] should be the Name.
-                
-                if (parts[0].toLowerCase() === "peptide") continue; 
-
-                let name = parts[0];
-                let typeRaw = "vial"; 
-                let doseRaw = "";
-                let schedRaw = "";
-                
-                const isType = (s: string) => ["vial", "capsule", "cap", "mixed"].includes(s.toLowerCase());
-
-                if (isType(parts[1])) {
-                    typeRaw = parts[1];
-                    doseRaw = parts[2];
-                    schedRaw = parts[3] || "";
-                } else {
-                    doseRaw = parts[1];
-                    schedRaw = parts[2] || "";
-                }
-
+            const parseItem = (name: string, typeRaw: string, doseRaw: string, schedRaw: string) => {
                 const kind = typeRaw.toLowerCase().includes("cap") ? 'capsule' : 'peptide';
-                const { peptideId } = await ensurePeptideAndInventory(name, kind);
                 const dose = parseFloat(doseRaw.replace(/[^0-9.]/g, ""));
-
+                
                 let schedule: any = "EVERYDAY";
                 let every_n: number | null = null;
                 let custom_days: number[] = [];
-
                 const s = schedRaw.toLowerCase();
+
                 if (s.includes("daily") || s.includes("everyday")) schedule = "EVERYDAY";
                 else if (s.includes("mon-fri") || s.includes("weekdays")) schedule = "WEEKDAYS";
                 else if (s.match(/e(\d+)d/)) {
@@ -281,18 +251,52 @@ export default function ProtocolEditor({ protocol, onReload }: {
                     custom_days = DAYS.map((d, i) => s.includes(d) ? i : -1).filter(i => i !== -1);
                 }
 
-                newItems.push({
-                    peptide_id: peptideId,
-                    site_list_id: null,
-                    dose_mg_per_administration: isNaN(dose) ? 0 : dose,
-                    schedule,
-                    every_n_days: every_n,
-                    custom_days,
-                    cycle_on_weeks: 0,
-                    cycle_off_weeks: 0,
-                    color: COLOR_PALETTE[newItems.length % COLOR_PALETTE.length],
-                    time_of_day: "08:00"
-                });
+                return { name, kind, dose, schedule, every_n, custom_days };
+            };
+
+            for (const line of lines) {
+                const l = line.trim();
+                if (!l || l.startsWith("|---") || l.toLowerCase().startsWith("peptide")) continue;
+
+                let parsed = null;
+
+                // 1. Try Pipe
+                if (l.includes("|")) {
+                    const parts = l.split("|").map(s => s.trim()).filter(s => s);
+                    if (parts.length >= 3) {
+                         // Check legacy vs new
+                        const isType = (s: string) => ["vial", "capsule", "cap", "mixed"].some(k => s.toLowerCase().includes(k));
+                        if (isType(parts[1])) {
+                             parsed = parseItem(parts[0], parts[1], parts[2], parts[3]||"");
+                        } else {
+                             parsed = parseItem(parts[0], "vial", parts[1], parts[2]||"");
+                        }
+                    }
+                } 
+                // 2. Try Smart Regex
+                else {
+                    const mangledRegex = /^(.+?)(Vial|Capsule|Cap|Mixed)([\d\.]+)\s*(mg|mcg)(.+?)(@\s*\d{1,2}:\d{2})?$/i;
+                    const match = l.match(mangledRegex);
+                    if (match) {
+                        parsed = parseItem(match[1], match[2], match[3]+match[4], match[5]);
+                    }
+                }
+
+                if (parsed) {
+                     const { peptideId } = await ensurePeptideAndInventory(parsed.name, parsed.kind);
+                     newItems.push({
+                        peptide_id: peptideId,
+                        site_list_id: null,
+                        dose_mg_per_administration: isNaN(parsed.dose) ? 0 : parsed.dose,
+                        schedule: parsed.schedule,
+                        every_n_days: parsed.every_n,
+                        custom_days: parsed.custom_days,
+                        cycle_on_weeks: 0,
+                        cycle_off_weeks: 0,
+                        color: COLOR_PALETTE[newItems.length % COLOR_PALETTE.length],
+                        time_of_day: "08:00"
+                    });
+                }
             }
 
             if (newItems.length > 0) {
@@ -302,7 +306,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 setShowImport(false);
                 setImportText("");
             } else {
-                toast.error("No valid items found");
+                toast.error("No valid items recognized.");
             }
 
         } catch (e: any) {
@@ -366,15 +370,10 @@ export default function ProtocolEditor({ protocol, onReload }: {
                             <button onClick={() => setShowImport(false)}><X className="size-5" /></button>
                         </div>
                         <div className="p-4 flex-1 overflow-y-auto">
-                            <p className="text-sm text-muted-foreground mb-2">Paste a Markdown table here. We will auto-create any missing peptides.</p>
-                            <div className="bg-muted/10 p-2 rounded text-xs font-mono mb-2">
-                                Peptide | Type | Dose | Schedule<br/>
-                                BPC-157 | Vial | 5mg | Daily<br/>
-                                5-Amino | Cap | 50mg | Daily
-                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">Paste Protocol Text (Markdown or Copied from Reddit).</p>
                             <textarea
                                 className="w-full h-64 input font-mono text-xs"
-                                placeholder="Peptide | Type | Dose | Schedule"
+                                placeholder="Paste here..."
                                 value={importText}
                                 onChange={e => setImportText(e.target.value)}
                             />
@@ -395,17 +394,16 @@ export default function ProtocolEditor({ protocol, onReload }: {
                         <button
                             onClick={copyToReddit}
                             className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2"
-                            title="Copy for Reddit"
                         >
                             <Copy className="size-4" />
-                            <span className="hidden sm:inline">Export Protocol</span>
+                            <span className="hidden sm:inline">Export</span>
                         </button>
                         <button
                             onClick={() => setShowImport(true)}
                             className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2"
                         >
                             <Upload className="size-4" />
-                            <span className="hidden sm:inline">Import Protocol</span>
+                            <span className="hidden sm:inline">Import</span>
                         </button>
                     </div>
 
