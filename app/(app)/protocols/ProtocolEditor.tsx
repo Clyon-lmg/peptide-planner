@@ -179,20 +179,21 @@ export default function ProtocolEditor({ protocol, onReload }: {
         }
     };
 
+    // 🟢 UPDATED EXPORT FUNCTION: Writes HTML Table & Markdown
     const copyToReddit = async () => {
         const pepMap = new Map(peptides.map(p => [p.id, p]));
         const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const headers = ["Peptide", "Type", "Dose", "Schedule", "Notes"];
+        const rows: string[][] = [];
 
-        let md = `**Protocol: ${protocol.name}**\n\n`;
-        md += `| Peptide | Type | Dose | Schedule | Notes |\n`;
-        md += `|---|---|---|---|---|\n`;
-
+        // 1. Build Data
         for (const item of items) {
             if (!item.peptide_id) continue;
             const p = pepMap.get(item.peptide_id);
             const name = p?.canonical_name || "Unknown";
             const typeLabel = p?.kind === 'capsule' ? 'Capsule' : (p?.kind === 'both' ? 'Mixed' : 'Vial');
             const dose = `${item.dose_mg_per_administration} mg`;
+
             let sched = "";
             if (item.schedule === "EVERYDAY") sched = "Daily";
             else if (item.schedule === "WEEKDAYS") sched = "Mon-Fri";
@@ -200,6 +201,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
             else if (item.schedule === "CUSTOM") {
                 sched = (item.custom_days || []).map(d => DAYS[d]).join(", ");
             }
+
             const notesParts = [];
             if (item.time_of_day) notesParts.push(`@ ${item.time_of_day}`);
             if (item.cycle_on_weeks > 0) notesParts.push(`${item.cycle_on_weeks} wks ON / ${item.cycle_off_weeks} OFF`);
@@ -207,37 +209,68 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 notesParts.push(`Titrate +${item.titration_amount_mg}mg / ${item.titration_interval_days} days`);
             }
             const notes = notesParts.join(", ") || "-";
-            md += `| ${name} | ${typeLabel} | ${dose} | ${sched} | ${notes} |\n`;
+
+            rows.push([name, typeLabel, dose, sched, notes]);
         }
+
+        // 2. Build Markdown (Fallback)
+        let md = `**Protocol: ${protocol.name}**\n\n`;
+        md += `| ${headers.join(" | ")} |\n`;
+        md += `| ${headers.map(()=>"---").join(" | ")} |\n`;
+        rows.forEach(r => md += `| ${r.join(" | ")} |\n`);
         md += `\n*Generated via Peptide Planner*`;
+
+        // 3. Build HTML (For Reddit Rich Text)
+        let html = `<b>Protocol: ${protocol.name}</b><br/><br/>`;
+        html += `<table border="1" style="border-collapse: collapse; width: 100%;">`;
+        html += `<thead><tr>${headers.map(h => `<th style="padding: 6px; background-color: #efefef;">${h}</th>`).join("")}</tr></thead>`;
+        html += `<tbody>`;
+        rows.forEach(row => {
+            html += `<tr>${row.map(c => `<td style="padding: 6px;">${c}</td>`).join("")}</tr>`;
+        });
+        html += `</tbody></table>`;
+        html += `<br/><i>Generated via Peptide Planner</i>`;
+
+        // 4. Write to Clipboard (Try HTML first, fallback to text)
         try {
-            await navigator.clipboard.writeText(md);
-            toast.success("Copied Protocol to clipboard!");
-        } catch (err) { toast.error("Failed to copy"); }
+            const blobHtml = new Blob([html], { type: "text/html" });
+            const blobText = new Blob([md], { type: "text/plain" });
+            const item = new ClipboardItem({
+                "text/html": blobHtml,
+                "text/plain": blobText
+            });
+            await navigator.clipboard.write([item]);
+            toast.success("Copied Table! Paste into Reddit.");
+        } catch (err) {
+            console.error("Clipboard write failed", err);
+            // Fallback for older browsers or strict security contexts
+            try {
+                await navigator.clipboard.writeText(md);
+                toast.success("Copied Markdown (Rich Text Copy Failed)");
+            } catch (e) {
+                toast.error("Failed to copy");
+            }
+        }
     };
 
-    // --- IMPORT LOGIC (Updated for Mangled Text) ---
     const handleImport = async () => {
         setSaving(true);
         try {
             const newItems: ProtocolItemState[] = [];
             
-            // CLEANUP: Flatten newlines and remove garbage headers
+            // CLEANUP
             let cleanText = importText
                 .replace(/Protocol:.*?(?:\n|$)/gi, "")
                 .replace(/PeptideTypeDoseScheduleNotes/gi, "")
                 .replace(/Peptide\s*\|\s*Type\s*\|\s*Dose/gi, "")
                 .replace(/[\r\n]+/g, " ");
 
-            // BLOB REGEX: Look for pattern in the flattened string
             const blobRegex = /(?<name>.+?)(?<type>Vial|Capsule|Cap|Mixed)(?<dose>[\d\.]+)\s*(?<unit>mg|mcg)(?<schedule>.+?)(?<time>@\s*\d{1,2}:\d{2})/gi;
             const matches = [...cleanText.matchAll(blobRegex)];
 
             for (const match of matches) {
                 if (!match.groups) continue;
                 const { name, type, dose, unit, schedule } = match.groups;
-                
-                // Cleanup Name
                 const cleanName = name.replace(/Notes$/i, "").trim();
 
                 if (cleanName && type && dose) {
