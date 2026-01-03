@@ -221,9 +221,36 @@ export default function ProtocolEditor({ protocol, onReload }: {
         setSaving(true);
         try {
             const newItems: ProtocolItemState[] = [];
-            const lines = importText.split("\n");
+            
+            // CLEANUP: Flatten newlines and remove garbage headers
+            let cleanText = importText
+                .replace(/Protocol:.*?(?:\n|$)/gi, "")
+                .replace(/PeptideTypeDoseScheduleNotes/gi, "")
+                .replace(/Peptide\s*\|\s*Type\s*\|\s*Dose/gi, "")
+                .replace(/[\r\n]+/g, " ");
 
-            const parseItem = (name: string, typeRaw: string, doseRaw: string, schedRaw: string) => {
+            // BLOB REGEX: Look for pattern in the flattened string
+            const blobRegex = /(?<name>.+?)(?<type>Vial|Capsule|Cap|Mixed)(?<dose>[\d\.]+)\s*(?<unit>mg|mcg)(?<schedule>.+?)(?<time>@\s*\d{1,2}:\d{2})/gi;
+            const matches = [...cleanText.matchAll(blobRegex)];
+
+            for (const match of matches) {
+                if (!match.groups) continue;
+                const { name, type, dose, unit, schedule } = match.groups;
+                
+                // Cleanup Name
+                const cleanName = name.replace(/Notes$/i, "").trim();
+
+                if (cleanName && type && dose) {
+                    await addItemToState(
+                        cleanName, 
+                        type, 
+                        dose + unit, 
+                        schedule
+                    );
+                }
+            }
+
+            async function addItemToState(name: string, typeRaw: string, doseRaw: string, schedRaw: string) {
                 const kind = typeRaw.toLowerCase().includes("cap") ? 'capsule' : 'peptide';
                 const dose = parseFloat(doseRaw.replace(/[^0-9.]/g, ""));
                 
@@ -243,51 +270,17 @@ export default function ProtocolEditor({ protocol, onReload }: {
                     const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
                     custom_days = DAYS.map((d, i) => s.includes(d) ? i : -1).filter(i => i !== -1);
                 }
-                return { name, kind, dose, schedule, every_n, custom_days };
-            };
 
-            // Strategy A: Line by Line
-            for (const line of lines) {
-                const l = line.trim();
-                if (!l || l.startsWith("|---") || l.toLowerCase().startsWith("peptide")) continue;
-                if (l.includes("|")) {
-                    const parts = l.split("|").map(s => s.trim()).filter(s => s);
-                    if (parts.length >= 3) {
-                        const isType = (s: string) => ["vial", "capsule", "cap", "mixed"].some(k => s.toLowerCase().includes(k));
-                        if (isType(parts[1])) {
-                             const p = parseItem(parts[0], parts[1], parts[2], parts[3]||"");
-                             await addItemToState(p);
-                        } else {
-                             const p = parseItem(parts[0], "vial", parts[1], parts[2]||"");
-                             await addItemToState(p);
-                        }
-                    }
-                } 
-            }
-
-            // Strategy B: Blob Search (if A failed)
-            if (newItems.length === 0) {
-                 const blobRegex = /(?<name>.+?)(?<type>Vial|Capsule|Cap|Mixed)(?<dose>[\d\.]+)\s*(?<unit>mg|mcg)(?<schedule>.+?)(?<time>@\s*\d{1,2}:\d{2})/gi;
-                 const matches = [...importText.matchAll(blobRegex)];
-                 for (const match of matches) {
-                    if (!match.groups) continue;
-                    let { name, type, dose, unit, schedule } = match.groups;
-                    // Clean name
-                    name = name.replace(/Protocol:.*?Notes/i, "").replace(/PeptideTypeDoseScheduleNotes/i, "").trim();
-                    const p = parseItem(name, type, dose+unit, schedule);
-                    await addItemToState(p);
-                 }
-            }
-
-            async function addItemToState(parsed: any) {
-                const { peptideId } = await ensurePeptideAndInventory(parsed.name, parsed.kind as "peptide"|"capsule");
+                // Call Server Action
+                const { peptideId } = await ensurePeptideAndInventory(name, kind as "peptide" | "capsule");
+                
                 newItems.push({
                     peptide_id: peptideId,
                     site_list_id: null,
-                    dose_mg_per_administration: isNaN(parsed.dose) ? 0 : parsed.dose,
-                    schedule: parsed.schedule,
-                    every_n_days: parsed.every_n,
-                    custom_days: parsed.custom_days,
+                    dose_mg_per_administration: isNaN(dose) ? 0 : dose,
+                    schedule,
+                    every_n_days: every_n,
+                    custom_days,
                     cycle_on_weeks: 0,
                     cycle_off_weeks: 0,
                     color: COLOR_PALETTE[newItems.length % COLOR_PALETTE.length],
