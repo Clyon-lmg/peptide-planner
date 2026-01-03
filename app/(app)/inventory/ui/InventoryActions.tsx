@@ -12,15 +12,15 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
 
     const handleExport = async () => {
         let md = `**Inventory List**\n\n`;
-        md += `| Name | Type | Stock | Conc | Note |\n`;
-        md += `|---|---|---|---|---|\n`;
+        // Pipe-less format for Reddit compatibility
+        md += `Name | Type | Stock | Conc | Note\n`;
+        md += `---|---|---|---|---\n`;
         
         vials.forEach(v => {
-            md += `| ${v.name} | Vial | ${v.vials} | ${v.mg_per_vial} mg/vial | ${v.bac_ml}ml BAC |\n`;
+            md += `${v.name} | Vial | ${v.vials} | ${v.mg_per_vial} mg/vial | ${v.bac_ml}ml BAC\n`;
         });
         capsules.forEach(c => {
-            // Changed "Cap" to "Capsule" to match Protocol Editor export
-            md += `| ${c.name} | Capsule | ${c.bottles} | ${c.mg_per_cap} mg/cap | ${c.caps_per_bottle} caps/btl |\n`;
+            md += `${c.name} | Capsule | ${c.bottles} | ${c.mg_per_cap} mg/cap | ${c.caps_per_bottle} caps/btl\n`;
         });
         
         try {
@@ -37,22 +37,25 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
             for (const line of lines) {
                 if (!line.includes("|") || line.includes("---|---")) continue;
                 const parts = line.split("|").map(s => s.trim()).filter(s => s);
-                if (parts.length < 3) continue;
-                if (parts[0].toLowerCase() === "name") continue; // Skip header
-
-                // Supports both "Name | Type | Stock" and "Peptide | Type | Dose" (Protocol format)
-                const name = parts[0];
-                const typeRaw = parts[1].toLowerCase(); // e.g. "Vial", "Capsule", "Cap"
+                // Adjust for optional empty strings if they paste a pipe-formatted table
+                // parts might look like ["Name", "Type", ...] or ["", "Name", "Type", ..., ""]
                 
-                // Parse numbers (handle empty/missing)
+                // Remove empty start/end if present
+                if (parts.length > 0 && parts[0] === "") parts.shift();
+                if (parts.length > 0 && parts[parts.length - 1] === "") parts.pop();
+
+                if (parts.length < 3) continue;
+                if (parts[0].toLowerCase() === "name") continue;
+
+                const name = parts[0];
+                const typeRaw = parts[1].toLowerCase();
+                
                 const stock = parseFloat(parts[2]?.replace(/[^0-9.]/g, "") || "0");
                 const conc = parseFloat(parts[3]?.replace(/[^0-9.]/g, "") || "0");
                 
-                // Optional 2nd conc (bac or caps/btl)
                 let conc2 = 0;
                 if (parts[4]) conc2 = parseFloat(parts[4].replace(/[^0-9.]/g, ""));
 
-                // Normalized Kind detection
                 const kind = (typeRaw.includes("cap") || typeRaw.includes("mixed")) ? "capsule" : "peptide";
                 
                 await importInventoryItemAction(
@@ -93,15 +96,15 @@ export default function InventoryActions({ vials, capsules }: { vials: any[], ca
                             <button onClick={() => setShowImport(false)}><X className="size-5" /></button>
                         </div>
                         <div className="p-4 flex-1 overflow-y-auto">
-                            <p className="text-sm text-muted-foreground mb-2">Paste a Markdown table row to update stock. We auto-create missing items.</p>
+                            <p className="text-sm text-muted-foreground mb-2">Paste a Markdown table row to update stock.</p>
                             <div className="bg-muted/30 p-2 rounded mb-2 text-xs font-mono text-muted-foreground">
-                                | Name | Type | Stock | Conc | Note/Vol |<br/>
-                                | BPC-157 | Vial | 5 | 5mg | 3ml |<br/>
-                                | 5-Amino | Capsule | 2 | 50mg | 60 |
+                                Name | Type | Stock | Conc | Note/Vol<br/>
+                                BPC-157 | Vial | 5 | 5mg | 3ml<br/>
+                                5-Amino | Capsule | 2 | 50mg | 60
                             </div>
                             <textarea 
                                 className="w-full h-48 input font-mono text-xs" 
-                                placeholder="| Name | Type | ..."
+                                placeholder="Name | Type | Stock | Conc | Note"
                                 value={importText}
                                 onChange={e => setImportText(e.target.value)}
                             />
