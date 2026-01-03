@@ -1,8 +1,8 @@
 import React from 'react';
 import { createServerActionSupabase } from "@/lib/supabaseServer";
-import ProtocolsView from './ProtocolsView';
+import ProtocolsClient from './ProtocolsClient';
 
-// Force dynamic so we always get the latest list
+// Force dynamic so we always get the latest list (active status, etc)
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
@@ -13,7 +13,7 @@ export default async function Page() {
         return <div>Please log in</div>;
     }
 
-    // Fetch protocols securely on the server
+    // Fetch protocols
     const { data: protocols } = await supabase
         .from('protocols')
         .select('*')
@@ -22,6 +22,6 @@ export default async function Page() {
         .order('created_at', { ascending: false });
 
     return (
-        <ProtocolsView initialProtocols={protocols || []} />
+        <ProtocolsClient protocols={protocols || []} />
     );
 }
