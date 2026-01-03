@@ -19,56 +19,6 @@ export default function ImportModal({
 
     if (!isOpen) return null;
 
-    const parseLine = (line: string): ImportItem | null => {
-        // 1. CLEANUP
-        line = line.trim();
-        if (!line || line.startsWith("|---") || line.toLowerCase().startsWith("peptide")) return null;
-
-        // 2. TRY STANDARD MARKDOWN (Pipe Separated)
-        if (line.includes("|")) {
-            const parts = line.split("|").map(s => s.trim()).filter(s => s);
-            // Handle optional leading/trailing empty strings from pipes
-            if (parts.length < 3) return null;
-            
-            // Heuristic for columns
-            let name = parts[0];
-            let typeRaw = "vial";
-            let doseRaw = "";
-            let schedRaw = "";
-
-            const isType = (s: string) => ["vial", "capsule", "cap", "mixed"].some(k => s.toLowerCase().includes(k));
-
-            if (isType(parts[1])) {
-                typeRaw = parts[1];
-                doseRaw = parts[2];
-                schedRaw = parts[3] || "";
-            } else {
-                doseRaw = parts[1];
-                schedRaw = parts[2] || "";
-            }
-
-            return buildItem(name, typeRaw, doseRaw, schedRaw);
-        }
-
-        // 3. TRY SMART RESCUE (Mangled Text)
-        // Regex looks for: [Name][Type][Dose][Unit][Schedule]@[Time]
-        // Example: "SS-31Vial1.5 mgDaily@ 08:00"
-        const mangledRegex = /^(.+?)(Vial|Capsule|Cap|Mixed)([\d\.]+)\s*(mg|mcg)(.+?)(@\s*\d{1,2}:\d{2})?$/i;
-        const match = line.match(mangledRegex);
-
-        if (match) {
-            // match[1] = Name "SS-31"
-            // match[2] = Type "Vial"
-            // match[3] = Dose "1.5"
-            // match[4] = Unit "mg"
-            // match[5] = Schedule "Daily"
-            // match[6] = Time "@ 08:00" (optional)
-            return buildItem(match[1], match[2], match[3] + match[4], match[5]);
-        }
-
-        return null;
-    };
-
     const buildItem = (name: string, typeRaw: string, doseRaw: string, schedRaw: string): ImportItem => {
         const kind = typeRaw.toLowerCase().includes("cap") ? 'capsule' : 'peptide';
         const dose = parseFloat(doseRaw.replace(/[^0-9.]/g, "")) || 0;
@@ -95,15 +45,55 @@ export default function ImportModal({
     const handleImport = async () => {
         setLoading(true);
         try {
+            // 1. Try to extract name
             const nameMatch = text.match(/\*\*Protocol:\s*(.*?)\*\*/);
             const protocolName = nameMatch ? nameMatch[1].trim() : "Imported Protocol";
 
             const items: ImportItem[] = [];
             const lines = text.split("\n");
 
+            // 2. Strategy A: Line-by-Line (Standard Markdown)
             for (const line of lines) {
-                const item = parseLine(line);
-                if (item) items.push(item);
+                const l = line.trim();
+                if (!l || l.startsWith("|---") || l.toLowerCase().startsWith("peptide")) continue;
+
+                if (l.includes("|")) {
+                    const parts = l.split("|").map(s => s.trim()).filter(s => s);
+                    if (parts.length >= 3) {
+                         const isType = (s: string) => ["vial", "capsule", "cap", "mixed"].some(k => s.toLowerCase().includes(k));
+                         if (isType(parts[1])) {
+                             items.push(buildItem(parts[0], parts[1], parts[2], parts[3]||""));
+                         } else {
+                             items.push(buildItem(parts[0], "vial", parts[1], parts[2]||""));
+                         }
+                    }
+                } 
+                else {
+                    // Try simple line regex
+                    const mangledRegex = /^(.+?)(Vial|Capsule|Cap|Mixed)([\d\.]+)\s*(mg|mcg)(.+?)(@\s*\d{1,2}:\d{2})?$/i;
+                    const match = l.match(mangledRegex);
+                    if (match) {
+                        items.push(buildItem(match[1], match[2], match[3]+match[4], match[5]));
+                    }
+                }
+            }
+
+            // 3. Strategy B: Global Blob Search (If copy-paste removed newlines)
+            if (items.length === 0) {
+                // Looks for: Name...Type...Dose...Unit...Schedule...@Time
+                // The @Time is critical to delineate items in a mashed string.
+                const blobRegex = /(?<name>.+?)(?<type>Vial|Capsule|Cap|Mixed)(?<dose>[\d\.]+)\s*(?<unit>mg|mcg)(?<schedule>.+?)(?<time>@\s*\d{1,2}:\d{2})/gi;
+                
+                const matches = [...text.matchAll(blobRegex)];
+                for (const match of matches) {
+                    if (!match.groups) continue;
+                    let { name, type, dose, unit, schedule } = match.groups;
+                    
+                    // Cleanup Name: Remove common header garbage from the first item
+                    name = name.replace(/Protocol:.*?Notes/i, "").replace(/PeptideTypeDoseScheduleNotes/i, "").trim();
+                    
+                    items.push(buildItem(name, type, dose + unit, schedule));
+                }
             }
 
             if (items.length === 0) throw new Error("No recognized items found. Ensure text includes 'Vial' or 'Cap' and dosages.");
