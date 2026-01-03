@@ -16,6 +16,9 @@ const nav = [
 export default function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail?: string | null }) {
     const pathname = usePathname()
 
+    // 🟢 NEW: Check if we are on the protocols page
+    const isFullWidth = pathname?.startsWith('/protocols')
+
     return (
         <div className="min-h-[100dvh] flex flex-col lg:grid lg:grid-cols-[260px_1fr]">
 
@@ -60,8 +63,6 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
                     <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Signed in as</div>
                         <div className="text-sm truncate opacity-80 mb-2 font-mono">{userEmail}</div>
-                        
-                        {/* UPDATE: Point to the new API route */}
                         <form action="/api/auth/signout" method="post">
                             <button className="text-xs hover:underline opacity-60">Sign out</button>
                         </form>
@@ -71,7 +72,12 @@ export default function AppShell({ children, userEmail }: { children: React.Reac
 
             {/* --- MAIN CONTENT AREA --- */}
             <div className="flex-1 flex flex-col min-w-0 pb-24 lg:pb-0">
-                <main className="p-4 md:p-8 max-w-5xl w-full mx-auto animate-in fade-in duration-500">
+                {/* 🟢 NEW: Conditionally apply padding/width based on route */}
+                <main className={
+                    isFullWidth 
+                        ? "w-full animate-in fade-in duration-500" 
+                        : "p-4 md:p-8 max-w-5xl w-full mx-auto animate-in fade-in duration-500"
+                }>
                     {children}
                 </main>
             </div>
