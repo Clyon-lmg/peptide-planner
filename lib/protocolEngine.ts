@@ -1,4 +1,3 @@
-
 "use client";
 
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
@@ -44,10 +43,11 @@ function isCustomDay(d: Date, custom: number[]) { return custom.includes(d.getDa
 export async function onProtocolUpdated(protocolId: number, _userId: string) {
   const supabase = getSupabaseBrowser();
   const todayStr = localDateStr();
+  // Safe update: Only clear Today + Future. History (Yesterday and back) is safe.
   const { error: delErr } = await supabase
     .from("doses")
     .delete()
-    .gte("date_for", todayStr) // include today
+    .gte("date_for", todayStr) 
     .eq("protocol_id", protocolId);
   if (delErr) throw delErr;
 }
@@ -61,12 +61,22 @@ export async function setActiveProtocolAndRegenerate(
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess?.session?.user?.id;
   if (!uid) throw new Error("No session");
-  const todayStr = localDateStr();
+  
+  const today = new Date();
+  const todayStr = localDateStr(today);
+  
+  // 🛡️ CUTOFF: We only touch doses starting Tomorrow.
+  // This preserves "Today" (if you already logged it) and all History.
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = localDateStr(tomorrow);
+
   const { data: startData, error: startErr } = await supabase
     .from("protocols")
     .select("start_date")
     .eq("id", protocolId);
   if (startErr) throw startErr;
+  
   let startDateStr = startData?.[0]?.start_date as string | null;
   const needsStartDateUpdate = !startDateStr;
   if (!startDateStr) startDateStr = todayStr;
@@ -102,13 +112,12 @@ export async function setActiveProtocolAndRegenerate(
     });
   }
 
-  // Clear future doses for this protocol based on the scheduled date (date_for),
-  // ensuring uniqueness on (user_id, protocol_id, peptide_id, date). Past doses
-  // remain intact for historical reference.
+  // 🛡️ SAFE DELETE: Only delete FUTURE doses (Tomorrow+). 
+  // Never touch History or Today.
   const del = await supabase
     .from("doses")
     .delete()
-    .or(`date.gte.${startDateStr!},date_for.gte.${startDateStr!}`)
+    .or(`date.gte.${tomorrowStr},date_for.gte.${tomorrowStr}`)
     .eq("protocol_id", protocolId)
     .eq("user_id", uid);
   if (del.error) throw del.error;
@@ -116,16 +125,22 @@ export async function setActiveProtocolAndRegenerate(
   const { count: remaining, error: remErr } = await supabase
     .from("doses")
     .select("*", { head: true, count: "exact" })
-    .or(`date.gte.${startDateStr!},date_for.gte.${startDateStr!}`)
+    .or(`date.gte.${tomorrowStr},date_for.gte.${tomorrowStr}`)
     .eq("protocol_id", protocolId)
     .eq("user_id", uid);
   if (remErr) throw remErr;
   const result: ActivationResult = { ok: true };
   if (remaining) result.leftover = remaining;
 
-  // Generate 12 months
+  // Generate 12 months from NOW (not just from start date)
   const start = new Date(startDateStr! + "T00:00:00");
-  const days = 365;
+  
+  // Calculate how many days we need to simulate to reach "Today + 1 Year"
+  // If protocol started 2 years ago, we need to sim ~3 years to get 1 year of future data.
+  const oneDay = 24 * 60 * 60 * 1000;
+  const daysSinceStart = Math.max(0, Math.floor((today.getTime() - start.getTime()) / oneDay));
+  const daysToGenerate = daysSinceStart + 365; 
+
   const inserts: any[] = [];
 
   items.forEach((it: any) => {
@@ -134,11 +149,14 @@ export async function setActiveProtocolAndRegenerate(
     const cycleLenDays = (onWeeks + offWeeks) * 7;
     let elapsed = 0;
     const sites = it.site_list_id ? siteMap.get(it.site_list_id) || [] : [];
-    for (const d of dateRangeDays(start, days)) {
+    
+    for (const d of dateRangeDays(start, daysToGenerate)) {
+      // 1. Cycle Logic
       if (cycleLenDays > 0) {
         const inOn = elapsed % cycleLenDays < onWeeks * 7;
         if (!inOn) { elapsed++; continue; }
       }
+      // 2. Schedule Logic
       if (it.schedule === "WEEKDAYS" && isWeekend(d)) { elapsed++; continue; }
       if (it.schedule === "CUSTOM") {
         const arr = (it.custom_days || []) as number[];
@@ -148,7 +166,16 @@ export async function setActiveProtocolAndRegenerate(
         const n = Number(it.every_n_days || 0);
         if (n <= 0 || elapsed % n !== 0) { elapsed++; continue; }
       }
+
+      // 3. 🛡️ HISTORY PROTECTION:
+      // Even though we calculate the dose/state for past dates (to keep cycles correct),
+      // we SKIP adding them to the database if they are in the past.
       const ds = localDateStr(d);
+      if (ds < tomorrowStr) { 
+          elapsed++; 
+          continue; 
+      }
+
       const baseDose = it.dose_mg_per_administration;
       let dose = baseDose;
       const interval = Number(it.titration_interval_days || 0);
@@ -158,6 +185,7 @@ export async function setActiveProtocolAndRegenerate(
       }
       let site_label: string | null = null;
       if (sites.length) site_label = sites[elapsed % sites.length];
+      
       inserts.push({
         protocol_id: protocolId,
         peptide_id: it.peptide_id,
@@ -171,10 +199,7 @@ export async function setActiveProtocolAndRegenerate(
     }
   });
 
-  // Deduplicate by (peptide_id, date) to avoid Postgres error when the
-  // same row appears multiple times within a single upsert call. When
-  // duplicates occur we merge them, summing doses and keeping the last
-  // non-null site label.
+  // Deduplicate and Upsert
   const unique = new Map<string, any>();
   for (const row of inserts) {
     const key = `${row.peptide_id}|${row.date}`;
@@ -189,7 +214,8 @@ export async function setActiveProtocolAndRegenerate(
   const deduped = Array.from(unique.values());
 
   for (let i = 0; i < deduped.length; i += 1000) {
-    const chunk = deduped.slice(i, i + 1000);    const ins = await supabase
+    const chunk = deduped.slice(i, i + 1000);    
+    const ins = await supabase
       .from("doses")
       .upsert(chunk, {
         onConflict: "user_id,protocol_id,peptide_id,date",
