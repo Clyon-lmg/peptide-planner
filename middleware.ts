@@ -1,4 +1,3 @@
-﻿﻿// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
@@ -11,7 +10,8 @@ const PUBLIC_PATHS = [
   "/(auth)/sign-up",
   "/api/public",
   "/api/calendar/export",
-  "/auth/callback",
+  "/callback", // <--- ADDED THIS (Critical)
+  "/auth/callback", // Keeping for safety, though likely unused now
 ];
 
 export async function middleware(req: NextRequest) {
@@ -23,7 +23,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/images") ||
     pathname.startsWith("/icons") ||
-    pathname.startsWith("/api/webhooks") // allow webhooks if you have any
+    pathname.startsWith("/api/webhooks")
   ) {
     return NextResponse.next();
   }
@@ -38,27 +38,25 @@ export async function middleware(req: NextRequest) {
       cookies: {
         getAll: () => req.cookies.getAll(),
         setAll: () => {
-          // Middleware cannot set cookies. Session refresh should occur in
-          // an API route or Server Action where cookies can be modified.
+          // Middleware cannot set cookies directly for session, that happens in route handlers/actions
         },
       },
     }
   );
 
-  // refresh session if needed
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
+  // If not logged in and trying to access a protected route -> Sign In
   if (!session && !isPublic) {
-    // redirect to sign-in preserving where they tried to go
     const url = req.nextUrl.clone();
     url.pathname = "/sign-in";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
-  // If the user is signed in and tries to go to sign-in or sign-up, bounce them to /today
+  // If logged in and trying to access auth pages -> Dashboard
   if (
     session &&
     (pathname === "/sign-in" ||
