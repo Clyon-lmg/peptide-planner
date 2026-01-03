@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createServerActionSupabase } from "@/lib/supabaseServer";
@@ -31,12 +31,14 @@ export default function SignUpPage({ searchParams }: PageProps) {
       console.error("NEXT_PUBLIC_SITE_URL is undefined");
       throw new Error("NEXT_PUBLIC_SITE_URL is undefined");
     }
+    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { username },
-        emailRedirectTo: `${redirectBase}/auth/callback?next=/today`,
+        // FIX: Point to /callback, not /auth/callback
+        emailRedirectTo: `${redirectBase}/callback?next=/today`,
       },
     });
 
@@ -48,7 +50,8 @@ export default function SignUpPage({ searchParams }: PageProps) {
       redirect("/today");
     }
 
-    redirect("/auth/callback?next=/today");
+    // Redirect to the success/verify page or dashboard
+    redirect("/today");
   };
 
   const err = (searchParams?.error as string) || "";
@@ -69,7 +72,7 @@ export default function SignUpPage({ searchParams }: PageProps) {
               name="email"
               type="email"
               required
-                          className="mt-1 w-full rounded border px-3 py-2 text-foreground"
+                          className="mt-1 w-full rounded border px-3 py-2 text-foreground bg-background"
             />
           </label>
           <label className="block text-sm">
@@ -79,7 +82,7 @@ export default function SignUpPage({ searchParams }: PageProps) {
               type="password"
               required
               minLength={6}
-                          className="mt-1 w-full rounded border px-3 py-2 text-foreground"
+                          className="mt-1 w-full rounded border px-3 py-2 text-foreground bg-background"
             />
           </label>
           <label className="block text-sm">
@@ -87,19 +90,19 @@ export default function SignUpPage({ searchParams }: PageProps) {
             <input
               name="username"
               type="text"
-                          className="mt-1 w-full rounded border px-3 py-2 text-foreground"
+                          className="mt-1 w-full rounded border px-3 py-2 text-foreground bg-background"
             />
           </label>
           <button
             type="submit"
-                      className="rounded px-4 py-2 text-sm bg-success hover:bg-success/90 text-white"
+                      className="rounded px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white w-full font-medium transition-colors"
           >
             Sign up
           </button>
         </form>
-              <div className="text-xs text-muted">
+              <div className="text-xs text-muted-foreground text-center mt-4">
           Already have an account?{" "}
-          <Link href="/sign-in" className="underline">
+          <Link href="/sign-in" className="underline hover:text-foreground">
             Sign in
           </Link>
         </div>
