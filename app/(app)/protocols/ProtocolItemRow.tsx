@@ -2,7 +2,6 @@
 import React from "react";
 import { Trash2, Clock, Syringe, Check, Pill, FlaskConical } from "lucide-react";
 
-// Updated type to include 'kind'
 export type InventoryPeptide = { 
     id: number; 
     canonical_name: string; 
@@ -28,6 +27,14 @@ export type ProtocolItemState = {
     time_of_day?: string | null;
 };
 
+// 🟢 FIX 1: Moved Component OUTSIDE
+const InputGroup = ({ label, children, className = "" }: { label: string, children: React.ReactNode, className?: string }) => (
+    <div className={`flex flex-col gap-1.5 min-w-0 ${className}`}>
+        <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider whitespace-nowrap truncate">{label}</label>
+        {children}
+    </div>
+);
+
 export default function ProtocolItemRow({
     value,
     peptides,
@@ -44,23 +51,14 @@ export default function ProtocolItemRow({
     const v = value;
     const isTitrating = (v.titration_interval_days || 0) > 0 || (v.titration_amount_mg || 0) > 0;
 
-    // Helper to find the current selected peptide's kind
     const selectedPeptide = peptides.find(p => p.id === v.peptide_id);
     const kindIcon = selectedPeptide?.kind === 'capsule' ? <Pill className="size-5" /> : <FlaskConical className="size-5" />;
-
-    const InputGroup = ({ label, children, className = "" }: { label: string, children: React.ReactNode, className?: string }) => (
-        <div className={`flex flex-col gap-1.5 min-w-0 ${className}`}>
-            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider whitespace-nowrap truncate">{label}</label>
-            {children}
-        </div>
-    );
 
     return (
         <div className="pp-card p-4 mb-3 relative group hover:border-primary/30 transition-all shadow-sm">
             {/* 1. Header Row: Icon + Peptide + Color + Delete */}
             <div className="flex items-center gap-3 mb-5">
                 <div className="size-10 md:size-11 rounded-xl shrink-0 flex items-center justify-center shadow-inner" style={{ backgroundColor: v.color + '20', color: v.color }}>
-                    {/* Dynamic Icon based on inventory type */}
                     {kindIcon}
                 </div>
 
