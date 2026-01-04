@@ -1,8 +1,7 @@
-﻿import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
+import { createServerComponentSupabase, createServerActionSupabase } from "@/lib/supabaseServer";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
-import AddRow from "./ui/AddRow";
 import InventoryList from "./ui/InventoryList";
 import InventoryActions from "./ui/InventoryActions";
 
@@ -46,10 +45,10 @@ export default async function InventoryPage() {
   }
 
   // Load inventory rows
-    const [vialRows, capsRows] = await Promise.all([
-        getVialInventory(),
-        getCapsInventory(),
-    ]);
+  const [vialRows, capsRows] = await Promise.all([
+      getVialInventory(),
+      getCapsInventory(),
+  ]);
 
   // Get active protocol items for only the peptides we care about
   const peptideIds = [
@@ -239,9 +238,6 @@ export default async function InventoryPage() {
         {/* New Actions Component */}
         <InventoryActions vials={vialRows} capsules={capsRows} />
       </header>
-
-      {/* Simplified Adder */}
-      <AddRow />
 
       {/* Inventory cards */}
       <InventoryList
