@@ -39,27 +39,34 @@ export type InventoryListProps = {
     onDeleteCapsule?: (id: number) => Promise<void> | void;
 };
 
-function parseNum(value: string, allowEmpty = true) {
-    if (allowEmpty && value.trim() === "") return undefined;
-    const n = Number(value);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
-}
+// 🟢 FIX 1: Input Group now handles strings and uses text input
+const InputGroup = ({ label, value, onChange, disabled, step = 1 }: any) => {
+    // Helper to allow typing decimals and empty strings safely
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        // Allow empty, or valid integer/float patterns (e.g. "0.5", "10.")
+        if (val === "" || /^\d*\.?\d*$/.test(val)) {
+            onChange(val);
+        }
+    };
 
-// 🟢 FIX 1: Moved Component OUTSIDE to prevent re-render focus loss
-const InputGroup = ({ label, value, onChange, disabled, step = 1, type = "number" }: any) => (
-    <div className="flex flex-col gap-1.5 min-w-0">
-        <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider truncate">{label}</label>
-        <input
-            type={type}
-            step={step}
-            min={0}
-            value={String(value ?? "")}
-            onChange={e => onChange(parseNum(e.target.value))}
-            disabled={disabled}
-            className="input font-mono text-sm px-2 w-full"
-        />
-    </div>
-);
+    return (
+        <div className="flex flex-col gap-1.5 min-w-0">
+            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider truncate">
+                {label}
+            </label>
+            <input
+                type="text" 
+                inputMode="decimal"
+                value={value ?? ""}
+                onChange={handleChange}
+                disabled={disabled}
+                placeholder="0"
+                className="input font-mono text-sm px-2 w-full"
+            />
+        </div>
+    );
+};
 
 export default function InventoryList({
     vials,
@@ -69,34 +76,49 @@ export default function InventoryList({
     onDeleteVial,
     onDeleteCapsule,
 }: InventoryListProps) {
-    const [vialEdits, setVialEdits] = React.useState<Record<number, SaveVialPayload>>({});
-    const [capsEdits, setCapsEdits] = React.useState<Record<number, SaveCapsPayload>>({});
+    // 🟢 FIX 2: Store edits as strings (or numbers) to allow "10." state
+    const [vialEdits, setVialEdits] = React.useState<Record<number, Partial<Record<keyof VialItem, string | number>>>>({});
+    const [capsEdits, setCapsEdits] = React.useState<Record<number, Partial<Record<keyof CapsuleItem, string | number>>>>({});
+    
     const [savingIds, setSavingIds] = React.useState<Set<string>>(new Set());
     const router = useRouter();
 
-    const currentVialValue = (item: VialItem, field: any) => (vialEdits[item.id] as any)?.[field] ?? (item as any)[field];
-    const currentCapsValue = (item: CapsuleItem, field: any) => (capsEdits[item.id] as any)?.[field] ?? (item as any)[field];
+    const currentVialValue = (item: VialItem, field: keyof VialItem) => 
+        (vialEdits[item.id] as any)?.[field] ?? item[field];
+
+    const currentCapsValue = (item: CapsuleItem, field: keyof CapsuleItem) => 
+        (capsEdits[item.id] as any)?.[field] ?? item[field];
+
+    // Helper to check if a value has changed (comparing as numbers)
+    const isDirtyVal = (newVal: string | number | undefined, oldVal: number) => {
+        if (newVal === undefined) return false;
+        if (newVal === "") return false; // Don't count empty as dirty change immediately? Or do?
+        return Number(newVal) !== Number(oldVal);
+    };
 
     const isVialDirty = (item: VialItem) => {
         const e = vialEdits[item.id];
         if (!e) return false;
-        return (e.vials !== undefined && Number(e.vials) !== Number(item.vials)) ||
-            (e.mg_per_vial !== undefined && Number(e.mg_per_vial) !== Number(item.mg_per_vial)) ||
-            (e.bac_ml !== undefined && Number(e.bac_ml) !== Number(item.bac_ml)) ||
-            (e.half_life_hours !== undefined && Number(e.half_life_hours) !== Number(item.half_life_hours));
+        return isDirtyVal(e.vials, item.vials) ||
+            isDirtyVal(e.mg_per_vial, item.mg_per_vial) ||
+            isDirtyVal(e.bac_ml, item.bac_ml) ||
+            isDirtyVal(e.half_life_hours, item.half_life_hours);
     };
 
     const isCapsDirty = (item: CapsuleItem) => {
         const e = capsEdits[item.id];
         if (!e) return false;
-        return (e.bottles !== undefined && Number(e.bottles) !== Number(item.bottles)) ||
-            (e.caps_per_bottle !== undefined && Number(e.caps_per_bottle) !== Number(item.caps_per_bottle)) ||
-            (e.mg_per_cap !== undefined && Number(e.mg_per_cap) !== Number(item.mg_per_cap)) ||
-            (e.half_life_hours !== undefined && Number(e.half_life_hours) !== Number(item.half_life_hours));
+        return isDirtyVal(e.bottles, item.bottles) ||
+            isDirtyVal(e.caps_per_bottle, item.caps_per_bottle) ||
+            isDirtyVal(e.mg_per_cap, item.mg_per_cap) ||
+            isDirtyVal(e.half_life_hours, item.half_life_hours);
     };
 
-    const onChangeVial = (id: number, field: any, value: any) => setVialEdits(p => ({ ...p, [id]: { ...(p[id] ?? { id }), id, [field]: value } }));
-    const onChangeCaps = (id: number, field: any, value: any) => setCapsEdits(p => ({ ...p, [id]: { ...(p[id] ?? { id }), id, [field]: value } }));
+    const onChangeVial = (id: number, field: string, value: string) => 
+        setVialEdits(p => ({ ...p, [id]: { ...(p[id] ?? {}), [field]: value } }));
+
+    const onChangeCaps = (id: number, field: string, value: string) => 
+        setCapsEdits(p => ({ ...p, [id]: { ...(p[id] ?? {}), [field]: value } }));
 
     const clearVial = (id: number) => setVialEdits(p => { const n = { ...p }; delete n[id]; return n; });
     const clearCaps = (id: number) => setCapsEdits(p => { const n = { ...p }; delete n[id]; return n; });
@@ -106,19 +128,44 @@ export default function InventoryList({
         try { await fn(); } finally { setSavingIds((s) => { const n = new Set(s); n.delete(key); return n; }); }
     };
 
+    // 🟢 FIX 3: Parse strings to numbers before saving
+    const prepareVialPayload = (item: VialItem): SaveVialPayload | null => {
+        const edited = vialEdits[item.id];
+        if (!edited) return null;
+        
+        return {
+            id: item.id,
+            vials: edited.vials !== undefined ? Number(edited.vials) : undefined,
+            mg_per_vial: edited.mg_per_vial !== undefined ? Number(edited.mg_per_vial) : undefined,
+            bac_ml: edited.bac_ml !== undefined ? Number(edited.bac_ml) : undefined,
+            half_life_hours: edited.half_life_hours !== undefined ? Number(edited.half_life_hours) : undefined,
+        };
+    };
+
+    const prepareCapsPayload = (item: CapsuleItem): SaveCapsPayload | null => {
+        const edited = capsEdits[item.id];
+        if (!edited) return null;
+
+        return {
+            id: item.id,
+            bottles: edited.bottles !== undefined ? Number(edited.bottles) : undefined,
+            caps_per_bottle: edited.caps_per_bottle !== undefined ? Number(edited.caps_per_bottle) : undefined,
+            mg_per_cap: edited.mg_per_cap !== undefined ? Number(edited.mg_per_cap) : undefined,
+            half_life_hours: edited.half_life_hours !== undefined ? Number(edited.half_life_hours) : undefined,
+        };
+    };
+
     const handleSaveVial = async (item: VialItem) => {
         if (!onSaveVial) return;
-        const edited = vialEdits[item.id];
-        if (!edited) return;
-        const payload: SaveVialPayload = { ...edited, id: item.id };
+        const payload = prepareVialPayload(item);
+        if (!payload) return;
         await saveWrapper(`vial-${item.id}`, async () => { await onSaveVial(payload); clearVial(item.id); router.refresh(); });
     };
 
     const handleSaveCaps = async (item: CapsuleItem) => {
         if (!onSaveCapsule) return;
-        const edited = capsEdits[item.id];
-        if (!edited) return;
-        const payload: SaveCapsPayload = { ...edited, id: item.id };
+        const payload = prepareCapsPayload(item);
+        if (!payload) return;
         await saveWrapper(`cap-${item.id}`, async () => { await onSaveCapsule(payload); clearCaps(item.id); router.refresh(); });
     };
 
@@ -177,13 +224,12 @@ export default function InventoryList({
                                 </div>
 
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    <InputGroup label="Vials" value={currentVialValue(item, "vials")} onChange={(v: number) => onChangeVial(item.id, "vials", v)} disabled={saving} />
-                                    <InputGroup label="mg/vial" value={currentVialValue(item, "mg_per_vial")} onChange={(v: number) => onChangeVial(item.id, "mg_per_vial", v)} disabled={saving} step={0.1} />
-                                    <InputGroup label="mL BAC" value={currentVialValue(item, "bac_ml")} onChange={(v: number) => onChangeVial(item.id, "bac_ml", v)} disabled={saving} step={0.1} />
-                                    <InputGroup label="Half-life" value={currentVialValue(item, "half_life_hours")} onChange={(v: number) => onChangeVial(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
+                                    <InputGroup label="Vials" value={currentVialValue(item, "vials")} onChange={(v: string) => onChangeVial(item.id, "vials", v)} disabled={saving} />
+                                    <InputGroup label="mg/vial" value={currentVialValue(item, "mg_per_vial")} onChange={(v: string) => onChangeVial(item.id, "mg_per_vial", v)} disabled={saving} step={0.1} />
+                                    <InputGroup label="mL BAC" value={currentVialValue(item, "bac_ml")} onChange={(v: string) => onChangeVial(item.id, "bac_ml", v)} disabled={saving} step={0.1} />
+                                    <InputGroup label="Half-life" value={currentVialValue(item, "half_life_hours")} onChange={(v: string) => onChangeVial(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
                                 </div>
 
-                                {/* 🟢 FIX 2: Removed absolute positioning. Used Flow layout to prevent overlap on mobile. */}
                                 {dirty && (
                                     <div className="mt-4 flex items-center justify-end gap-2 animate-in fade-in slide-in-from-top-1">
                                         <button onClick={() => clearVial(item.id)} className="btn h-9 w-9 p-0 rounded-full border-muted hover:bg-muted/20">
@@ -233,13 +279,12 @@ export default function InventoryList({
                                 </div>
 
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    <InputGroup label="Bottles" value={currentCapsValue(item, "bottles")} onChange={(v: number) => onChangeCaps(item.id, "bottles", v)} disabled={saving} />
-                                    <InputGroup label="Caps/Btl" value={currentCapsValue(item, "caps_per_bottle")} onChange={(v: number) => onChangeCaps(item.id, "caps_per_bottle", v)} disabled={saving} />
-                                    <InputGroup label="mg/cap" value={currentCapsValue(item, "mg_per_cap")} onChange={(v: number) => onChangeCaps(item.id, "mg_per_cap", v)} disabled={saving} step={0.1} />
-                                    <InputGroup label="Half-life" value={currentCapsValue(item, "half_life_hours")} onChange={(v: number) => onChangeCaps(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
+                                    <InputGroup label="Bottles" value={currentCapsValue(item, "bottles")} onChange={(v: string) => onChangeCaps(item.id, "bottles", v)} disabled={saving} />
+                                    <InputGroup label="Caps/Btl" value={currentCapsValue(item, "caps_per_bottle")} onChange={(v: string) => onChangeCaps(item.id, "caps_per_bottle", v)} disabled={saving} />
+                                    <InputGroup label="mg/cap" value={currentCapsValue(item, "mg_per_cap")} onChange={(v: string) => onChangeCaps(item.id, "mg_per_cap", v)} disabled={saving} step={0.1} />
+                                    <InputGroup label="Half-life" value={currentCapsValue(item, "half_life_hours")} onChange={(v: string) => onChangeCaps(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
                                 </div>
 
-                                {/* 🟢 FIX 2: Fixed overlap here as well */}
                                 {dirty && (
                                     <div className="mt-4 flex items-center justify-end gap-2 animate-in fade-in slide-in-from-top-1">
                                         <button onClick={() => clearCaps(item.id)} className="btn h-9 w-9 p-0 rounded-full border-muted hover:bg-muted/20">
