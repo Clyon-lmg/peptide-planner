@@ -45,6 +45,22 @@ function parseNum(value: string, allowEmpty = true) {
     return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+// 🟢 FIX 1: Moved Component OUTSIDE to prevent re-render focus loss
+const InputGroup = ({ label, value, onChange, disabled, step = 1, type = "number" }: any) => (
+    <div className="flex flex-col gap-1.5 min-w-0">
+        <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider truncate">{label}</label>
+        <input
+            type={type}
+            step={step}
+            min={0}
+            value={String(value ?? "")}
+            onChange={e => onChange(parseNum(e.target.value))}
+            disabled={disabled}
+            className="input font-mono text-sm px-2 w-full"
+        />
+    </div>
+);
+
 export default function InventoryList({
     vials,
     capsules,
@@ -116,21 +132,6 @@ export default function InventoryList({
         await saveWrapper(`cap-${id}`, async () => { await onDeleteCapsule(id); router.refresh(); });
     };
 
-    const InputGroup = ({ label, value, onChange, disabled, step = 1, type = "number" }: any) => (
-        <div className="flex flex-col gap-1.5 min-w-0">
-            <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider truncate">{label}</label>
-            <input
-                type={type}
-                step={step}
-                min={0}
-                value={String(value ?? "")}
-                onChange={e => onChange(parseNum(e.target.value))}
-                disabled={disabled}
-                className="input font-mono text-sm px-2 w-full"
-            />
-        </div>
-    );
-
     return (
         <div className="space-y-10">
             {/* Vials */}
@@ -147,7 +148,6 @@ export default function InventoryList({
                             <Card key={item.id} className="relative group hover:border-primary/20 transition-colors">
                                 <div className="flex items-start justify-between mb-5">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        {/* Added Icon for visual clarity */}
                                         <div className="size-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
                                             <Syringe className="size-5" />
                                         </div>
@@ -183,9 +183,12 @@ export default function InventoryList({
                                     <InputGroup label="Half-life" value={currentVialValue(item, "half_life_hours")} onChange={(v: number) => onChangeVial(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
                                 </div>
 
+                                {/* 🟢 FIX 2: Removed absolute positioning. Used Flow layout to prevent overlap on mobile. */}
                                 {dirty && (
-                                    <div className="absolute bottom-4 right-4 flex items-center gap-2 animate-in fade-in zoom-in-95">
-                                        <button onClick={() => clearVial(item.id)} className="btn h-9 w-9 p-0 rounded-full border-muted hover:bg-muted/20"><X className="w-4 h-4" /></button>
+                                    <div className="mt-4 flex items-center justify-end gap-2 animate-in fade-in slide-in-from-top-1">
+                                        <button onClick={() => clearVial(item.id)} className="btn h-9 w-9 p-0 rounded-full border-muted hover:bg-muted/20">
+                                            <X className="w-4 h-4" />
+                                        </button>
                                         <button onClick={() => handleSaveVial(item)} disabled={saving} className="btn h-9 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md flex items-center gap-2">
                                             {saving ? "..." : <><Save className="w-4 h-4" /> Save</>}
                                         </button>
@@ -211,7 +214,6 @@ export default function InventoryList({
                             <Card key={item.id} className="relative group hover:border-primary/20 transition-colors">
                                 <div className="flex items-start justify-between mb-5">
                                     <div className="flex items-center gap-3 min-w-0">
-                                        {/* Added Icon for visual clarity */}
                                         <div className="size-10 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
                                             <Pill className="size-5" />
                                         </div>
@@ -237,9 +239,12 @@ export default function InventoryList({
                                     <InputGroup label="Half-life" value={currentCapsValue(item, "half_life_hours")} onChange={(v: number) => onChangeCaps(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
                                 </div>
 
+                                {/* 🟢 FIX 2: Fixed overlap here as well */}
                                 {dirty && (
-                                    <div className="absolute bottom-4 right-4 flex items-center gap-2 animate-in fade-in zoom-in-95">
-                                        <button onClick={() => clearCaps(item.id)} className="btn h-9 w-9 p-0 rounded-full border-muted hover:bg-muted/20"><X className="w-4 h-4" /></button>
+                                    <div className="mt-4 flex items-center justify-end gap-2 animate-in fade-in slide-in-from-top-1">
+                                        <button onClick={() => clearCaps(item.id)} className="btn h-9 w-9 p-0 rounded-full border-muted hover:bg-muted/20">
+                                            <X className="w-4 h-4" />
+                                        </button>
                                         <button onClick={() => handleSaveCaps(item)} disabled={saving} className="btn h-9 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md flex items-center gap-2">
                                             {saving ? "..." : <><Save className="w-4 h-4" /> Save</>}
                                         </button>
