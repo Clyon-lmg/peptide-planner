@@ -179,14 +179,13 @@ export default function ProtocolEditor({ protocol, onReload }: {
         }
     };
 
-    // 🟢 UPDATED EXPORT FUNCTION: Writes HTML Table & Markdown
+    // Export Logic
     const copyToReddit = async () => {
         const pepMap = new Map(peptides.map(p => [p.id, p]));
         const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const headers = ["Peptide", "Type", "Dose", "Schedule", "Notes"];
         const rows: string[][] = [];
 
-        // 1. Build Data
         for (const item of items) {
             if (!item.peptide_id) continue;
             const p = pepMap.get(item.peptide_id);
@@ -213,43 +212,31 @@ export default function ProtocolEditor({ protocol, onReload }: {
             rows.push([name, typeLabel, dose, sched, notes]);
         }
 
-        // 2. Build Markdown (Fallback)
         let md = `**Protocol: ${protocol.name}**\n\n`;
         md += `| ${headers.join(" | ")} |\n`;
         md += `| ${headers.map(()=>"---").join(" | ")} |\n`;
         rows.forEach(r => md += `| ${r.join(" | ")} |\n`);
         md += `\n*Generated via Peptide Planner*`;
 
-        // 3. Build HTML (For Reddit Rich Text)
-        let html = `<b>Protocol: ${protocol.name}</b><br/><br/>`;
-        html += `<table border="1" style="border-collapse: collapse; width: 100%;">`;
-        html += `<thead><tr>${headers.map(h => `<th style="padding: 6px; background-color: #efefef;">${h}</th>`).join("")}</tr></thead>`;
-        html += `<tbody>`;
-        rows.forEach(row => {
-            html += `<tr>${row.map(c => `<td style="padding: 6px;">${c}</td>`).join("")}</tr>`;
-        });
-        html += `</tbody></table>`;
-        html += `<br/><i>Generated via Peptide Planner</i>`;
+        let html = `
+            <html><body><p><strong>Protocol: ${protocol.name}</strong></p>
+            <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; border: 1px solid #ccc; font-family: sans-serif;">
+                <thead><tr style="background-color: #f0f0f0;">${headers.map(h => `<th style="border: 1px solid #ccc; padding: 8px;">${h}</th>`).join("")}</tr></thead>
+                <tbody>${rows.map(row => `<tr>${row.map(c => `<td style="border: 1px solid #ccc; padding: 8px;">${c}</td>`).join("")}</tr>`).join("")}</tbody>
+            </table><p><em>Generated via Peptide Planner</em></p></body></html>
+        `;
 
-        // 4. Write to Clipboard (Try HTML first, fallback to text)
         try {
             const blobHtml = new Blob([html], { type: "text/html" });
             const blobText = new Blob([md], { type: "text/plain" });
-            const item = new ClipboardItem({
-                "text/html": blobHtml,
-                "text/plain": blobText
-            });
-            await navigator.clipboard.write([item]);
-            toast.success("Copied Table! Paste into Reddit.");
+            const data = [new ClipboardItem({ "text/html": blobHtml, "text/plain": blobText })];
+            await navigator.clipboard.write(data);
+            toast.success("Table copied! Paste directly into Reddit.");
         } catch (err) {
-            console.error("Clipboard write failed", err);
-            // Fallback for older browsers or strict security contexts
             try {
                 await navigator.clipboard.writeText(md);
-                toast.success("Copied Markdown (Rich Text Copy Failed)");
-            } catch (e) {
-                toast.error("Failed to copy");
-            }
+                toast.warning("Rich text copy failed. Copied Markdown.");
+            } catch (e) { toast.error("Clipboard access denied."); }
         }
     };
 
@@ -257,8 +244,6 @@ export default function ProtocolEditor({ protocol, onReload }: {
         setSaving(true);
         try {
             const newItems: ProtocolItemState[] = [];
-            
-            // CLEANUP
             let cleanText = importText
                 .replace(/Protocol:.*?(?:\n|$)/gi, "")
                 .replace(/PeptideTypeDoseScheduleNotes/gi, "")
@@ -274,12 +259,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 const cleanName = name.replace(/Notes$/i, "").trim();
 
                 if (cleanName && type && dose) {
-                    await addItemToState(
-                        cleanName, 
-                        type, 
-                        dose + unit, 
-                        schedule
-                    );
+                    await addItemToState(cleanName, type, dose + unit, schedule);
                 }
             }
 
@@ -304,9 +284,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                     custom_days = DAYS.map((d, i) => s.includes(d) ? i : -1).filter(i => i !== -1);
                 }
 
-                // Call Server Action
                 const { peptideId } = await ensurePeptideAndInventory(name, kind as "peptide" | "capsule");
-                
                 newItems.push({
                     peptide_id: peptideId,
                     site_list_id: null,
@@ -409,7 +387,8 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 </div>
             )}
 
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border z-40 lg:pl-[340px]">
+            {/* 🟢 FIXED: z-[60] ensures this floats ABOVE the Mobile Navigation bar (z-50) */}
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border z-[60] lg:pl-[340px]">
                 <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
                     <div className="flex gap-2">
                         <button onClick={copyToReddit} className="btn border-border bg-card hover:bg-muted/20 text-muted-foreground hover:text-foreground text-xs h-10 px-3 flex items-center gap-2">
