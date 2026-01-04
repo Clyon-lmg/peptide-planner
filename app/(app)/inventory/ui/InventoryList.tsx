@@ -39,12 +39,12 @@ export type InventoryListProps = {
     onDeleteCapsule?: (id: number) => Promise<void> | void;
 };
 
-// 🟢 FIX 1: Input Group now handles strings and uses text input
+// Component: InputGroup
+// Handles the layout and the "allow empty string" logic for numeric inputs
 const InputGroup = ({ label, value, onChange, disabled, step = 1 }: any) => {
-    // Helper to allow typing decimals and empty strings safely
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
-        // Allow empty, or valid integer/float patterns (e.g. "0.5", "10.")
+        // Allow empty string OR valid number (int or float)
         if (val === "" || /^\d*\.?\d*$/.test(val)) {
             onChange(val);
         }
@@ -76,7 +76,7 @@ export default function InventoryList({
     onDeleteVial,
     onDeleteCapsule,
 }: InventoryListProps) {
-    // 🟢 FIX 2: Store edits as strings (or numbers) to allow "10." state
+    // State: Store edits as strings/numbers to allow intermediate "10." typing state
     const [vialEdits, setVialEdits] = React.useState<Record<number, Partial<Record<keyof VialItem, string | number>>>>({});
     const [capsEdits, setCapsEdits] = React.useState<Record<number, Partial<Record<keyof CapsuleItem, string | number>>>>({});
     
@@ -89,10 +89,10 @@ export default function InventoryList({
     const currentCapsValue = (item: CapsuleItem, field: keyof CapsuleItem) => 
         (capsEdits[item.id] as any)?.[field] ?? item[field];
 
-    // Helper to check if a value has changed (comparing as numbers)
+    // Check if dirty (compare as numbers)
     const isDirtyVal = (newVal: string | number | undefined, oldVal: number) => {
         if (newVal === undefined) return false;
-        if (newVal === "") return false; // Don't count empty as dirty change immediately? Or do?
+        if (newVal === "") return false;
         return Number(newVal) !== Number(oldVal);
     };
 
@@ -128,7 +128,7 @@ export default function InventoryList({
         try { await fn(); } finally { setSavingIds((s) => { const n = new Set(s); n.delete(key); return n; }); }
     };
 
-    // 🟢 FIX 3: Parse strings to numbers before saving
+    // Prepare payloads (convert strings back to numbers)
     const prepareVialPayload = (item: VialItem): SaveVialPayload | null => {
         const edited = vialEdits[item.id];
         if (!edited) return null;
@@ -181,7 +181,7 @@ export default function InventoryList({
 
     return (
         <div className="space-y-10">
-            {/* Vials */}
+            {/* Vials Section */}
             <section>
                 <h2 className="pp-h2 mb-4 flex items-center gap-2">
                     <Syringe className="size-5 text-blue-500" /> Vials
@@ -227,7 +227,9 @@ export default function InventoryList({
                                     <InputGroup label="Vials" value={currentVialValue(item, "vials")} onChange={(v: string) => onChangeVial(item.id, "vials", v)} disabled={saving} />
                                     <InputGroup label="mg/vial" value={currentVialValue(item, "mg_per_vial")} onChange={(v: string) => onChangeVial(item.id, "mg_per_vial", v)} disabled={saving} step={0.1} />
                                     <InputGroup label="mL BAC" value={currentVialValue(item, "bac_ml")} onChange={(v: string) => onChangeVial(item.id, "bac_ml", v)} disabled={saving} step={0.1} />
-                                    <InputGroup label="Half-life" value={currentVialValue(item, "half_life_hours")} onChange={(v: string) => onChangeVial(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
+                                    
+                                    {/* UPDATED LABEL */}
+                                    <InputGroup label="Half-life (hrs)" value={currentVialValue(item, "half_life_hours")} onChange={(v: string) => onChangeVial(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
                                 </div>
 
                                 {dirty && (
@@ -246,7 +248,7 @@ export default function InventoryList({
                 </div>
             </section>
 
-            {/* Capsules */}
+            {/* Capsules Section */}
             <section>
                 <h2 className="pp-h2 mb-4 flex items-center gap-2">
                     <Pill className="size-5 text-purple-500" /> Capsules
@@ -282,7 +284,9 @@ export default function InventoryList({
                                     <InputGroup label="Bottles" value={currentCapsValue(item, "bottles")} onChange={(v: string) => onChangeCaps(item.id, "bottles", v)} disabled={saving} />
                                     <InputGroup label="Caps/Btl" value={currentCapsValue(item, "caps_per_bottle")} onChange={(v: string) => onChangeCaps(item.id, "caps_per_bottle", v)} disabled={saving} />
                                     <InputGroup label="mg/cap" value={currentCapsValue(item, "mg_per_cap")} onChange={(v: string) => onChangeCaps(item.id, "mg_per_cap", v)} disabled={saving} step={0.1} />
-                                    <InputGroup label="Half-life" value={currentCapsValue(item, "half_life_hours")} onChange={(v: string) => onChangeCaps(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
+                                    
+                                    {/* UPDATED LABEL */}
+                                    <InputGroup label="Half-life (hrs)" value={currentCapsValue(item, "half_life_hours")} onChange={(v: string) => onChangeCaps(item.id, "half_life_hours", v)} disabled={saving} step={0.1} />
                                 </div>
 
                                 {dirty && (
