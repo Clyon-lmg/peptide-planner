@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { Trash2, Pill, FlaskConical } from "lucide-react";
+import React from "react";
+import { Trash2, Clock, Syringe, Check, Pill, FlaskConical } from "lucide-react";
 
 export type InventoryPeptide = { 
     id: number; 
@@ -23,80 +23,18 @@ export type ProtocolItemState = {
     every_n_days?: number | null;
     titration_interval_days?: number | null;
     titration_amount_mg?: number | null;
+    titration_target_mg?: number | null; // 🟢 NEW
     color: string;
     time_of_day?: string | null;
 };
 
-// --- HELPER COMPONENTS ---
-
+// Component moved outside to prevent re-render focus loss
 const InputGroup = ({ label, children, className = "" }: { label: string, children: React.ReactNode, className?: string }) => (
     <div className={`flex flex-col gap-1.5 min-w-0 ${className}`}>
         <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider whitespace-nowrap truncate">{label}</label>
         {children}
     </div>
 );
-
-// 🟢 FIX: Reusable Number Input that handles the "empty string" state safely
-const NumberInput = ({ 
-    value, 
-    onChange, 
-    className = "", 
-    placeholder,
-    step
-}: { 
-    value: number | null | undefined, 
-    onChange: (val: number) => void,
-    className?: string,
-    placeholder?: string,
-    step?: string | number
-}) => {
-    // Initialize string state
-    const [localVal, setLocalVal] = useState(value?.toString() ?? "");
-
-    // Sync if parent updates the prop externally
-    useEffect(() => {
-        setLocalVal(value?.toString() ?? "");
-    }, [value]);
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const v = e.target.value;
-        // Allow empty or valid number (integer or float)
-        if (v === '' || /^\d*\.?\d*$/.test(v)) {
-            setLocalVal(v);
-            // Optional: You can choose to ONLY update parent onBlur, 
-            // but updating here keeps the UI reactive if valid number.
-            if (v !== '' && v !== '.') {
-                onChange(parseFloat(v));
-            }
-        }
-    };
-
-    const handleBlur = () => {
-        if (localVal === '' || localVal === '.') {
-            // Revert to 0 or keep it empty depending on your preference. 
-            // Usually snapping to 0 is safer for calculations.
-            setLocalVal('0');
-            onChange(0);
-        } else {
-            // Ensure format is clean
-            setLocalVal(parseFloat(localVal).toString());
-        }
-    };
-
-    return (
-        <input
-            type="text"
-            inputMode="decimal"
-            step={step}
-            className={className}
-            placeholder={placeholder}
-            value={localVal}
-            onChange={handleChange}
-            onBlur={handleBlur}
-        />
-    );
-};
-
 
 export default function ProtocolItemRow({
     value,
@@ -119,7 +57,7 @@ export default function ProtocolItemRow({
 
     return (
         <div className="pp-card p-4 mb-3 relative group hover:border-primary/30 transition-all shadow-sm">
-            {/* 1. Header Row: Icon + Peptide + Color + Delete */}
+            {/* Header Row */}
             <div className="flex items-center gap-3 mb-5">
                 <div className="size-10 md:size-11 rounded-xl shrink-0 flex items-center justify-center shadow-inner" style={{ backgroundColor: v.color + '20', color: v.color }}>
                     {kindIcon}
@@ -158,17 +96,17 @@ export default function ProtocolItemRow({
                 </div>
             </div>
 
-            {/* 2. Main Controls Grid */}
+            {/* Main Controls Grid */}
             <div className="grid grid-cols-2 md:grid-cols-12 gap-x-4 gap-y-5">
-
                 {/* Dose */}
                 <div className="col-span-1 md:col-span-2">
                     <InputGroup label="Dose (mg)">
-                        <NumberInput
+                        <input
+                            type="number"
                             step="0.01"
                             className="input w-full"
                             value={v.dose_mg_per_administration}
-                            onChange={(val) => onChange({ ...v, dose_mg_per_administration: val })}
+                            onChange={(e) => onChange({ ...v, dose_mg_per_administration: Number(e.target.value || 0) })}
                         />
                     </InputGroup>
                 </div>
@@ -223,10 +161,12 @@ export default function ProtocolItemRow({
                         <InputGroup label="Frequency">
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-muted-foreground whitespace-nowrap">Every</span>
-                                <NumberInput
+                                <input
+                                    type="number"
+                                    min={1}
                                     className="input text-center w-full"
                                     value={v.every_n_days ?? 1}
-                                    onChange={(val) => onChange({ ...v, every_n_days: val })}
+                                    onChange={(e) => onChange({ ...v, every_n_days: Number(e.target.value || 1) })}
                                 />
                                 <span className="text-sm text-muted-foreground whitespace-nowrap">days</span>
                             </div>
@@ -237,21 +177,23 @@ export default function ProtocolItemRow({
                 {/* Cycles */}
                 <div className="col-span-1 md:col-span-2">
                     <InputGroup label="On (Wks)">
-                        <NumberInput
+                        <input
+                            type="number"
                             className="input w-full"
                             placeholder="∞"
-                            value={v.cycle_on_weeks}
-                            onChange={(val) => onChange({ ...v, cycle_on_weeks: val })}
+                            value={v.cycle_on_weeks || ""}
+                            onChange={(e) => onChange({ ...v, cycle_on_weeks: Number(e.target.value || 0) })}
                         />
                     </InputGroup>
                 </div>
                 <div className="col-span-1 md:col-span-2">
                     <InputGroup label="Off (Wks)">
-                        <NumberInput
+                        <input
+                            type="number"
                             className="input w-full"
                             placeholder="0"
-                            value={v.cycle_off_weeks}
-                            onChange={(val) => onChange({ ...v, cycle_off_weeks: val })}
+                            value={v.cycle_off_weeks || ""}
+                            onChange={(e) => onChange({ ...v, cycle_off_weeks: Number(e.target.value || 0) })}
                         />
                     </InputGroup>
                 </div>
@@ -302,7 +244,7 @@ export default function ProtocolItemRow({
                                 checked={isTitrating}
                                 onChange={(e) => {
                                     if (!e.target.checked) {
-                                        onChange({ ...v, titration_interval_days: null, titration_amount_mg: null });
+                                        onChange({ ...v, titration_interval_days: null, titration_amount_mg: null, titration_target_mg: null });
                                     } else {
                                         onChange({ ...v, titration_interval_days: 7, titration_amount_mg: 0.5 });
                                     }
@@ -314,17 +256,29 @@ export default function ProtocolItemRow({
                         {isTitrating && (
                             <div className="flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-left-2 text-sm">
                                 <span className="text-muted-foreground">Every</span>
-                                <NumberInput
+                                <input
                                     className="w-14 h-8 rounded-lg border border-border px-1 text-center text-sm bg-background shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                                    type="number"
                                     value={v.titration_interval_days ?? 7}
-                                    onChange={(val) => onChange({ ...v, titration_interval_days: val })}
+                                    onChange={(e) => onChange({ ...v, titration_interval_days: Number(e.target.value) })}
                                 />
                                 <span className="text-muted-foreground">days, add</span>
-                                <NumberInput
+                                <input
                                     className="w-16 h-8 rounded-lg border border-border px-1 text-center text-sm bg-background shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                                    type="number"
                                     step="0.01"
                                     value={v.titration_amount_mg ?? 0}
-                                    onChange={(val) => onChange({ ...v, titration_amount_mg: val })}
+                                    onChange={(e) => onChange({ ...v, titration_amount_mg: Number(e.target.value) })}
+                                />
+                                <span className="text-muted-foreground">mg, max</span>
+                                {/* 🟢 NEW FIELD */}
+                                <input
+                                    className="w-16 h-8 rounded-lg border border-border px-1 text-center text-sm bg-background shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
+                                    type="number"
+                                    step="0.01"
+                                    placeholder="∞"
+                                    value={v.titration_target_mg ?? ""}
+                                    onChange={(e) => onChange({ ...v, titration_target_mg: Number(e.target.value) })}
                                 />
                                 <span className="text-muted-foreground">mg</span>
                             </div>
