@@ -22,6 +22,7 @@ type ProtocolItem = {
   every_n_days: number | null;
   titration_interval_days: number | null;
   titration_amount_mg: number | null;
+  titration_target_mg: number | null; // 🟢 NEW
   site_list_id: number | null;
 };
 
@@ -88,10 +89,10 @@ export async function setActiveProtocolAndRegenerate(
     r = await supabase.from("protocols").update({ start_date: startDateStr }).eq("id", protocolId); if (r.error) throw r.error;
   }
 
-  // Fetch items
+  // Fetch items (Added titration_target_mg)
   const itemsRes = await supabase
     .from("protocol_items")
-    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, titration_interval_days, titration_amount_mg, site_list_id")
+    .select("id, protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, titration_interval_days, titration_amount_mg, titration_target_mg, site_list_id")
     .eq("protocol_id", protocolId);
   if (itemsRes.error) throw itemsRes.error;
   const items = itemsRes.data || [];
@@ -136,7 +137,6 @@ export async function setActiveProtocolAndRegenerate(
   const start = new Date(startDateStr! + "T00:00:00");
   
   // Calculate how many days we need to simulate to reach "Today + 1 Year"
-  // If protocol started 2 years ago, we need to sim ~3 years to get 1 year of future data.
   const oneDay = 24 * 60 * 60 * 1000;
   const daysSinceStart = Math.max(0, Math.floor((today.getTime() - start.getTime()) / oneDay));
   const daysToGenerate = daysSinceStart + 365; 
@@ -167,9 +167,7 @@ export async function setActiveProtocolAndRegenerate(
         if (n <= 0 || elapsed % n !== 0) { elapsed++; continue; }
       }
 
-      // 3. 🛡️ HISTORY PROTECTION:
-      // Even though we calculate the dose/state for past dates (to keep cycles correct),
-      // we SKIP adding them to the database if they are in the past.
+      // 3. 🛡️ HISTORY PROTECTION
       const ds = localDateStr(d);
       if (ds < tomorrowStr) { 
           elapsed++; 
@@ -180,9 +178,16 @@ export async function setActiveProtocolAndRegenerate(
       let dose = baseDose;
       const interval = Number(it.titration_interval_days || 0);
       const amount = Number(it.titration_amount_mg || 0);
+      const target = Number(it.titration_target_mg || 0); // 🟢 NEW
+
       if (interval > 0 && amount > 0) {
         dose = baseDose + Math.floor(elapsed / interval) * amount;
+        // 🟢 Apply Cap
+        if (target > 0 && dose > target) {
+          dose = target;
+        }
       }
+
       let site_label: string | null = null;
       if (sites.length) site_label = sites[elapsed % sites.length];
       
