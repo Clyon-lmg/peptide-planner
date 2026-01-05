@@ -58,6 +58,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
                 titration_interval_days: r.titration_interval_days ? Number(r.titration_interval_days) : null,
                 titration_amount_mg: r.titration_amount_mg ? Number(r.titration_amount_mg) : null,
+                titration_target_mg: r.titration_target_mg ? Number(r.titration_target_mg) : null, // 🟢 MAP NEW FIELD
                 color: r.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
                 time_of_day: r.time_of_day || null,
             }));
@@ -138,6 +139,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 cycle_off_weeks: i.cycle_off_weeks || 0,
                 titration_interval_days: i.titration_interval_days,
                 titration_amount_mg: i.titration_amount_mg,
+                titration_target_mg: i.titration_target_mg, // 🟢 SAVE NEW FIELD
                 color: i.color,
                 time_of_day: i.time_of_day,
                 site_list_id: i.site_list_id,
@@ -205,7 +207,10 @@ export default function ProtocolEditor({ protocol, onReload }: {
             if (item.time_of_day) notesParts.push(`@ ${item.time_of_day}`);
             if (item.cycle_on_weeks > 0) notesParts.push(`${item.cycle_on_weeks} wks ON / ${item.cycle_off_weeks} OFF`);
             if ((item.titration_interval_days || 0) > 0) {
-                notesParts.push(`Titrate +${item.titration_amount_mg}mg / ${item.titration_interval_days} days`);
+                // 🟢 UPDATED EXPORT NOTE
+                let tMsg = `Titrate +${item.titration_amount_mg}mg / ${item.titration_interval_days} days`;
+                if ((item.titration_target_mg || 0) > 0) tMsg += ` (max ${item.titration_target_mg}mg)`;
+                notesParts.push(tMsg);
             }
             const notes = notesParts.join(", ") || "-";
 
