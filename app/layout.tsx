@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react"; // 🟢 ADD IMPORT
 import "./globals.css";
 import { Toaster } from 'sonner';
 import Providers from "./providers";
@@ -16,13 +17,12 @@ export const metadata: Metadata = {
   },
 };
 
-// NEW: Mobile Viewport Settings
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false, // Prevents pinch-to-zoom
-  viewportFit: "cover", // Allows content to go under the notch/home bar
+  userScalable: false,
+  viewportFit: "cover",
   themeColor: "#000000",
 };
 
@@ -38,6 +38,7 @@ export default function RootLayout({
             {children}
             <Toaster position="top-center" />
         </Providers>
+        <Analytics /> {/* 🟢 ADD COMPONENT */}
       </body>
     </html>
   );
