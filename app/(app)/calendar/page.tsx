@@ -1,11 +1,10 @@
 "use client";
 
-import React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { getDosesForRange, type CalendarDoseRow } from './actions';
 import DayDetailModal from '@/components/calendar/DayDetailModal';
 
-// Helpers (client-side, uses user local system time)
+// Helpers
 function isoDate(d: Date) {
     const t = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
     return t.toISOString().split('T')[0];
@@ -33,12 +32,10 @@ type DosesByDay = Record<string, CalendarDoseRow[]>;
 export default function CalendarPage() {
     const [cursor, setCursor] = useState<Date>(new Date());
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<Error | null>(null);
     const [byDay, setByDay] = useState<DosesByDay>({});
 
-    // --- NEW STATE FOR MODAL ---
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-    const [refreshKey, setRefreshKey] = useState(0); // Used to trigger re-fetch
+    const [refreshKey, setRefreshKey] = useState(0);
 
     const gridStart = useMemo(() => startOfCalendarGrid(cursor), [cursor]);
     const gridEnd = useMemo(() => endOfCalendarGrid(cursor), [cursor]);
@@ -58,18 +55,13 @@ export default function CalendarPage() {
     }
 
     const monthLabel = useMemo(
-        () =>
-            cursor.toLocaleDateString(undefined, {
-                month: 'long',
-                year: 'numeric',
-            }),
+        () => cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
         [cursor]
     );
 
     useEffect(() => {
         (async () => {
             setLoading(true);
-            setError(null);
             try {
                 const rows = await getDosesForRange(isoDate(gridStart), isoDate(gridEnd));
                 const map: DosesByDay = {};
@@ -81,21 +73,18 @@ export default function CalendarPage() {
                     day.sort((a, b) => {
                         const ta = a.time_of_day ?? '99:99';
                         const tb = b.time_of_day ?? '99:99';
-                        if (ta === tb) {
-                            return a.canonical_name.localeCompare(b.canonical_name);
-                        }
+                        if (ta === tb) return a.canonical_name.localeCompare(b.canonical_name);
                         return ta < tb ? -1 : 1;
                     })
                 );
                 setByDay(map);
             } catch (e) {
                 console.error('Failed to load doses', e);
-                setError(e instanceof Error ? e : new Error(String(e)));
             } finally {
                 setLoading(false);
             }
         })();
-    }, [gridStart, gridEnd, refreshKey]); // Added refreshKey here
+    }, [gridStart, gridEnd, refreshKey]);
 
     const days: Date[] = useMemo(() => {
         const arr: Date[] = [];
@@ -110,45 +99,35 @@ export default function CalendarPage() {
     const todayIso = isoDate(new Date());
     const currentMonth = cursor.getMonth();
 
-    // --- HELPER FOR CLICK ---
-    const handleDayClick = (d: Date) => {
-        setSelectedDate(d);
-    };
-
     return (
         <div className="max-w-6xl mx-auto p-4 space-y-4">
-             {/* --- MODAL --- */}
+             {/* 🟢 FIX: Pass date string and map onUpdate */}
              {selectedDate && (
                 <DayDetailModal 
-                    isOpen={!!selectedDate}
-                    onClose={() => setSelectedDate(null)}
-                    date={selectedDate}
+                    date={isoDate(selectedDate)}
                     doses={byDay[isoDate(selectedDate)] || []}
-                    onUpdateSuccess={() => {
-                        // Keep modal open? Usually better UX to just refresh data
-                        setRefreshKey(k => k + 1);
-                    }}
+                    onClose={() => setSelectedDate(null)}
+                    onUpdate={() => setRefreshKey(k => k + 1)}
                 />
             )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <h1 className="text-2xl font-semibold">Calendar</h1>
 
-                {/* Date Picker & Export Row */}
                 <form onSubmit={downloadIcs} className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-1 shadow-sm">
                         <input
                             type="date"
                             value={exportStart}
                             onChange={(e) => setExportStart(e.target.value)}
-                            className="bg-transparent border-none text-foreground focus:ring-0 text-xs sm:text-sm h-8 px-2 [color-scheme:light] dark:[color-scheme:dark]"
+                            className="bg-transparent border-none text-foreground focus:ring-0 text-xs sm:text-sm h-8 px-2"
                         />
                         <span className="text-muted-foreground">-</span>
                         <input
                             type="date"
                             value={exportEnd}
                             onChange={(e) => setExportEnd(e.target.value)}
-                            className="bg-transparent border-none text-foreground focus:ring-0 text-xs sm:text-sm h-8 px-2 [color-scheme:light] dark:[color-scheme:dark]"
+                            className="bg-transparent border-none text-foreground focus:ring-0 text-xs sm:text-sm h-8 px-2"
                         />
                     </div>
                     <button type="submit" className="btn h-10 text-xs px-3">
@@ -189,11 +168,11 @@ export default function CalendarPage() {
                     return (
                         <div
                             key={dIso}
-                            onClick={() => handleDayClick(d)}
+                            onClick={() => setSelectedDate(d)}
                             className={`min-h-[120px] rounded-xl border p-2 bg-card relative transition-all cursor-pointer hover:border-primary/50
-                ${inMonth ? 'opacity-100' : 'opacity-40'}
-                ${isToday ? 'ring-2 ring-primary border-primary' : 'border-border'}
-              `}
+                                ${inMonth ? 'opacity-100' : 'opacity-40'}
+                                ${isToday ? 'ring-2 ring-primary border-primary' : 'border-border'}
+                            `}
                         >
                             <div className={`text-xs font-semibold mb-2 ${isToday ? 'text-primary' : ''}`}>{d.getDate()}</div>
 
@@ -217,9 +196,11 @@ export default function CalendarPage() {
 function DoseBlock({ r, duplicate }: { r: CalendarDoseRow; duplicate?: boolean }) {
     const statusColors = {
         TAKEN: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+        LOGGED: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
         SKIPPED: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20',
         PENDING: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20',
     };
+    // @ts-ignore
     const style = statusColors[r.status] || statusColors.PENDING;
 
     return (
