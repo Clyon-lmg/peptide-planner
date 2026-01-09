@@ -1,13 +1,13 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Plus, Save, Play, Copy, Upload, X, Calendar as CalIcon } from "lucide-react";
+import { Plus, Save, Copy, Upload, X } from "lucide-react"; // Removed Play
 import ProtocolItemRow, {
     ProtocolItemState,
     InventoryPeptide,
     SiteList,
 } from "./ProtocolItemRow";
 import ProtocolGraph from "./ProtocolGraph";
-import { onProtocolUpdated, setActiveProtocolAndRegenerate } from "@/lib/protocolEngine";
+import { onProtocolUpdated } from "@/lib/protocolEngine";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { toast } from "sonner";
 import { ensurePeptideAndInventory } from "@/app/(app)/inventory/actions";
@@ -20,10 +20,10 @@ const COLOR_PALETTE = [
 type Protocol = {
     id: number;
     user_id: string;
-    is_active: boolean;
+    is_active: boolean; // Kept in type, but ignored in UI
     name: string;
     start_date: string;
-    end_date?: string | null; // 🟢 Added
+    end_date?: string | null;
 };
 
 export default function ProtocolEditor({ protocol, onReload }: {
@@ -35,14 +35,12 @@ export default function ProtocolEditor({ protocol, onReload }: {
     const [peptides, setPeptides] = useState<InventoryPeptide[]>([]);
     const [siteLists, setSiteLists] = useState<SiteList[]>([]);
     
-    // 🟢 Date State
     const [dates, setDates] = useState<{ start: string; end: string }>({
         start: protocol.start_date || new Date().toISOString().split("T")[0],
         end: protocol.end_date || "",
     });
 
     const [saving, setSaving] = useState(false);
-    const [activating, setActivating] = useState(false);
     const [showImport, setShowImport] = useState(false);
     const [importText, setImportText] = useState("");
 
@@ -135,11 +133,13 @@ export default function ProtocolEditor({ protocol, onReload }: {
         setSaving(true);
         try {
             // 1. Update Protocol Meta (Dates)
+            // 🟢 Always set active=true to ensure it's picked up by the date engine
             const { error: protoErr } = await supabase
                 .from("protocols")
                 .update({
                     start_date: dates.start,
                     end_date: dates.end || null,
+                    is_active: true 
                 })
                 .eq("id", protocol.id);
             if (protoErr) throw protoErr;
@@ -169,40 +169,18 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 if (error) throw error;
             }
 
-            // 3. Trigger Logic Update if Active
+            // 3. Trigger Logic Update (Always, since we rely on dates now)
             const { data: userRes } = await supabase.auth.getSession();
-            if (protocol.is_active && userRes?.session?.user?.id) {
+            if (userRes?.session?.user?.id) {
                 await onProtocolUpdated(protocol.id, userRes.session.user.id);
             }
 
-            toast.success("Protocol saved");
+            toast.success("Protocol saved & schedule updated");
             onReload();
         } catch (e: any) {
             toast.error(e.message || "Failed to save");
         } finally {
             setSaving(false);
-        }
-    };
-
-    const activate = async () => {
-        setActivating(true);
-        try {
-            const { data: userRes } = await supabase.auth.getSession();
-            const userId = userRes?.session?.user?.id;
-            if (!userId) throw new Error("No session");
-
-            // Save first to ensure dates/items are current
-            await save();
-
-            const result = await setActiveProtocolAndRegenerate(protocol.id, userId);
-            if (result?.leftover) toast.warning(`${result.leftover} old doses could not be removed.`);
-            else toast.success("Protocol active! Calendar generated.");
-
-            onReload();
-        } catch (e: any) {
-            toast.error(e.message || "Activation failed");
-        } finally {
-            setActivating(false);
         }
     };
 
@@ -351,22 +329,17 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 <div>
                     <h2 className="pp-h2">{protocol.name}</h2>
                     <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        {protocol.is_active ? (
-                            <span className="text-emerald-500 font-medium flex items-center gap-1"><Play className="size-3 fill-current" /> Active</span>
-                        ) : (
-                            <span className="text-muted-foreground">Inactive</span>
-                        )}
-                        <span>• {items.length} items</span>
+                        <span>{items.length} items</span>
                     </div>
                 </div>
 
-                {/* 🟢 Date Range Pickers */}
                 <div className="flex items-center gap-3 bg-card border border-border p-2 rounded-xl shadow-sm">
                     <div className="flex flex-col">
                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Start</label>
+                        {/* 🟢 FIX: Added dark:[color-scheme:dark] for icon contrast */}
                         <input 
                             type="date" 
-                            className="bg-transparent text-sm font-medium focus:outline-none px-1"
+                            className="bg-transparent text-sm font-medium focus:outline-none px-1 dark:[color-scheme:dark]"
                             value={dates.start}
                             onChange={(e) => setDates(p => ({ ...p, start: e.target.value }))}
                         />
@@ -376,7 +349,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                         <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">End (Opt)</label>
                         <input 
                             type="date" 
-                            className="bg-transparent text-sm font-medium focus:outline-none px-1"
+                            className="bg-transparent text-sm font-medium focus:outline-none px-1 dark:[color-scheme:dark]"
                             value={dates.end}
                             onChange={(e) => setDates(p => ({ ...p, end: e.target.value }))}
                         />
@@ -450,14 +423,10 @@ export default function ProtocolEditor({ protocol, onReload }: {
                             <Upload className="size-4" /><span className="hidden sm:inline">Import</span>
                         </button>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <button onClick={activate} disabled={activating} className={`btn bg-emerald-600 hover:bg-emerald-700 text-white border-transparent ${activating ? "opacity-50" : ""}`}>
-                            {activating ? "Activating..." : "Set Active & Generate"}
-                        </button>
-                        <button onClick={save} disabled={saving} className="btn bg-primary text-primary-foreground hover:bg-primary/90 min-w-[100px]">
-                            {saving ? "Saving..." : <><Save className="size-4 mr-2" /> Save</>}
-                        </button>
-                    </div>
+                    {/* 🟢 Removed "Activate" button, just Save now */}
+                    <button onClick={save} disabled={saving} className="btn bg-primary text-primary-foreground hover:bg-primary/90 min-w-[120px]">
+                        {saving ? "Saving..." : <><Save className="size-4 mr-2" /> Save & Generate</>}
+                    </button>
                 </div>
             </div>
         </div>
