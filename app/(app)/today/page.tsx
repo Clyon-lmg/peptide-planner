@@ -46,6 +46,7 @@ export default function TodayPage() {
     const isTaken = dose.status === 'TAKEN';
     const newStatus: DoseStatus = isTaken ? 'PENDING' : 'TAKEN';
 
+    // Optimistic Update
     setDoses(prev => prev.map(d => 
         d.peptide_id === dose.peptide_id ? { ...d, status: newStatus } : d
     ));
@@ -76,6 +77,7 @@ export default function TodayPage() {
             <h1 className="text-2xl font-bold tracking-tight">Today</h1>
             <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
          </div>
+         {/* 🟢 REMOVED: Ad-Hoc Add Button */}
       </div>
 
       <div className="space-y-3">
@@ -147,6 +149,7 @@ export default function TodayPage() {
             )})
         )}
       </div>
+      {/* 🟢 REMOVED: Modal Component */}
     </div>
   );
 }
