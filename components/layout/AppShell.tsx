@@ -11,7 +11,6 @@ import {
   Activity,
   LogOut,
   FlaskConical,
-  Pill,
   ClipboardList
 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
@@ -37,7 +36,7 @@ export default function AppShell({
     { name: "Protocols", href: "/protocols", icon: ClipboardList },
     { name: "Inventory", href: "/inventory", icon: FlaskConical },
     { name: "Stats", href: "/stats", icon: Activity },
-    { name: "Consultations", href: "/consultations", icon: Pill },
+    // Removed Consultations
   ];
 
   const handleSignOut = async () => {
