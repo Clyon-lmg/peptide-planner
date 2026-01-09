@@ -53,7 +53,6 @@ export default function InventoryForecast({
 
     // 3. Generate Forecast
     const forecasts: ForecastItem[] = [];
-    const today = new Date();
 
     // Iterate over peptides that have STOCK or USAGE
     const allPeptideIds = new Set([...stockMap.keys(), ...usageMap.keys()]);
@@ -62,10 +61,7 @@ export default function InventoryForecast({
     const getName = (pid: number) => {
         const invMatch = inventory.find((i: any) => i.peptide_id === pid);
         if (invMatch?.peptides?.canonical_name) return invMatch.peptides.canonical_name;
-        // Fallback to searching protocols
         const protoMatch = allItems.find((i: any) => i.peptide_id === pid);
-        // Note: You might need to fetch peptide names separately if not joined, 
-        // but typically inventory fetch includes it.
         return `Peptide #${pid}`; 
     };
 
@@ -108,8 +104,9 @@ export default function InventoryForecast({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {forecasts.map((item, idx) => (
                 <div key={idx} className={`border rounded-xl p-3 flex flex-col justify-between ${
-                    item.status === 'empty' ? 'bg-red-50 border-red-100' :
-                    item.status === 'low' ? 'bg-amber-50 border-amber-100' : 
+                    // 🟢 FIX: Improved contrast using opacity-based colors
+                    item.status === 'empty' ? 'bg-red-500/10 border-red-500/20' :
+                    item.status === 'low' ? 'bg-amber-500/10 border-amber-500/20' : 
                     'bg-card border-border'
                 }`}>
                     <div>
@@ -124,12 +121,12 @@ export default function InventoryForecast({
                         </div>
                     </div>
                     
-                    <div className="mt-2 pt-2 border-t border-black/5 flex justify-between items-end">
+                    <div className="mt-2 pt-2 border-t border-foreground/5 flex justify-between items-end">
                         <div>
                             <div className="text-[10px] uppercase font-bold text-muted-foreground">Runs Out</div>
                             <div className={`font-mono font-medium ${
-                                item.status === 'empty' ? 'text-red-700' : 
-                                item.status === 'low' ? 'text-amber-700' : 'text-foreground'
+                                item.status === 'empty' ? 'text-red-500' : 
+                                item.status === 'low' ? 'text-amber-500' : 'text-foreground'
                             }`}>
                                 {item.depletionDate || "—"}
                             </div>
