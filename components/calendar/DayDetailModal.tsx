@@ -4,7 +4,7 @@ import { X, Check, Trash2, PlusCircle, Syringe } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "./AddAdHocDoseModal";
-// 🟢 Use Server Actions to handle Upsert & Inventory logic correctly
+// 🟢 Import Server Actions
 import { logDose, resetDose } from "@/app/(app)/today/actions";
 
 export default function DayDetailModal({ 
@@ -22,19 +22,16 @@ export default function DayDetailModal({
   const [showAdd, setShowAdd] = useState(false);
 
   const toggleStatus = async (dose: any) => {
-    // 🟢 FIX: Use 'TAKEN' instead of 'LOGGED'
+    // 🟢 FIX: Check against 'TAKEN'
     const isTaken = dose.status === "TAKEN";
-    // Identify by peptide_id since dose.id might be missing for scheduled items
     const idKey = dose.peptide_id.toString();
     
     setProcessing(idKey);
     try {
       if (isTaken) {
-        // Mark PENDING (Restores inventory if configured in action)
         await resetDose(dose.peptide_id, date);
         toast.success("Dose reset");
       } else {
-        // Mark TAKEN (Consumes inventory)
         await logDose(dose.peptide_id, date);
         toast.success("Dose logged");
       }
@@ -48,7 +45,7 @@ export default function DayDetailModal({
   };
 
   const deleteDose = async (id: number) => {
-    if (!id) return; // Cannot delete a scheduled (virtual) dose, only taken/skipped ones
+    if (!id) return; 
     if (!confirm("Delete this dose record?")) return;
     
     const sb = getSupabaseBrowser();
@@ -67,9 +64,8 @@ export default function DayDetailModal({
   }
 
   // Helper date display
-  const dateObj = new Date(date);
-  // Adjust for timezone to show correct day name if needed, or just use string
-  const dateLabel = new Date(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate()).toDateString();
+  const dateObj = new Date(date + 'T12:00:00'); // Safe parsing
+  const dateLabel = dateObj.toDateString();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -85,10 +81,10 @@ export default function DayDetailModal({
         <div className="p-4 overflow-y-auto flex-1 space-y-3">
           {doses.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No doses.</p>}
           {doses.map((dose, idx) => {
-               // 🟢 FIX: Correct Status Check
+               // 🟢 FIX: Check against 'TAKEN'
                const isTaken = dose.status === "TAKEN";
-               // Use peptide_id as key fallback if id missing
-               const key = dose.id || `virt-${dose.peptide_id}-${idx}`;
+               // Fallback key if id is missing (scheduled dose)
+               const key = dose.id ? `dose-${dose.id}` : `virt-${dose.peptide_id}-${idx}`;
 
                return (
                  <div key={key} className={`flex items-center justify-between p-3 rounded-xl border ${isTaken ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-card border-border'}`}>
@@ -110,7 +106,6 @@ export default function DayDetailModal({
                         {isTaken ? "Unlog" : "Log"}
                       </button>
                       
-                      {/* Only allow deleting if it's a real database row (has ID) */}
                       {dose.id && (
                         <button onClick={() => deleteDose(dose.id)} className="p-2 text-muted-foreground hover:text-red-500">
                             <Trash2 className="size-4" />
