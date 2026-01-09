@@ -14,9 +14,11 @@ function fmt(n: number | null | undefined, digits = 2) {
   return Number(n).toFixed(digits);
 }
 
-/** Local system YYYY-MM-DD */
 function localISODate(): string {
-  return new Date().toLocaleDateString("en-CA");
+  // Returns YYYY-MM-DD in local time
+  const d = new Date();
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().split('T')[0];
 }
 
 type Row = TodayDoseRow & {
@@ -98,7 +100,7 @@ export default function TodayPage() {
                     <div className="text-xs text-muted-foreground">
                       Dose: <span className="font-mono font-bold text-foreground">{fmt(r.dose_mg)}</span>{" "}
                       mg  •  Syringe:{" "}
-                      {/* 🟢 FIX: Round to 0 digits (nearest whole number) */}
+                      {/* 🟢 FIX: Round to 0 digits */}
                       <span className="font-mono font-bold text-foreground">{fmt(r.syringe_units, 0)}</span>{" "}
                       units
                     </div>
