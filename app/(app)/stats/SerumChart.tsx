@@ -52,15 +52,16 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
     }
 
     const datasets = peptides.map((peptide, idx) => {
-      // 🟢 FIX: Number() cast
+      // 🟢 FIX: Safe ID Comparison
       const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
 
       const dataPoints = timestamps.map(ts => {
         let totalSerum = 0;
         peptideDoses.forEach(dose => {
-            // 🟢 FIX: Use date_for
+            // 🟢 FIX: Use 'date_for' primarily
             const dateStr = dose.date_for || dose.date;
             if (!dateStr) return;
+            
             const doseTime = new Date(`${dateStr}T${dose.time_of_day || '08:00'}:00`).getTime();
             
             if (doseTime <= ts) {
@@ -89,7 +90,7 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
     return { labels, datasets };
   }, [doses, peptides]);
 
-  if (!chartData) return <div className="p-10 text-center text-muted-foreground border border-dashed rounded-xl">No active peptides.</div>;
+  if (!chartData) return <div className="p-10 text-center text-muted-foreground border border-dashed rounded-xl">No active peptides to display.</div>;
 
   return <div className="w-full h-[400px]"><Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false } } } }} /></div>;
 };
