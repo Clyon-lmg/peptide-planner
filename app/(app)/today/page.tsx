@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Circle, Clock, Syringe, Loader2 } from "lucide-react"; // Removed Plus
+import { CheckCircle2, Circle, Clock, Syringe, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-// import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal"; // Keeping code but unused
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow, type DoseStatus } from "./actions";
 
 function fmt(n: number | null | undefined, digits = 2) {
@@ -21,7 +20,6 @@ function localISODate(): string {
 export default function TodayPage() {
   const [doses, setDoses] = useState<TodayDoseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  // const [showAdHoc, setShowAdHoc] = useState(false); // Unused
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const todayStr = useMemo(localISODate, []);
@@ -78,7 +76,6 @@ export default function TodayPage() {
             <h1 className="text-2xl font-bold tracking-tight">Today</h1>
             <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
          </div>
-         {/* Ad-Hoc Button Removed */}
       </div>
 
       <div className="space-y-3">
@@ -150,7 +147,6 @@ export default function TodayPage() {
             )})
         )}
       </div>
-      {/* Modal Removed */}
     </div>
   );
 }
