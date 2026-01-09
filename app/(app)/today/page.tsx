@@ -1,12 +1,10 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
-import { format } from "date-fns";
 import { CheckCircle2, Circle, Clock, Plus } from "lucide-react";
 import { toast } from "sonner";
-import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal"; // Ensure import path is correct
+import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
 
-// ... (keep your existing Dose type definition if defined locally) ...
 type Dose = {
   id: number;
   peptide_id: number;
@@ -20,9 +18,12 @@ type Dose = {
 export default function TodayPage() {
   const [doses, setDoses] = useState<Dose[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdHoc, setShowAdHoc] = useState(false); // 🟢 State for modal
+  const [showAdHoc, setShowAdHoc] = useState(false);
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // 🟢 FIX: Use local time (YYYY-MM-DD) instead of UTC
+  const today = new Date();
+  const todayStr = today.toLocaleDateString("en-CA"); 
+  const displayDate = today.toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric' });
 
   const loadToday = async () => {
     setLoading(true);
@@ -34,7 +35,7 @@ export default function TodayPage() {
       .from("doses")
       .select("*, peptides(canonical_name)")
       .eq("user_id", user.id)
-      .eq("date", todayStr)
+      .eq("date", todayStr) // Matches local date in DB
       .order("time_of_day", { ascending: true });
     
     if (data) setDoses(data as any);
@@ -46,7 +47,6 @@ export default function TodayPage() {
   const toggleDose = async (dose: Dose) => {
     const sb = getSupabaseBrowser();
     const newStatus = dose.status === "LOGGED" ? "PENDING" : "LOGGED";
-    // Optimistic Update
     setDoses(doses.map(d => d.id === dose.id ? { ...d, status: newStatus } : d));
     
     await sb.from("doses").update({ status: newStatus }).eq("id", dose.id);
@@ -58,9 +58,8 @@ export default function TodayPage() {
       <div className="flex items-center justify-between">
          <div>
             <h1 className="pp-h1">Today</h1>
-            <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
+            <p className="text-muted-foreground">{displayDate}</p>
          </div>
-         {/* 🟢 Ad-Hoc Button */}
          <button 
            onClick={() => setShowAdHoc(true)}
            className="p-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
@@ -110,7 +109,6 @@ export default function TodayPage() {
         )}
       </div>
 
-      {/* 🟢 Render Modal */}
       {showAdHoc && (
         <AddAdHocDoseModal 
           date={todayStr}
