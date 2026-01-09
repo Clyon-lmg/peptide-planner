@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { CheckCircle2, Circle, Clock, Plus, Syringe, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
-// 🟢 Import Server Actions for logic
+// 🟢 Import Server Actions
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow, type DoseStatus } from "./actions";
 
 function fmt(n: number | null | undefined, digits = 2) {
@@ -46,11 +46,11 @@ export default function TodayPage() {
     if (busyId === dose.peptide_id) return;
     setBusyId(dose.peptide_id);
 
-    // Determine new status: Taken <-> Pending
+    // Toggle Logic
     const isTaken = dose.status === 'TAKEN';
     const newStatus: DoseStatus = isTaken ? 'PENDING' : 'TAKEN';
 
-    // 🟢 OPTIMISTIC UPDATE: Update UI instantly
+    // Optimistic Update
     setDoses(prev => prev.map(d => 
         d.peptide_id === dose.peptide_id ? { ...d, status: newStatus } : d
     ));
@@ -63,14 +63,13 @@ export default function TodayPage() {
             await resetDose(dose.peptide_id, todayStr);
             toast.success("Dose reset");
         }
-        
-        // Re-fetch to ensure sync
+        // Sync
         const freshData = await getTodayDosesWithUnits(todayStr);
         setDoses(freshData);
     } catch (e) {
         console.error(e);
         toast.error("Failed to update status");
-        loadToday(); // Revert on error
+        loadToday(); // Revert
     } finally {
         setBusyId(null);
     }
@@ -107,39 +106,41 @@ export default function TodayPage() {
                 return (
                 <div 
                   key={dose.peptide_id} 
-                  className={`relative overflow-hidden group p-4 rounded-2xl border transition-all select-none ${
+                  className={`relative overflow-hidden group p-4 rounded-2xl border transition-all ${
                     isTaken
                       ? "bg-emerald-50/50 border-emerald-200" 
-                      : "bg-card border-border shadow-sm"
+                      : "bg-card border-border shadow-sm hover:border-primary/50"
                   }`}
                 >
-                    <div className="flex items-center gap-4 relative z-10">
-                        {/* 🟢 CLICKABLE ICON BUTTON */}
-                        <button 
-                            onClick={() => handleToggleLog(dose)}
-                            disabled={isBusy}
-                            className={`
-                                shrink-0 transition-all transform hover:scale-110 active:scale-95 rounded-full outline-none
-                                ${isTaken ? "text-emerald-500" : "text-muted-foreground hover:text-primary"}
-                                ${isBusy ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-                            `}
-                            title={isTaken ? "Mark as Pending" : "Log as Taken"}
-                        >
-                            {isBusy ? (
-                                <Loader2 className="size-7 animate-spin text-primary" />
-                            ) : isTaken ? (
-                                <CheckCircle2 className="size-7 fill-current" />
-                            ) : (
-                                <Circle className="size-7" />
-                            )}
-                        </button>
-
+                    <div className="flex items-center justify-between gap-4 relative z-10">
                         <div className="min-w-0 flex-1">
-                            <h3 className={`font-bold text-lg truncate mb-1 ${isTaken ? "text-muted-foreground line-through" : ""}`}>
-                                {dose.canonical_name}
-                            </h3>
+                            <div className="flex items-center gap-3 mb-1">
+                                {/* 🟢 Clickable Icon */}
+                                <button 
+                                    onClick={() => handleToggleLog(dose)}
+                                    disabled={isBusy}
+                                    className={`
+                                        shrink-0 transition-all transform hover:scale-110 active:scale-95 rounded-full outline-none
+                                        ${isTaken ? "text-emerald-500" : "text-muted-foreground hover:text-primary"}
+                                        ${isBusy ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+                                    `}
+                                    title={isTaken ? "Reset to Pending" : "Log as Taken"}
+                                >
+                                    {isBusy ? (
+                                        <Loader2 className="size-7 animate-spin text-primary" />
+                                    ) : isTaken ? (
+                                        <CheckCircle2 className="size-7 fill-current" />
+                                    ) : (
+                                        <Circle className="size-7" />
+                                    )}
+                                </button>
+
+                                <h3 className={`font-bold text-lg truncate ${isTaken ? "text-muted-foreground line-through" : ""}`}>
+                                    {dose.canonical_name}
+                                </h3>
+                            </div>
                             
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                            <div className="pl-10 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                                 <span className="font-medium text-foreground">{fmt(dose.dose_mg)} mg</span>
                                 <span>•</span>
                                 <span className="flex items-center gap-1">
