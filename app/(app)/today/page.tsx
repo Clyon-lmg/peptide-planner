@@ -1,56 +1,56 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
-import { CheckCircle2, Circle, Clock, Plus } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Plus, Syringe, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
-
-type Dose = {
-  id: number;
-  peptide_id: number;
-  dose_mg: number;
-  date: string;
-  time_of_day: string | null;
-  status: "PENDING" | "LOGGED" | "SKIPPED";
-  peptides: { canonical_name: string };
-};
+// 🟢 Import the action that generates the schedule
+import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow } from "./actions";
 
 export default function TodayPage() {
-  const [doses, setDoses] = useState<Dose[]>([]);
+  const [doses, setDoses] = useState<TodayDoseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdHoc, setShowAdHoc] = useState(false);
 
-  // 🟢 FIX: Use local time (YYYY-MM-DD) instead of UTC
+  // Local Time Format
   const today = new Date();
-  const todayStr = today.toLocaleDateString("en-CA"); 
+  const todayStr = today.toLocaleDateString("en-CA"); // YYYY-MM-DD
   const displayDate = today.toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric' });
 
   const loadToday = async () => {
     setLoading(true);
-    const sb = getSupabaseBrowser();
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) return;
-
-    const { data } = await sb
-      .from("doses")
-      .select("*, peptides(canonical_name)")
-      .eq("user_id", user.id)
-      .eq("date", todayStr) // Matches local date in DB
-      .order("time_of_day", { ascending: true });
-    
-    if (data) setDoses(data as any);
-    setLoading(false);
+    try {
+        // 🟢 Use the Server Action
+        const data = await getTodayDosesWithUnits(todayStr);
+        setDoses(data);
+    } catch (e) {
+        console.error("Failed to load today", e);
+        toast.error("Could not load schedule");
+    } finally {
+        setLoading(false);
+    }
   };
 
   useEffect(() => { loadToday(); }, []);
 
-  const toggleDose = async (dose: Dose) => {
-    const sb = getSupabaseBrowser();
-    const newStatus = dose.status === "LOGGED" ? "PENDING" : "LOGGED";
-    setDoses(doses.map(d => d.id === dose.id ? { ...d, status: newStatus } : d));
+  const toggleDose = async (dose: TodayDoseRow) => {
+    // Optimistic UI
+    const isTaken = dose.status === "TAKEN"; // Note: actions.ts uses "TAKEN", not "LOGGED"
+    const newStatus = isTaken ? "PENDING" : "TAKEN";
     
-    await sb.from("doses").update({ status: newStatus }).eq("id", dose.id);
-    toast.success(newStatus === "LOGGED" ? "Dose logged" : "Dose reset");
+    setDoses(doses.map(d => d.peptide_id === dose.peptide_id ? { ...d, status: newStatus } : d));
+
+    try {
+        if (newStatus === "TAKEN") {
+            await logDose(dose.peptide_id, todayStr);
+            toast.success("Dose taken");
+        } else {
+            await resetDose(dose.peptide_id, todayStr);
+            toast.success("Dose reset");
+        }
+    } catch (e) {
+        toast.error("Failed to update status");
+        loadToday(); // Revert on error
+    }
   };
 
   return (
@@ -71,41 +71,55 @@ export default function TodayPage() {
 
       <div className="space-y-3">
         {loading ? (
-            <div className="text-center py-10 text-muted-foreground">Loading...</div>
+            <div className="text-center py-10 text-muted-foreground">Loading schedule...</div>
         ) : doses.length === 0 ? (
             <div className="text-center py-10 border-2 border-dashed border-border rounded-xl">
                 <p className="text-muted-foreground">No doses scheduled for today.</p>
             </div>
         ) : (
-            doses.map(dose => (
+            doses.map(dose => {
+                const isTaken = dose.status === "TAKEN";
+                return (
                 <div 
-                  key={dose.id} 
+                  key={dose.peptide_id} 
                   onClick={() => toggleDose(dose)}
                   className={`relative overflow-hidden group p-4 rounded-2xl border transition-all cursor-pointer ${
-                    dose.status === "LOGGED" 
+                    isTaken
                       ? "bg-emerald-500/10 border-emerald-500/20" 
                       : "bg-card border-border hover:border-primary/50"
                   }`}
                 >
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-4">
-                            <div className={`transition-colors ${dose.status === "LOGGED" ? "text-emerald-500" : "text-muted-foreground"}`}>
-                                {dose.status === "LOGGED" ? <CheckCircle2 className="size-7 fill-current" /> : <Circle className="size-7" />}
+                            <div className={`transition-colors ${isTaken ? "text-emerald-500" : "text-muted-foreground"}`}>
+                                {isTaken ? <CheckCircle2 className="size-7 fill-current" /> : <Circle className="size-7" />}
                             </div>
                             <div>
-                                <h3 className={`font-bold text-lg ${dose.status === "LOGGED" ? "text-muted-foreground line-through" : ""}`}>
-                                    {dose.peptides?.canonical_name}
+                                <h3 className={`font-bold text-lg ${isTaken ? "text-muted-foreground line-through" : ""}`}>
+                                    {dose.canonical_name}
                                 </h3>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <span className="font-medium text-foreground">{dose.dose_mg} mg</span>
                                     <span>•</span>
-                                    <span className="flex items-center gap-1"><Clock className="size-3" /> {dose.time_of_day || "Any time"}</span>
+                                    {dose.syringe_units ? (
+                                        <span className="flex items-center gap-1 text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs font-mono">
+                                            <Syringe className="size-3" /> {dose.syringe_units} units
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs opacity-50">No units</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
+                        
+                        {!isTaken && dose.time_of_day && (
+                            <div className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-lg">
+                                {dose.time_of_day}
+                            </div>
+                        )}
                     </div>
                 </div>
-            ))
+            )})
         )}
       </div>
 
