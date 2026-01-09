@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Plus, Save, Play, Copy, Upload, X } from "lucide-react";
+import { Plus, Save, Play, Copy, Upload, X, Calendar as CalIcon } from "lucide-react";
 import ProtocolItemRow, {
     ProtocolItemState,
     InventoryPeptide,
@@ -23,6 +23,7 @@ type Protocol = {
     is_active: boolean;
     name: string;
     start_date: string;
+    end_date?: string | null; // 🟢 Added
 };
 
 export default function ProtocolEditor({ protocol, onReload }: {
@@ -33,6 +34,13 @@ export default function ProtocolEditor({ protocol, onReload }: {
     const [items, setItems] = useState<ProtocolItemState[]>([]);
     const [peptides, setPeptides] = useState<InventoryPeptide[]>([]);
     const [siteLists, setSiteLists] = useState<SiteList[]>([]);
+    
+    // 🟢 Date State
+    const [dates, setDates] = useState<{ start: string; end: string }>({
+        start: protocol.start_date || new Date().toISOString().split("T")[0],
+        end: protocol.end_date || "",
+    });
+
     const [saving, setSaving] = useState(false);
     const [activating, setActivating] = useState(false);
     const [showImport, setShowImport] = useState(false);
@@ -58,7 +66,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 every_n_days: r.every_n_days ? Number(r.every_n_days) : null,
                 titration_interval_days: r.titration_interval_days ? Number(r.titration_interval_days) : null,
                 titration_amount_mg: r.titration_amount_mg ? Number(r.titration_amount_mg) : null,
-                titration_target_mg: r.titration_target_mg ? Number(r.titration_target_mg) : null, // 🟢 MAP NEW FIELD
+                titration_target_mg: r.titration_target_mg ? Number(r.titration_target_mg) : null,
                 color: r.color || COLOR_PALETTE[idx % COLOR_PALETTE.length],
                 time_of_day: r.time_of_day || null,
             }));
@@ -126,6 +134,17 @@ export default function ProtocolEditor({ protocol, onReload }: {
     const save = async () => {
         setSaving(true);
         try {
+            // 1. Update Protocol Meta (Dates)
+            const { error: protoErr } = await supabase
+                .from("protocols")
+                .update({
+                    start_date: dates.start,
+                    end_date: dates.end || null,
+                })
+                .eq("id", protocol.id);
+            if (protoErr) throw protoErr;
+
+            // 2. Update Items
             await supabase.from("protocol_items").delete().eq("protocol_id", protocol.id);
 
             const rows = items.filter(i => i.peptide_id).map(i => ({
@@ -139,7 +158,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 cycle_off_weeks: i.cycle_off_weeks || 0,
                 titration_interval_days: i.titration_interval_days,
                 titration_amount_mg: i.titration_amount_mg,
-                titration_target_mg: i.titration_target_mg, // 🟢 SAVE NEW FIELD
+                titration_target_mg: i.titration_target_mg,
                 color: i.color,
                 time_of_day: i.time_of_day,
                 site_list_id: i.site_list_id,
@@ -150,8 +169,11 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 if (error) throw error;
             }
 
+            // 3. Trigger Logic Update if Active
             const { data: userRes } = await supabase.auth.getSession();
-            if (userRes?.session?.user?.id) await onProtocolUpdated(protocol.id, userRes.session.user.id);
+            if (protocol.is_active && userRes?.session?.user?.id) {
+                await onProtocolUpdated(protocol.id, userRes.session.user.id);
+            }
 
             toast.success("Protocol saved");
             onReload();
@@ -168,6 +190,9 @@ export default function ProtocolEditor({ protocol, onReload }: {
             const { data: userRes } = await supabase.auth.getSession();
             const userId = userRes?.session?.user?.id;
             if (!userId) throw new Error("No session");
+
+            // Save first to ensure dates/items are current
+            await save();
 
             const result = await setActiveProtocolAndRegenerate(protocol.id, userId);
             if (result?.leftover) toast.warning(`${result.leftover} old doses could not be removed.`);
@@ -207,7 +232,6 @@ export default function ProtocolEditor({ protocol, onReload }: {
             if (item.time_of_day) notesParts.push(`@ ${item.time_of_day}`);
             if (item.cycle_on_weeks > 0) notesParts.push(`${item.cycle_on_weeks} wks ON / ${item.cycle_off_weeks} OFF`);
             if ((item.titration_interval_days || 0) > 0) {
-                // 🟢 UPDATED EXPORT NOTE
                 let tMsg = `Titrate +${item.titration_amount_mg}mg / ${item.titration_interval_days} days`;
                 if ((item.titration_target_mg || 0) > 0) tMsg += ` (max ${item.titration_target_mg}mg)`;
                 notesParts.push(tMsg);
@@ -217,14 +241,15 @@ export default function ProtocolEditor({ protocol, onReload }: {
             rows.push([name, typeLabel, dose, sched, notes]);
         }
 
-        let md = `**Protocol: ${protocol.name}**\n\n`;
+        let md = `**Protocol: ${protocol.name}**\n`;
+        md += `*Dates: ${dates.start} ${dates.end ? 'to ' + dates.end : '(Ongoing)'}*\n\n`;
         md += `| ${headers.join(" | ")} |\n`;
         md += `| ${headers.map(()=>"---").join(" | ")} |\n`;
         rows.forEach(r => md += `| ${r.join(" | ")} |\n`);
         md += `\n*Generated via Peptide Planner*`;
 
         let html = `
-            <html><body><p><strong>Protocol: ${protocol.name}</strong></p>
+            <html><body><p><strong>Protocol: ${protocol.name}</strong><br/><em>Dates: ${dates.start} ${dates.end ? 'to ' + dates.end : '(Ongoing)'}</em></p>
             <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; border: 1px solid #ccc; font-family: sans-serif;">
                 <thead><tr style="background-color: #f0f0f0;">${headers.map(h => `<th style="border: 1px solid #ccc; padding: 8px;">${h}</th>`).join("")}</tr></thead>
                 <tbody>${rows.map(row => `<tr>${row.map(c => `<td style="border: 1px solid #ccc; padding: 8px;">${c}</td>`).join("")}</tr>`).join("")}</tbody>
@@ -322,7 +347,7 @@ export default function ProtocolEditor({ protocol, onReload }: {
 
     return (
         <div className="space-y-6 pb-32">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="pp-h2">{protocol.name}</h2>
                     <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -332,6 +357,29 @@ export default function ProtocolEditor({ protocol, onReload }: {
                             <span className="text-muted-foreground">Inactive</span>
                         )}
                         <span>• {items.length} items</span>
+                    </div>
+                </div>
+
+                {/* 🟢 Date Range Pickers */}
+                <div className="flex items-center gap-3 bg-card border border-border p-2 rounded-xl shadow-sm">
+                    <div className="flex flex-col">
+                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Start</label>
+                        <input 
+                            type="date" 
+                            className="bg-transparent text-sm font-medium focus:outline-none px-1"
+                            value={dates.start}
+                            onChange={(e) => setDates(p => ({ ...p, start: e.target.value }))}
+                        />
+                    </div>
+                    <div className="text-muted-foreground">→</div>
+                    <div className="flex flex-col">
+                        <label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">End (Opt)</label>
+                        <input 
+                            type="date" 
+                            className="bg-transparent text-sm font-medium focus:outline-none px-1"
+                            value={dates.end}
+                            onChange={(e) => setDates(p => ({ ...p, end: e.target.value }))}
+                        />
                     </div>
                 </div>
             </div>
@@ -392,7 +440,6 @@ export default function ProtocolEditor({ protocol, onReload }: {
                 </div>
             )}
 
-            {/* 🟢 FIXED: z-[60] ensures this floats ABOVE the Mobile Navigation bar (z-50) */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border z-[60] lg:pl-[340px]">
                 <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
                     <div className="flex gap-2">
