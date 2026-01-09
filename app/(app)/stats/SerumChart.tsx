@@ -65,14 +65,14 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
     }
 
     const datasets = peptides.map((peptide, idx) => {
-      // 🟢 CRITICAL FIX: Safe ID Comparison (Number vs String)
+      // 🟢 FIX: Safe ID Comparison
       const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
 
       const dataPoints = timestamps.map(ts => {
         let totalSerum = 0;
         
         peptideDoses.forEach(dose => {
-            // 🟢 CRITICAL FIX: Use 'date_for' (scheduled date) primarily
+            // 🟢 FIX: Use 'date_for' primarily
             const dateStr = dose.date_for || dose.date;
             if (!dateStr) return;
 
