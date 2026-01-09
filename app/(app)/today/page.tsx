@@ -36,6 +36,7 @@ export default function TodayPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // Fetch fresh data
       const data = await getTodayDosesWithUnits(today);
       setRows(data as Row[]);
       setError(null);
@@ -57,8 +58,11 @@ export default function TodayPage() {
     setBusyId(peptide_id);
     try {
       await act(peptide_id, today);
+      // Immediately reload data to show new status
       const data = await getTodayDosesWithUnits(today);
       setRows(data as Row[]);
+    } catch (e) {
+      console.error("Mutation failed", e);
     } finally {
       setBusyId(null);
     }
@@ -91,7 +95,7 @@ export default function TodayPage() {
                     <div className="text-xs text-muted-foreground">
                       Dose: <span className="font-mono font-bold text-foreground">{fmt(r.dose_mg)}</span>{" "}
                       mg  •  Syringe:{" "}
-                      {/* 🟢 FIX: Round to 0 digits */}
+                      {/* 🟢 FIX: 0 digits for whole number units */}
                       <span className="font-mono font-bold text-foreground">{fmt(r.syringe_units, 0)}</span>{" "}
                       units
                     </div>
