@@ -15,7 +15,6 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
-// Register components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -42,17 +41,14 @@ function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHou
 const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) => {
   
   const chartData = useMemo(() => {
-    // Filter to only peptides that have doses or are in the list
     if (!peptides || peptides.length === 0) return null;
 
-    // Time Range: Past 21 days -> Future 14 days
     const now = new Date();
     const startDate = new Date(); 
     startDate.setDate(now.getDate() - 21);
     const endDate = new Date(); 
     endDate.setDate(now.getDate() + 14);
     
-    // Generate timestamps (every 12 hours)
     const labels: string[] = [];
     const timestamps: number[] = [];
     let current = new Date(startDate);
@@ -69,14 +65,14 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
     }
 
     const datasets = peptides.map((peptide, idx) => {
-      // Safe ID comparison
+      // 🟢 FIX: Safe ID Comparison (Number vs String)
       const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
 
       const dataPoints = timestamps.map(ts => {
         let totalSerum = 0;
         
         peptideDoses.forEach(dose => {
-            // Use date_for (schedule date) primarily, fallback to date
+            // 🟢 FIX: Use 'date_for' primarily
             const dateStr = dose.date_for || dose.date;
             if (!dateStr) return;
 
@@ -86,8 +82,6 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
             if (doseTime <= ts) {
                 const hoursElapsed = (ts - doseTime) / (1000 * 60 * 60);
                 const halfLife = Number(peptide.half_life_hours) || 24;
-                
-                // Cut off after 6 half-lives
                 if (hoursElapsed < halfLife * 6) {
                     const remaining = calculateDecay(Number(dose.dose_mg), hoursElapsed, halfLife);
                     totalSerum += remaining;
