@@ -127,7 +127,7 @@ export default function CalendarPage() {
                             <div className="flex flex-col gap-1.5">
                                 {dayDoses.map((r, idx) => (
                                     <div key={idx} className={`rounded-md border px-1.5 py-1 text-[10px] font-medium truncate 
-                                        ${r.status === 'LOGGED' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20' : 'bg-blue-500/15 text-blue-600 border-blue-500/20'}`}>
+                                        ${r.status === 'TAKEN' ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/20' : 'bg-blue-500/15 text-blue-600 border-blue-500/20'}`}>
                                         {r.canonical_name}
                                     </div>
                                 ))}
