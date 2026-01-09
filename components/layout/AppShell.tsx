@@ -36,7 +36,6 @@ export default function AppShell({
     { name: "Protocols", href: "/protocols", icon: ClipboardList },
     { name: "Inventory", href: "/inventory", icon: FlaskConical },
     { name: "Stats", href: "/stats", icon: Activity },
-    // Removed Consultations
   ];
 
   const handleSignOut = async () => {
