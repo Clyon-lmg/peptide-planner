@@ -15,6 +15,7 @@ function fmt(n: number | null | undefined, digits = 2) {
 }
 
 function localISODate(): string {
+  // Returns YYYY-MM-DD in local time
   const d = new Date();
   const offset = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime() - offset).toISOString().split('T')[0];
