@@ -14,7 +14,8 @@ import {
 } from "chart.js";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowser } from "@/lib/supabaseBrowser"; // Adjust import if needed
+// 🟢 FIX: Corrected import name
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser"; 
 import { toast } from "sonner";
 
 ChartJS.register(
@@ -40,7 +41,9 @@ export default function WeightClient({ initialEntries }: { initialEntries: Weigh
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
-    const supabase = createSupabaseBrowser();
+    
+    // 🟢 FIX: Corrected function call
+    const supabase = getSupabaseBrowser();
 
     async function addEntry(e: React.FormEvent) {
         e.preventDefault();
