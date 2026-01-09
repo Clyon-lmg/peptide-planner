@@ -14,19 +14,36 @@ export default async function StatsPage() {
 
   if (!user) return <div>Please sign in.</div>;
 
-  // 🟢 FIX: Select 'date_for' instead of 'date'
+  // 1. Fetch Doses (Taken only)
   const { data: doses } = await supabase
     .from("doses")
-    .select("date_for, time_of_day, dose_mg, peptide_id, status")
+    .select("date_for, date, time_of_day, dose_mg, peptide_id, status")
     .eq("user_id", user.id)
-    .eq("status", "TAKEN") // Only count taken doses
+    .eq("status", "TAKEN") 
     .order("date_for", { ascending: true });
 
-  const { data: peptides } = await supabase
+  // 2. Fetch Active Protocols to know which peptides are relevant
+  const { data: activeProtocols } = await supabase
+    .from("protocols")
+    .select(`id, is_active, protocol_items (peptide_id, dose_mg_per_administration, schedule, every_n_days, custom_days, cycle_on_weeks, cycle_off_weeks)`)
+    .eq("user_id", user.id)
+    .eq("is_active", true);
+
+  // 3. Collect Relevant Peptide IDs
+  const activePeptideIds = new Set<number>();
+  activeProtocols?.forEach(p => p.protocol_items.forEach((pi: any) => activePeptideIds.add(Number(pi.peptide_id))));
+  doses?.forEach(d => activePeptideIds.add(Number(d.peptide_id)));
+
+  // 4. Fetch Peptides (All, then filter)
+  const { data: allPeptides } = await supabase
     .from("peptides")
     .select("id, canonical_name, half_life_hours")
     .order("canonical_name");
 
+  // Filter to only relevant ones
+  const relevantPeptides = allPeptides?.filter(p => activePeptideIds.has(Number(p.id))) || [];
+
+  // 5. Other Data
   const { data: weights } = await supabase
     .from("weight_logs")
     .select("*")
@@ -36,12 +53,6 @@ export default async function StatsPage() {
   const { data: vialInv } = await supabase.from("inventory_items").select("peptide_id, vials, mg_per_vial, peptides(canonical_name)").eq("user_id", user.id);
   const { data: capInv } = await supabase.from("inventory_capsules").select("peptide_id, bottles, caps_per_bottle, mg_per_cap, peptides(canonical_name)").eq("user_id", user.id);
   const fullInventory = [...(vialInv || []), ...(capInv || [])];
-
-  const { data: activeProtocols } = await supabase
-    .from("protocols")
-    .select(`id, is_active, protocol_items (peptide_id, dose_mg_per_administration, schedule, every_n_days, custom_days, cycle_on_weeks, cycle_off_weeks)`)
-    .eq("user_id", user.id)
-    .eq("is_active", true);
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-8 pb-32">
@@ -58,7 +69,7 @@ export default async function StatsPage() {
             <p className="text-xs text-muted-foreground mt-1">Estimated concentration.</p>
           </div>
         </div>
-        <SerumChart doses={doses || []} peptides={peptides || []} />
+        <SerumChart doses={doses || []} peptides={relevantPeptides} />
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
