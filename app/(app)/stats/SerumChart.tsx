@@ -28,6 +28,7 @@ ChartJS.register(
 
 function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHours: number) {
   if (hoursElapsed < 0) return 0;
+  // Prevent divide by zero if half-life is missing
   const hl = halfLifeHours || 24; 
   return initialAmount * Math.pow(0.5, hoursElapsed / hl);
 }
@@ -35,16 +36,18 @@ function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHou
 export default function SerumChart({ doses, peptides }: { doses: any[], peptides: any[] }) {
   
   const chartData = useMemo(() => {
-    if (!doses || !peptides) return null;
+    // Need at least peptides to render a graph, even if empty
+    if (!peptides || peptides.length === 0) return null;
 
-    // Time Range: Past 21 days -> Future 14 days
+    // 1. Setup Time Range: Past 21 days -> Future 14 days
     const now = new Date();
     const startDate = new Date(); 
     startDate.setDate(now.getDate() - 21);
+    
     const endDate = new Date(); 
     endDate.setDate(now.getDate() + 14);
     
-    // Generate timestamps (every 6 hours)
+    // Generate timestamps (every 12 hours for performance)
     const labels: string[] = [];
     const timestamps: number[] = [];
     let current = new Date(startDate);
@@ -59,19 +62,23 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
         labels.push(""); 
       }
       timestamps.push(current.getTime());
-      current.setHours(current.getHours() + 6);
+      current.setHours(current.getHours() + 12);
     }
 
+    // 2. Build Datasets
     const datasets = peptides.map((peptide, idx) => {
-      // Safe ID Comparison
-      const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
-      if (peptideDoses.length === 0) return null;
+      // 🟢 FIX: Safe ID Comparison (String vs Number)
+      const peptideDoses = doses?.filter(d => Number(d.peptide_id) === Number(peptide.id)) || [];
+      
+      // 🟢 CHANGE: We no longer return null here. 
+      // We process even if empty so the peptide shows in the legend.
 
       const dataPoints = timestamps.map(ts => {
         let totalSerum = 0;
         
         peptideDoses.forEach(dose => {
-            // 🟢 FIX: Use 'date_for' (falling back to 'date' only if missing)
+            // 🟢 FIX: Use 'date_for' (falling back to 'date')
+            // The calendar/schedule system uses 'date_for'
             const dateStr = dose.date_for || dose.date;
             if (!dateStr) return;
 
@@ -84,7 +91,7 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
                 const hoursElapsed = (ts - doseTime) / (1000 * 60 * 60);
                 const halfLife = Number(peptide.half_life_hours) || 24;
                 
-                // Cut off after 6 half-lives
+                // Cut off after 6 half-lives to save math
                 if (hoursElapsed < halfLife * 6) {
                     const remaining = calculateDecay(Number(dose.dose_mg), hoursElapsed, halfLife);
                     totalSerum += remaining;
@@ -98,7 +105,7 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
       const color = `hsl(${hue}, 70%, 50%)`;
 
       return {
-        label: `${peptide.canonical_name} (mg)`,
+        label: `${peptide.canonical_name}`,
         data: dataPoints,
         borderColor: color,
         backgroundColor: color.replace(')', ', 0.1)'),
@@ -108,9 +115,7 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
         pointHitRadius: 10,
         fill: true,
       };
-    }).filter(Boolean);
-
-    if (datasets.length === 0) return null;
+    }); // Removed .filter(Boolean) so all peptides show
 
     return { labels, datasets };
   }, [doses, peptides]);
@@ -118,7 +123,7 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
   if (!chartData) {
       return (
         <div className="w-full h-[300px] flex items-center justify-center border-2 border-dashed border-border rounded-xl">
-             <p className="text-muted-foreground text-sm">No dose history found for active peptides.</p>
+             <p className="text-muted-foreground text-sm">No active peptides found.</p>
         </div>
       );
   }
@@ -143,7 +148,8 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
                     },
                     y: {
                         beginAtZero: true,
-                        grid: { color: 'rgba(0,0,0,0.05)' }
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        title: { display: true, text: 'Active mg' }
                     }
                 },
                 plugins: {
