@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { X, Syringe } from "lucide-react";
+import { X } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { toast } from "sonner";
 
@@ -43,7 +43,7 @@ export default function AddAdHocDoseModal({
       date: date,
       date_for: date,
       time_of_day: time,
-      // 🟢 FIX: Changed "LOGGED" to "TAKEN" to match database enum/constraints
+      // 🟢 FIX: Changed "LOGGED" to "TAKEN" to match database schema
       status: "TAKEN", 
     });
 
