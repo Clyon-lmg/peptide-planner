@@ -43,160 +43,256 @@ interface CapsInv {
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
     const sa = createServerActionSupabase();
-    const { data: auth } = await sa.auth.getUser();
+    const { data: auth, error: authError } = await sa.auth.getUser();
     const uid = auth.user?.id;
-    if (!uid) throw new Error('Session missing');
+    if (!uid) {
+        console.error('getTodayDosesWithUnits: auth.getUser() returned null', authError);
+        throw new Error('Session missing or expired');
+    }
 
-    // 1. Get Active Protocol & Generated Schedule
+    // Active protocol
     const { data: protocol } = await sa
         .from('protocols')
         .select('id,start_date')
         .eq('user_id', uid)
         .eq('is_active', true)
         .maybeSingle();
+    
+    // If no protocol, return empty (or handle ad-hoc only if desired, but sticking to your file's logic)
+    if (!protocol?.id) return [];
 
-    let scheduledRows: any[] = [];
-    if (protocol?.id) {
-        const { data: items } = await sa
-            .from('protocol_items')
-            .select('peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg,time_of_day,peptides(canonical_name)')
-            .eq('protocol_id', protocol.id);
+    // Protocol items joined with peptide names
+    const { data: items } = await sa
+        .from('protocol_items')
+        .select(
+            'peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg,time_of_day,peptides(canonical_name)'
+        )
+        .eq('protocol_id', protocol.id);
+    
+    if (!items?.length) return [];
 
-        if (items?.length) {
-            const protocolItems: ProtocolItem[] = items.map((it: any) => ({
-                peptide_id: Number(it.peptide_id),
-                canonical_name: Array.isArray(it.peptides) ? it.peptides[0]?.canonical_name : (it.peptides as any)?.canonical_name,
-                dose_mg_per_administration: Number(it.dose_mg_per_administration || 0),
-                schedule: it.schedule as Schedule,
-                custom_days: (it.custom_days as number[] | null) ?? null,
-                cycle_on_weeks: Number(it.cycle_on_weeks || 0),
-                cycle_off_weeks: Number(it.cycle_off_weeks || 0),
-                every_n_days: (it.every_n_days as number | null) ?? null,
-                time_of_day: (it.time_of_day as string | null) ?? null,
-            }));
+    const protocolItems: ProtocolItem[] = items.map((it: any) => ({
+        peptide_id: Number(it.peptide_id),
+        canonical_name: it.peptides?.canonical_name || `Peptide #${it.peptide_id}`,
+        dose_mg_per_administration: Number(it.dose_mg_per_administration || 0),
+        schedule: it.schedule as Schedule,
+        custom_days: (it.custom_days as number[] | null) ?? null,
+        cycle_on_weeks: Number(it.cycle_on_weeks || 0),
+        cycle_off_weeks: Number(it.cycle_off_weeks || 0),
+        every_n_days: (it.every_n_days as number | null) ?? null,
+        time_of_day: (it.time_of_day as string | null) ?? null,
+    }));
 
-            scheduledRows = generateDailyDoses(dateISO, protocol.start_date ?? dateISO, protocolItems);
-        }
-    }
+    const dayRows = generateDailyDoses(
+        dateISO,
+        protocol.start_date ?? dateISO,
+        protocolItems
+    );
+    
+    if (!dayRows.length) return [];
 
-    // 2. Fetch Actual Doses (Find ALL doses for today, ignoring protocol link)
-    // 🟢 Fix: Removed .eq('protocol_id', ...) to ensures we find the row we just updated.
-    const { data: doseRows } = await sa
-        .from('doses')
-        .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
-        .eq('user_id', uid)
-        .eq('date_for', dateISO);
+    const peptideIds = dayRows.map((r) => Number(r.peptide_id));
 
-    // 3. Identify all Peptide IDs
-    const scheduledIds = scheduledRows.map(r => Number(r.peptide_id));
-    const adHocIds = (doseRows || []).map((r: any) => Number(r.peptide_id));
-    const allPeptideIds = Array.from(new Set([...scheduledIds, ...adHocIds]));
-
-    if (allPeptideIds.length === 0) return [];
-
-    // 4. Fetch Inventory
-    const [{ data: invVials }, { data: invCaps }] = await Promise.all([
-        sa.from('inventory_items').select('*').eq('user_id', uid).in('peptide_id', allPeptideIds),
-        sa.from('inventory_capsules').select('*').eq('user_id', uid).in('peptide_id', allPeptideIds),
+    // Inventory (vials + caps) and today’s status
+    const [{ data: invVials }, { data: invCaps }, { data: doseRows }] = await Promise.all([
+        sa
+            .from('inventory_items')
+            .select('peptide_id, vials, mg_per_vial, bac_ml, current_used_mg')
+            .eq('user_id', uid)
+            .in('peptide_id', peptideIds),
+        sa
+            .from('inventory_capsules')
+            .select('peptide_id, bottles, caps_per_bottle, mg_per_cap, current_used_mg')
+            .eq('user_id', uid)
+            .in('peptide_id', peptideIds),
+        sa
+            .from('doses')
+            .select('peptide_id,status,site_label')
+            .eq('user_id', uid)
+            .eq('protocol_id', protocol.id) // Keeping strict protocol check as requested
+            .eq('date_for', dateISO)
+            .in('peptide_id', peptideIds),
     ]);
 
-    const vialMap = new Map<number, VialInv>();
-    invVials?.forEach((r: any) => vialMap.set(Number(r.peptide_id), r));
-    const capMap = new Map<number, CapsInv>();
-    invCaps?.forEach((r: any) => capMap.set(Number(r.peptide_id), r));
+    const vialByPeptide = new Map<number, VialInv>();
+    (invVials ?? []).forEach((r: any) => {
+        vialByPeptide.set(Number(r.peptide_id), {
+            vials: Number(r.vials || 0),
+            mg_per_vial: Number(r.mg_per_vial || 0),
+            bac_ml: Number(r.bac_ml || 0),
+            current_used_mg: Number(r.current_used_mg || 0),
+        });
+    });
 
-    // Map DB Doses
-    const doseMap = new Map<number, any>();
-    doseRows?.forEach((r: any) => doseMap.set(Number(r.peptide_id), r));
+    const capsByPeptide = new Map<number, CapsInv>();
+    (invCaps ?? []).forEach((r: any) => {
+        capsByPeptide.set(Number(r.peptide_id), {
+            bottles: Number(r.bottles || 0),
+            caps_per_bottle: Number(r.caps_per_bottle || 0),
+            mg_per_cap: Number(r.mg_per_cap || 0),
+            current_used_mg: Number(r.current_used_mg || 0),
+        });
+    });
 
-    const finalRows: TodayDoseRow[] = [];
+    const doseInfoByPeptide = new Map<number, { status: DoseStatus; site_label: string | null }>();
+    (doseRows ?? []).forEach((d: any) =>
+        doseInfoByPeptide.set(Number(d.peptide_id), {
+            status: d.status as DoseStatus,
+            site_label: d.site_label ?? null,
+        })
+    );
 
-    // A. Add Scheduled Doses
-    for (const s of scheduledRows) {
-        const pid = Number(s.peptide_id);
-        const dbDose = doseMap.get(pid);
-        
-        // DB row takes precedence on status/dose
-        const finalDose = dbDose ? Number(dbDose.dose_mg) : Number(s.dose_mg);
-        const status = dbDose ? (dbDose.status as DoseStatus) : 'PENDING';
-        const site = dbDose?.site_label ?? null;
-        const time = dbDose?.time_of_day ?? s.time_of_day;
+    const itemById = new Map<number, ProtocolItem>(
+        protocolItems.map((it) => [it.peptide_id, it])
+    );
 
-        if (dbDose) doseMap.delete(pid); 
+    const rows: TodayDoseRow[] = dayRows.map((dr) => {
+        const pid = Number(dr.peptide_id);
+        const vialInv = vialByPeptide.get(pid);
+        const capsInv = capsByPeptide.get(pid);
+        const item = itemById.get(pid);
 
-        finalRows.push(buildRow(pid, s.canonical_name || '', finalDose, status, time, site, vialMap, capMap));
-    }
+        const vialTotal = (Number(vialInv?.vials || 0) * Number(vialInv?.mg_per_vial || 0)) - Number(vialInv?.current_used_mg || 0);
+        const capTotal = (Number(capsInv?.bottles || 0) * Number(capsInv?.caps_per_bottle || 0) * Number(capsInv?.mg_per_cap || 0)) - Number(capsInv?.current_used_mg || 0);
 
-    // B. Add Remaining Ad-Hoc Doses
-    for (const [pid, dbDose] of doseMap.entries()) {
-        const pName = Array.isArray(dbDose.peptides) ? dbDose.peptides[0]?.canonical_name : (dbDose.peptides as any)?.canonical_name;
-        const name = pName || `Peptide #${pid}`;
-        finalRows.push(buildRow(pid, name, Number(dbDose.dose_mg), dbDose.status as DoseStatus, dbDose.time_of_day, dbDose.site_label, vialMap, capMap));
-    }
+        const totalMg = Math.max(0, vialTotal + capTotal);
 
-    return finalRows.sort((a, b) => (a.time_of_day || '99').localeCompare(b.time_of_day || '99'));
-}
+        let remainingDoses: number | null = null;
+        let reorderDateISO: string | null = null;
+        if (dr.dose_mg && dr.dose_mg > 0) {
+            ({ remainingDoses, reorderDateISO } = forecastRemainingDoses(
+                totalMg,
+                dr.dose_mg,
+                (item?.schedule ?? 'EVERYDAY') as Schedule,
+                item?.custom_days ?? null,
+                Number(item?.cycle_on_weeks || 0),
+                Number(item?.cycle_off_weeks || 0),
+                item?.every_n_days ?? null
+            ));
+        }
 
-function buildRow(pid: number, name: string, doseMg: number, status: DoseStatus, time: string | null, site: string | null, vialMap: Map<number, VialInv>, capMap: Map<number, CapsInv>): TodayDoseRow {
-    const v = vialMap.get(pid);
-    const c = capMap.get(pid);
+        return {
+            peptide_id: pid,
+            canonical_name: dr.canonical_name,
+            dose_mg: dr.dose_mg,
+            syringe_units: unitsFromDose(
+                dr.dose_mg,
+                vialInv?.mg_per_vial ?? null,
+                vialInv?.bac_ml ?? null
+            ),
+            mg_per_vial: vialInv?.mg_per_vial ?? null,
+            bac_ml: vialInv?.bac_ml ?? null,
+            status: doseInfoByPeptide.get(pid)?.status || 'PENDING',
+            site_label: doseInfoByPeptide.get(pid)?.site_label || null,
+            remainingDoses,
+            reorderDateISO,
+            time_of_day: dr.time_of_day,
+        };
+    });
 
-    return {
-        peptide_id: pid,
-        canonical_name: name,
-        dose_mg: doseMg,
-        status: status,
-        time_of_day: time,
-        site_label: site,
-        syringe_units: unitsFromDose(doseMg, v?.mg_per_vial || null, v?.bac_ml || null),
-        mg_per_vial: v?.mg_per_vial || null,
-        bac_ml: v?.bac_ml || null,
-        remainingDoses: null,
-        reorderDateISO: null,
-    };
+    rows.sort((a, b) => {
+        const ta = a.time_of_day ?? '99:99';
+        const tb = b.time_of_day ?? '99:99';
+        if (ta === tb) {
+            return a.canonical_name.localeCompare(b.canonical_name);
+        }
+        return ta < tb ? -1 : 1;
+    });
+    return rows;
 }
 
 // ---------- Mutations ----------
 
-async function updateInventoryUsage(supabase: any, uid: string, peptideId: number, deltaMg: number) {
-     const { data: vialItem } = await supabase.from("inventory_items").select("id, vials, mg_per_vial, current_used_mg").eq("user_id", uid).eq("peptide_id", peptideId).maybeSingle();
-     if (vialItem) {
+async function updateInventoryUsage(
+    supabase: any,
+    uid: string,
+    peptideId: number,
+    deltaMg: number
+) {
+    // 1. Try Vials first
+    const { data: vialItem } = await supabase
+        .from("inventory_items")
+        .select("id, vials, mg_per_vial, current_used_mg")
+        .eq("user_id", uid)
+        .eq("peptide_id", peptideId)
+        .maybeSingle();
+
+    if (vialItem) {
         let newUsed = Number(vialItem.current_used_mg || 0) + deltaMg;
         let newVials = Number(vialItem.vials || 0);
         const size = Number(vialItem.mg_per_vial || 0);
+
         if (size > 0) {
-            while (newUsed >= size && newVials > 0) { newUsed -= size; newVials--; }
-            while (newUsed < 0) { newUsed += size; newVials++; }
+            while (newUsed >= size && newVials > 0) {
+                newUsed -= size;
+                newVials--;
+            }
+            while (newUsed < 0) {
+                newUsed += size;
+                newVials++;
+            }
         }
-        await supabase.from("inventory_items").update({ vials: newVials, current_used_mg: Math.max(0, newUsed) }).eq("id", vialItem.id);
+
+        await supabase
+            .from("inventory_items")
+            .update({ vials: newVials, current_used_mg: Math.max(0, newUsed) })
+            .eq("id", vialItem.id);
         return;
-     }
-     const { data: capItem } = await supabase.from("inventory_capsules").select("id, bottles, mg_per_cap, caps_per_bottle, current_used_mg").eq("user_id", uid).eq("peptide_id", peptideId).maybeSingle();
-     if (capItem) {
+    }
+
+    // 2. Try Capsules
+    const { data: capItem } = await supabase
+        .from("inventory_capsules")
+        .select("id, bottles, mg_per_cap, caps_per_bottle, current_used_mg")
+        .eq("user_id", uid)
+        .eq("peptide_id", peptideId)
+        .maybeSingle();
+
+    if (capItem) {
         let newUsed = Number(capItem.current_used_mg || 0) + deltaMg;
         let newBottles = Number(capItem.bottles || 0);
         const bottleTotalMg = Number(capItem.caps_per_bottle || 0) * Number(capItem.mg_per_cap || 0);
+
         if (bottleTotalMg > 0) {
-            while (newUsed >= bottleTotalMg && newBottles > 0) { newUsed -= bottleTotalMg; newBottles--; }
-            while (newUsed < 0) { newUsed += bottleTotalMg; newBottles++; }
+            while (newUsed >= bottleTotalMg && newBottles > 0) {
+                newUsed -= bottleTotalMg;
+                newBottles--;
+            }
+            while (newUsed < 0) {
+                newUsed += bottleTotalMg;
+                newBottles++;
+            }
         }
-        await supabase.from("inventory_capsules").update({ bottles: newBottles, current_used_mg: Math.max(0, newUsed) }).eq("id", capItem.id);
-     }
+
+        await supabase
+            .from("inventory_capsules")
+            .update({ bottles: newBottles, current_used_mg: Math.max(0, newUsed) })
+            .eq("id", capItem.id);
+    }
 }
 
 async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatus: DoseStatus) {
     const sa = createServerActionSupabase();
     const { data: { user } } = await sa.auth.getUser();
-    if (!user) throw new Error('Not signed in');
+    const uid = user?.id;
+    if (!uid) throw new Error('Not signed in');
 
-    // 1. Get Protocol (Optional, just for linking if we create a new one)
-    const { data: protocol } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
+    // 1. Get Protocol
+    const { data: protocol } = await sa
+        .from('protocols')
+        .select('id')
+        .eq('user_id', uid)
+        .eq('is_active', true)
+        .maybeSingle();
+    
+    if (!protocol?.id) throw new Error('No active protocol');
 
-    // 2. Check existing record (Ignore protocol_id to ensure we match whatever is in the DB)
+    // 2. Check existing record
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
+        .eq('protocol_id', protocol.id)
         .eq('peptide_id', peptide_id)
         .eq('date_for', dateISO)
         .maybeSingle();
@@ -204,33 +300,57 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const currentStatus = existing?.status || 'PENDING';
     if (currentStatus === targetStatus) return;
 
+    // 3. Determine Dose Amount
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
+
     if (!doseAmount) {
-         // Fallback if creating new row
-         const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', protocol?.id).eq('peptide_id', peptide_id).maybeSingle();
-         doseAmount = Number(pi?.dose_mg_per_administration || 0);
+        const { data: pi } = await sa
+            .from('protocol_items')
+            .select('dose_mg_per_administration')
+            .eq('protocol_id', protocol.id)
+            .eq('peptide_id', peptide_id)
+            .maybeSingle();
+        doseAmount = Number(pi?.dose_mg_per_administration || 0);
     }
 
-    if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, doseAmount);
-    else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, -doseAmount);
+    // 4. Update Inventory
+    if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') {
+        await updateInventoryUsage(sa, uid, peptide_id, doseAmount);
+    }
+    else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') {
+        await updateInventoryUsage(sa, uid, peptide_id, -doseAmount);
+    }
 
+    // 5. Commit Dose Status
     if (!existing?.id) {
-        await sa.from('doses').insert({
-            user_id: user.id,
-            protocol_id: protocol?.id || null, 
+        const { error: insErr } = await sa.from('doses').insert({
+            user_id: uid,
+            protocol_id: protocol.id,
             peptide_id,
             date: dateISO,
             date_for: dateISO,
             dose_mg: doseAmount,
             status: targetStatus,
+            site_label: null,
         });
+        if (insErr) throw insErr;
     } else {
-        await sa.from('doses').update({ status: targetStatus }).eq('id', existing.id);
+        const { error: updErr } = await sa
+            .from('doses')
+            .update({ status: targetStatus })
+            .eq('id', existing.id);
+        if (updErr) throw updErr;
     }
 
     revalidatePath('/today');
 }
 
-export async function logDose(peptide_id: number, dateISO: string) { 'use server'; await upsertDoseStatus(peptide_id, dateISO, 'TAKEN'); }
-export async function skipDose(peptide_id: number, dateISO: string) { 'use server'; await upsertDoseStatus(peptide_id, dateISO, 'SKIPPED'); }
-export async function resetDose(peptide_id: number, dateISO: string) { 'use server'; await upsertDoseStatus(peptide_id, dateISO, 'PENDING'); }
+export async function logDose(peptide_id: number, dateISO: string) {
+    'use server';
+    await upsertDoseStatus(peptide_id, dateISO, 'TAKEN');
+}
+
+export async function resetDose(peptide_id: number, dateISO: string) {
+    'use server';
+    await upsertDoseStatus(peptide_id, dateISO, 'PENDING');
+}
