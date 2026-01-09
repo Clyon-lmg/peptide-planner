@@ -2,8 +2,11 @@
 
 import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { unitsFromDose, forecastRemainingDoses } from '@/lib/forecast';
-// 🟢 FIX: Use the exact same scheduling engine as the Calendar
-import { isDoseDayUTC, type ScheduleItem } from '@/lib/scheduleEngine';
+import {
+    generateDailyDoses,
+    type ProtocolItem,
+    type Schedule,
+} from '@/lib/scheduleEngine';
 import { revalidatePath, unstable_noStore as noStore } from 'next/cache';
 
 export type DoseStatus = 'PENDING' | 'TAKEN' | 'SKIPPED';
@@ -39,14 +42,15 @@ interface CapsInv {
 // ---------- Queries ----------
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
-    noStore(); // 🟢 Disable cache to ensure status updates stick
-    
+    // 🟢 CRITICAL: Disable caching to prevent status from reverting to old state
+    noStore();
+
     const sa = createServerActionSupabase();
     const { data: auth } = await sa.auth.getUser();
     const uid = auth.user?.id;
     if (!uid) throw new Error('Session missing');
 
-    // 1. Get Active Protocol & Items
+    // 1. Get Active Protocol & Generated Schedule
     const { data: protocol } = await sa
         .from('protocols')
         .select('id,start_date')
@@ -54,23 +58,41 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         .eq('is_active', true)
         .maybeSingle();
 
-    const { data: items } = protocol?.id 
-        ? await sa.from('protocol_items')
-            .select('peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg,time_of_day,peptides(canonical_name)')
-            .eq('protocol_id', protocol.id)
-        : { data: [] };
+    let scheduledRows: any[] = [];
+    if (protocol?.id) {
+        const { data: items } = await sa
+            .from('protocol_items')
+            .select('peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,time_of_day,peptides(canonical_name)')
+            .eq('protocol_id', protocol.id);
 
-    // 2. Fetch Actual Doses (ALL doses for this date)
+        if (items?.length) {
+            const protocolItems: ProtocolItem[] = items.map((it: any) => ({
+                peptide_id: Number(it.peptide_id),
+                canonical_name: Array.isArray(it.peptides) ? it.peptides[0]?.canonical_name : (it.peptides as any)?.canonical_name,
+                dose_mg_per_administration: Number(it.dose_mg_per_administration || 0),
+                schedule: it.schedule as Schedule,
+                custom_days: (it.custom_days as number[] | null) ?? null,
+                cycle_on_weeks: Number(it.cycle_on_weeks || 0),
+                cycle_off_weeks: Number(it.cycle_off_weeks || 0),
+                every_n_days: (it.every_n_days as number | null) ?? null,
+                time_of_day: (it.time_of_day as string | null) ?? null,
+            }));
+
+            scheduledRows = generateDailyDoses(dateISO, protocol.start_date ?? dateISO, protocolItems);
+        }
+    }
+
+    // 2. Fetch Actual Doses (Find ALL doses for today, ignoring protocol link)
     const { data: doseRows } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
         .eq('user_id', uid)
         .eq('date_for', dateISO);
 
-    // 3. Identify all Peptide IDs (Schedule + Actuals)
-    const itemIds = (items || []).map((i: any) => Number(i.peptide_id));
-    const doseIds = (doseRows || []).map((r: any) => Number(r.peptide_id));
-    const allPeptideIds = Array.from(new Set([...itemIds, ...doseIds]));
+    // 3. Identify all Peptide IDs
+    const scheduledIds = scheduledRows.map(r => Number(r.peptide_id));
+    const adHocIds = (doseRows || []).map((r: any) => Number(r.peptide_id));
+    const allPeptideIds = Array.from(new Set([...scheduledIds, ...adHocIds]));
 
     if (allPeptideIds.length === 0) return [];
 
@@ -84,52 +106,34 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     invVials?.forEach((r: any) => vialMap.set(Number(r.peptide_id), r));
     const capMap = new Map<number, CapsInv>();
     invCaps?.forEach((r: any) => capMap.set(Number(r.peptide_id), r));
-    
-    // Map DB Doses by Peptide ID for easy lookup
+
+    // Map DB Doses
     const doseMap = new Map<number, any>();
     doseRows?.forEach((r: any) => doseMap.set(Number(r.peptide_id), r));
 
     const finalRows: TodayDoseRow[] = [];
-    const processedIds = new Set<number>();
 
-    // 5. Generate Schedule (CALENDAR LOGIC MATCH)
-    if (protocol?.id && items) {
-        const d = new Date(dateISO + 'T00:00:00Z'); 
-        const protocolStart = protocol.start_date || dateISO;
+    // A. Add Scheduled Doses
+    for (const s of scheduledRows) {
+        const pid = Number(s.peptide_id);
+        const dbDose = doseMap.get(pid);
+        
+        // DB row takes precedence on status/dose
+        const finalDose = dbDose ? Number(dbDose.dose_mg) : Number(s.dose_mg);
+        const status = dbDose ? (dbDose.status as DoseStatus) : 'PENDING';
+        const site = dbDose?.site_label ?? null;
+        const time = dbDose?.time_of_day ?? s.time_of_day;
 
-        for (const it of items) {
-            const pid = Number(it.peptide_id);
-            const itemForSchedule: ScheduleItem & { protocol_start_date: string } = {
-                ...it,
-                protocol_start_date: protocolStart,
-            };
+        if (dbDose) doseMap.delete(pid); 
 
-            // 🟢 The exact check used by Calendar
-            if (isDoseDayUTC(d, itemForSchedule)) {
-                const dbDose = doseMap.get(pid);
-                
-                // If DB has a record (TAKEN/SKIPPED), use it. Otherwise use Protocol default.
-                const finalDose = dbDose ? Number(dbDose.dose_mg) : Number(it.dose_mg_per_administration || 0);
-                const status = dbDose ? (dbDose.status as DoseStatus) : 'PENDING';
-                const site = dbDose?.site_label ?? null;
-                const time = dbDose?.time_of_day ?? it.time_of_day;
-                
-                // Handle joined name array
-                const pName = Array.isArray(it.peptides) ? it.peptides[0]?.canonical_name : (it.peptides as any)?.canonical_name;
-
-                finalRows.push(buildRow(pid, pName || '', finalDose, status, time, site, vialMap, capMap));
-                processedIds.add(pid);
-            }
-        }
+        finalRows.push(buildRow(pid, s.canonical_name || '', finalDose, status, time, site, vialMap, capMap));
     }
 
-    // 6. Add Ad-Hoc / Overrides (Items in DB but not in today's schedule)
+    // B. Add Remaining Ad-Hoc Doses
     for (const [pid, dbDose] of doseMap.entries()) {
-        if (!processedIds.has(pid)) {
-            const pName = Array.isArray(dbDose.peptides) ? dbDose.peptides[0]?.canonical_name : (dbDose.peptides as any)?.canonical_name;
-            const name = pName || `Peptide #${pid}`;
-            finalRows.push(buildRow(pid, name, Number(dbDose.dose_mg), dbDose.status as DoseStatus, dbDose.time_of_day, dbDose.site_label, vialMap, capMap));
-        }
+        const pName = Array.isArray(dbDose.peptides) ? dbDose.peptides[0]?.canonical_name : (dbDose.peptides as any)?.canonical_name;
+        const name = pName || `Peptide #${pid}`;
+        finalRows.push(buildRow(pid, name, Number(dbDose.dose_mg), dbDose.status as DoseStatus, dbDose.time_of_day, dbDose.site_label, vialMap, capMap));
     }
 
     return finalRows.sort((a, b) => (a.time_of_day || '99').localeCompare(b.time_of_day || '99'));
@@ -137,7 +141,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
 function buildRow(pid: number, name: string, doseMg: number, status: DoseStatus, time: string | null, site: string | null, vialMap: Map<number, VialInv>, capMap: Map<number, CapsInv>): TodayDoseRow {
     const v = vialMap.get(pid);
-    const units = unitsFromDose(doseMg, v?.mg_per_vial || null, v?.bac_ml || null);
+    const c = capMap.get(pid);
 
     return {
         peptide_id: pid,
@@ -146,15 +150,13 @@ function buildRow(pid: number, name: string, doseMg: number, status: DoseStatus,
         status: status,
         time_of_day: time,
         site_label: site,
-        syringe_units: units,
+        syringe_units: unitsFromDose(doseMg, v?.mg_per_vial || null, v?.bac_ml || null),
         mg_per_vial: v?.mg_per_vial || null,
         bac_ml: v?.bac_ml || null,
         remainingDoses: null,
         reorderDateISO: null,
     };
 }
-
-// ---------- Mutations ----------
 
 async function updateInventoryUsage(supabase: any, uid: string, peptideId: number, deltaMg: number) {
      const { data: vialItem } = await supabase.from("inventory_items").select("id, vials, mg_per_vial, current_used_mg").eq("user_id", uid).eq("peptide_id", peptideId).maybeSingle();
@@ -167,6 +169,18 @@ async function updateInventoryUsage(supabase: any, uid: string, peptideId: numbe
             while (newUsed < 0) { newUsed += size; newVials++; }
         }
         await supabase.from("inventory_items").update({ vials: newVials, current_used_mg: Math.max(0, newUsed) }).eq("id", vialItem.id);
+        return;
+     }
+     const { data: capItem } = await supabase.from("inventory_capsules").select("id, bottles, mg_per_cap, caps_per_bottle, current_used_mg").eq("user_id", uid).eq("peptide_id", peptideId).maybeSingle();
+     if (capItem) {
+        let newUsed = Number(capItem.current_used_mg || 0) + deltaMg;
+        let newBottles = Number(capItem.bottles || 0);
+        const bottleTotalMg = Number(capItem.caps_per_bottle || 0) * Number(capItem.mg_per_cap || 0);
+        if (bottleTotalMg > 0) {
+            while (newUsed >= bottleTotalMg && newBottles > 0) { newUsed -= bottleTotalMg; newBottles--; }
+            while (newUsed < 0) { newUsed += bottleTotalMg; newBottles++; }
+        }
+        await supabase.from("inventory_capsules").update({ bottles: newBottles, current_used_mg: Math.max(0, newUsed) }).eq("id", capItem.id);
      }
 }
 
@@ -175,7 +189,10 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const { data: { user } } = await sa.auth.getUser();
     if (!user) throw new Error('Not signed in');
 
-    // 1. Check existing record (Ignore protocol_id)
+    // 1. Get Protocol (Optional, for reference)
+    const { data: protocol } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
+
+    // 2. Check existing record (Ignore protocol_id to ensure we update what we see)
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
@@ -188,26 +205,21 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     if (currentStatus === targetStatus) return;
 
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
-    
-    // Fallback: If no dose exists, check active protocol plan
-    if (!doseAmount) {
-         const { data: proto } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
-         if (proto) {
-             const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', proto.id).eq('peptide_id', peptide_id).maybeSingle();
-             doseAmount = Number(pi?.dose_mg_per_administration || 0);
-         }
+    // Fallback dose amount
+    if (!doseAmount && protocol?.id) {
+         const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', protocol.id).eq('peptide_id', peptide_id).maybeSingle();
+         doseAmount = Number(pi?.dose_mg_per_administration || 0);
     }
 
-    // Update Inventory
+    // 3. Update Inventory
     if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, doseAmount);
     else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, -doseAmount);
 
+    // 4. Commit
     if (!existing?.id) {
-        // Link protocol if available
-        const { data: proto } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
         await sa.from('doses').insert({
             user_id: user.id,
-            protocol_id: proto?.id || null, 
+            protocol_id: protocol?.id || null, 
             peptide_id,
             date: dateISO,
             date_for: dateISO,
