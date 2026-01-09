@@ -1,137 +1,168 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Clock, Plus, Syringe } from "lucide-react";
-import { toast } from "sonner";
-import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
-// 🟢 Import Server Actions
-import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow } from "./actions";
+
+import { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  getTodayDosesWithUnits,
+  logDose,
+  resetDose,
+  skipDose,
+  type TodayDoseRow,
+} from "./actions";
+
+function fmt(n: number | null | undefined, digits = 2) {
+  if (n == null || Number.isNaN(Number(n))) return "—";
+  return Number(n).toFixed(digits);
+}
+
+/** Local system YYYY-MM-DD */
+function localISODate(): string {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+type Row = TodayDoseRow & {
+  remainingDoses?: number | null;
+  reorderDateISO?: string | null;
+};
 
 export default function TodayPage() {
-  const [doses, setDoses] = useState<TodayDoseRow[]>([]);
+  const [rows, setRows] = useState<Row[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAdHoc, setShowAdHoc] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const today = new Date();
-  const todayStr = today.toLocaleDateString("en-CA"); // YYYY-MM-DD
-  const displayDate = today.toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric' });
+  const today = useMemo(localISODate, []); 
 
-  const loadToday = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-        const data = await getTodayDosesWithUnits(todayStr);
-        setDoses(data);
-    } catch (e) {
-        console.error("Failed to load today", e);
-        toast.error("Could not load schedule");
+      const data = await getTodayDosesWithUnits(today);
+      setRows(data as Row[]);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load doses', err);
+      setError(err instanceof Error ? err.message : 'Failed to load doses');
+      setRows([]);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
-  };
+  }, [today]);
 
-  useEffect(() => { loadToday(); }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const toggleDose = async (dose: TodayDoseRow) => {
-    const isTaken = dose.status === "TAKEN";
-    const newStatus = isTaken ? "PENDING" : "TAKEN";
-    
-    setDoses(doses.map(d => d.peptide_id === dose.peptide_id ? { ...d, status: newStatus } : d));
-
+  async function mutateStatus(
+    peptide_id: number,
+    act: (id: number, d: string) => Promise<any>
+  ) {
+    setBusyId(peptide_id);
     try {
-        if (newStatus === "TAKEN") {
-            await logDose(dose.peptide_id, todayStr);
-            toast.success("Dose taken");
-        } else {
-            await resetDose(dose.peptide_id, todayStr);
-            toast.success("Dose reset");
-        }
-    } catch (e) {
-        toast.error("Failed to update status");
-        loadToday();
+      await act(peptide_id, today);
+      setRows((prev) =>
+        (prev ?? []).map((r) =>
+          r.peptide_id === peptide_id
+            ? {
+                ...r,
+                status: act === logDose ? "TAKEN" : act === skipDose ? "SKIPPED" : "PENDING",
+              }
+            : r
+        )
+      );
+    } finally {
+      setBusyId(null);
     }
-  };
+  }
 
   return (
-    <div className="max-w-md mx-auto p-4 pb-24 space-y-6">
-      <div className="flex items-center justify-between">
-         <div>
-            <h1 className="text-2xl font-bold tracking-tight">Today</h1>
-            <p className="text-muted-foreground">{displayDate}</p>
-         </div>
-         <button 
-           onClick={() => setShowAdHoc(true)}
-           className="p-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
-           title="Add Unscheduled Dose"
-         >
-           <Plus className="size-6" />
-         </button>
-      </div>
+    <div className="max-w-3xl mx-auto p-4 space-y-6 pb-20">
+      <h1 className="text-2xl font-semibold">Today</h1>
 
-      <div className="space-y-3">
-        {loading ? (
-            <div className="text-center py-10 text-muted-foreground">Loading schedule...</div>
-        ) : doses.length === 0 ? (
-            <div className="text-center py-10 border-2 border-dashed border-border rounded-xl">
-                <p className="text-muted-foreground">No doses scheduled for today.</p>
-            </div>
-        ) : (
-            doses.map(dose => {
-                const isTaken = dose.status === "TAKEN";
-                const displayDose = Number(dose.dose_mg.toFixed(2));
+      {loading && <div>Loading…</div>}
+      {!loading && error && <div className="text-sm text-destructive">{error}</div>}
+      {!loading && !error && (rows?.length ?? 0) === 0 && (
+              <div className="text-sm text-muted-foreground">No doses scheduled for today.</div>
+      )}
 
-                return (
-                <div 
-                  key={dose.peptide_id} 
-                  onClick={() => toggleDose(dose)}
-                  className={`relative overflow-hidden group p-4 rounded-2xl border transition-all cursor-pointer ${
-                    isTaken
-                      ? "bg-emerald-500/10 border-emerald-500/20" 
-                      : "bg-card border-border hover:border-primary/50"
-                  }`}
-                >
-                    <div className="flex items-center justify-between relative z-10">
-                        <div className="flex items-center gap-4">
-                            <div className={`transition-colors ${isTaken ? "text-emerald-500" : "text-muted-foreground"}`}>
-                                {isTaken ? <CheckCircle2 className="size-7 fill-current" /> : <Circle className="size-7" />}
-                            </div>
-                            <div>
-                                <h3 className={`font-bold text-lg ${isTaken ? "text-muted-foreground line-through" : ""}`}>
-                                    {dose.canonical_name}
-                                </h3>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <span className="font-medium text-foreground">{displayDose} mg</span>
-                                    <span>•</span>
-                                    {dose.syringe_units ? (
-                                        <span className="flex items-center gap-1 text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs font-mono">
-                                            <Syringe className="size-3" /> {dose.syringe_units} units
-                                        </span>
-                                    ) : (
-                                        <span className="text-xs opacity-50">No units</span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {!isTaken && dose.time_of_day && (
-                            <div className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-lg">
-                                {dose.time_of_day}
-                            </div>
-                        )}
-                    </div>
+      {!loading && rows && rows.length > 0 && (
+        <div className="space-y-3">
+          {rows.map((r) => {
+            const needsSetup = !r.mg_per_vial || r.mg_per_vial <= 0 || !r.bac_ml || r.bac_ml <= 0;
+
+            return (
+              <div key={r.peptide_id} className="rounded-xl border p-4 bg-card shadow-sm space-y-3 relative">
+                <div className="absolute right-3 top-3">
+                  <StatusBadge status={r.status} />
                 </div>
-            )})
-        )}
-      </div>
 
-      {showAdHoc && (
-        <AddAdHocDoseModal 
-          date={todayStr}
-          onClose={() => setShowAdHoc(false)}
-          onSuccess={() => {
-            setShowAdHoc(false);
-            loadToday();
-          }}
-        />
+                <div className="flex items-center justify-between pr-24">
+                  <div className="min-w-0">
+                    <div className="text-lg font-medium truncate">{r.canonical_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Dose: <span className="font-mono font-bold text-foreground">{fmt(r.dose_mg)}</span>{" "}
+                      mg  •  Syringe:{" "}
+                      {/* 🟢 FIX: Round to 0 digits (nearest whole number) */}
+                      <span className="font-mono font-bold text-foreground">{fmt(r.syringe_units, 0)}</span>{" "}
+                      units
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Time: {r.time_of_day ?? "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  Inventory: {fmt(r.mg_per_vial)} mg/vial • {fmt(r.bac_ml)} mL BAC
+                </div>
+                {needsSetup && (
+                    <div className="text-xs text-amber-500 font-medium">Set mg/vial &amp; BAC in Inventory</div>
+                )}
+
+                <div className="pt-1 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busyId === r.peptide_id}
+                    onClick={() => mutateStatus(r.peptide_id, logDose)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      r.status === "TAKEN"
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    Log
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={busyId === r.peptide_id}
+                    onClick={() => mutateStatus(r.peptide_id, skipDose)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      r.status === "SKIPPED"
+                        ? "bg-red-600 text-white border-red-600"
+                        : "hover:bg-muted"
+                    }`}
+                  >
+                    Skip
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={busyId === r.peptide_id}
+                    onClick={() => mutateStatus(r.peptide_id, resetDose)}
+                    className="rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: TodayDoseRow["status"] }) {
+  const base = "text-[10px] uppercase font-bold px-2 py-1 rounded-full border tracking-wide";
+    if (status === "TAKEN") return <span className={`${base} border-emerald-200 bg-emerald-50 text-emerald-700`}>Taken</span>;
+    if (status === "SKIPPED") return <span className={`${base} border-red-200 bg-red-50 text-red-700`}>Skipped</span>;
+    return <span className={`${base} border-gray-200 bg-gray-50 text-gray-500`}>Pending</span>;
 }
