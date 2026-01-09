@@ -20,6 +20,7 @@ export default function AddAdHocDoseModal({
   const [time, setTime] = useState("08:00");
 
   useEffect(() => {
+    // Load inventory to let user pick
     const load = async () => {
       const sb = getSupabaseBrowser();
       const { data } = await sb.from("inventory_items").select("*, peptides(*)");
@@ -32,16 +33,15 @@ export default function AddAdHocDoseModal({
     if (!selectedPeptideId || !dose) return;
     setLoading(true);
     const sb = getSupabaseBrowser();
-    
-    // 1. Get User
     const { data: { user } } = await sb.auth.getUser();
+
     if (!user) {
-        toast.error("You must be logged in");
+        toast.error("Not authenticated");
         setLoading(false);
         return;
     }
 
-    // 2. Try to find active protocol to link (Fallback to null if none)
+    // 1. Get Active Protocol ID (Fixes DB Constraint Error)
     const { data: protocol } = await sb
         .from('protocols')
         .select('id')
@@ -49,7 +49,7 @@ export default function AddAdHocDoseModal({
         .eq('is_active', true)
         .maybeSingle();
 
-    // 3. Insert Dose
+    // 2. Insert with Protocol Link
     const { error } = await sb.from("doses").insert({
       user_id: user.id,
       protocol_id: protocol?.id || null, // Link to active protocol if exists
@@ -58,12 +58,12 @@ export default function AddAdHocDoseModal({
       date: date,
       date_for: date,
       time_of_day: time,
-      status: "TAKEN", //
+      status: "TAKEN", 
     });
 
     setLoading(false);
     if (error) {
-        console.error("Ad-Hoc Insert Failed:", error);
+        console.error("Ad-Hoc Insert Error:", error);
         toast.error("Failed to add dose");
     } else {
       toast.success("Dose added");
