@@ -14,11 +14,9 @@ import {
   Pill,
   ClipboardList
 } from "lucide-react";
-// 🟢 FIX 1: Correct import name
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-// 🟢 FIX 2: Added userEmail to the interface so layout.tsx can pass it
 export default function AppShell({ 
   children, 
   userEmail 
@@ -31,7 +29,6 @@ export default function AppShell({
   const router = useRouter();
   const supabase = getSupabaseBrowser();
 
-  // 🟢 NEW: Check if we are on the protocols page (Full Width Logic)
   const isFullWidth = pathname?.startsWith('/protocols');
 
   const navigation = [
@@ -103,7 +100,6 @@ export default function AppShell({
         </nav>
 
         <div className="border-t border-border p-4 shrink-0 space-y-4">
-           {/* Theme Toggle & User Info */}
            <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">Appearance</span>
                 <ThemeToggle />
@@ -130,7 +126,6 @@ export default function AppShell({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile Header */}
         <div className="lg:hidden flex h-16 items-center gap-4 border-b border-border bg-card px-4 shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
