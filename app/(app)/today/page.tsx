@@ -1,8 +1,9 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Clock, Plus, Syringe, AlertCircle } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Plus, Syringe } from "lucide-react";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
+// 🟢 Import Server Actions
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow } from "./actions";
 
 export default function TodayPage() {
@@ -10,7 +11,6 @@ export default function TodayPage() {
   const [loading, setLoading] = useState(true);
   const [showAdHoc, setShowAdHoc] = useState(false);
 
-  // Local Time Format
   const today = new Date();
   const todayStr = today.toLocaleDateString("en-CA"); // YYYY-MM-DD
   const displayDate = today.toLocaleDateString("en-US", { weekday: 'long', month: 'long', day: 'numeric' });
@@ -46,7 +46,7 @@ export default function TodayPage() {
         }
     } catch (e) {
         toast.error("Failed to update status");
-        loadToday(); // Revert on error
+        loadToday();
     }
   };
 
@@ -76,7 +76,6 @@ export default function TodayPage() {
         ) : (
             doses.map(dose => {
                 const isTaken = dose.status === "TAKEN";
-                // 🟢 FIX: Round to max 2 decimals to avoid floating point artifacts
                 const displayDose = Number(dose.dose_mg.toFixed(2));
 
                 return (
@@ -99,7 +98,6 @@ export default function TodayPage() {
                                     {dose.canonical_name}
                                 </h3>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    {/* 🟢 UPDATED: Uses clean number format */}
                                     <span className="font-medium text-foreground">{displayDose} mg</span>
                                     <span>•</span>
                                     {dose.syringe_units ? (
