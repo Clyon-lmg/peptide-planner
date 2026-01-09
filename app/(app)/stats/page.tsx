@@ -15,6 +15,7 @@ export default async function StatsPage() {
   if (!user) return <div>Please sign in.</div>;
 
   // 1. Fetch Doses (Taken only)
+  // 🟢 FIX: Select 'date_for' and 'status'
   const { data: doses } = await supabase
     .from("doses")
     .select("date_for, date, time_of_day, dose_mg, peptide_id, status")
@@ -22,7 +23,7 @@ export default async function StatsPage() {
     .eq("status", "TAKEN") 
     .order("date_for", { ascending: true });
 
-  // 2. Fetch Active Protocols to know which peptides are relevant
+  // 2. Fetch Active Protocols
   const { data: activeProtocols } = await supabase
     .from("protocols")
     .select(`id, is_active, protocol_items (peptide_id, dose_mg_per_administration, schedule, every_n_days, custom_days, cycle_on_weeks, cycle_off_weeks)`)
@@ -34,13 +35,12 @@ export default async function StatsPage() {
   activeProtocols?.forEach(p => p.protocol_items.forEach((pi: any) => activePeptideIds.add(Number(pi.peptide_id))));
   doses?.forEach(d => activePeptideIds.add(Number(d.peptide_id)));
 
-  // 4. Fetch Peptides (All, then filter)
+  // 4. Fetch All Peptides & Filter in memory
   const { data: allPeptides } = await supabase
     .from("peptides")
     .select("id, canonical_name, half_life_hours")
     .order("canonical_name");
 
-  // Filter to only relevant ones
   const relevantPeptides = allPeptides?.filter(p => activePeptideIds.has(Number(p.id))) || [];
 
   // 5. Other Data
