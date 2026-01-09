@@ -1,89 +1,165 @@
-import { createServerActionSupabase } from "@/lib/supabaseServer";
-import { Activity, Scale, CalendarRange } from "lucide-react";
-import SerumChart from "./SerumChart";
-import WeightClient from "./WeightClient";
-import InventoryForecast from "./InventoryForecast";
+"use client";
 
-export const metadata = {
-  title: "Stats & Forecast",
-};
+import React, { useMemo } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+  Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
 
-export default async function StatsPage() {
-  const supabase = createServerActionSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+// Register components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  TimeScale,
+  Filler
+);
 
-  if (!user) return <div>Please sign in.</div>;
+interface SerumChartProps {
+  doses: any[];
+  peptides: any[];
+}
 
-  // 🟢 FIX: Select 'date_for' and filter by 'TAKEN'
-  const { data: doses } = await supabase
-    .from("doses")
-    .select("date_for, date, time_of_day, dose_mg, peptide_id, status")
-    .eq("user_id", user.id)
-    .eq("status", "TAKEN") 
-    .order("date_for", { ascending: true });
+function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHours: number) {
+  if (hoursElapsed < 0) return 0;
+  const hl = halfLifeHours || 24; 
+  return initialAmount * Math.pow(0.5, hoursElapsed / hl);
+}
 
-  const { data: peptides } = await supabase
-    .from("peptides")
-    .select("id, canonical_name, half_life_hours")
-    .order("canonical_name");
+const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) => {
+  
+  const chartData = useMemo(() => {
+    // Filter to only peptides that have doses or are in the list
+    if (!peptides || peptides.length === 0) return null;
 
-  const { data: weights } = await supabase
-    .from("weight_logs")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("date", { ascending: true });
+    // Time Range: Past 21 days -> Future 14 days
+    const now = new Date();
+    const startDate = new Date(); 
+    startDate.setDate(now.getDate() - 21);
+    const endDate = new Date(); 
+    endDate.setDate(now.getDate() + 14);
+    
+    // Generate timestamps (every 12 hours)
+    const labels: string[] = [];
+    const timestamps: number[] = [];
+    let current = new Date(startDate);
+    current.setHours(0, 0, 0, 0);
 
-  const { data: vialInv } = await supabase.from("inventory_items").select("peptide_id, vials, mg_per_vial, peptides(canonical_name)").eq("user_id", user.id);
-  const { data: capInv } = await supabase.from("inventory_capsules").select("peptide_id, bottles, caps_per_bottle, mg_per_cap, peptides(canonical_name)").eq("user_id", user.id);
-  const fullInventory = [...(vialInv || []), ...(capInv || [])];
+    while (current <= endDate) {
+      if (current.getHours() === 0) {
+        labels.push(current.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
+      } else {
+        labels.push(""); 
+      }
+      timestamps.push(current.getTime());
+      current.setHours(current.getHours() + 12);
+    }
 
-  const { data: activeProtocols } = await supabase
-    .from("protocols")
-    .select(`id, is_active, protocol_items (peptide_id, dose_mg_per_administration, schedule, every_n_days, custom_days, cycle_on_weeks, cycle_off_weeks)`)
-    .eq("user_id", user.id)
-    .eq("is_active", true);
+    const datasets = peptides.map((peptide, idx) => {
+      // Safe ID comparison
+      const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
+
+      const dataPoints = timestamps.map(ts => {
+        let totalSerum = 0;
+        
+        peptideDoses.forEach(dose => {
+            // Use date_for (schedule date) primarily, fallback to date
+            const dateStr = dose.date_for || dose.date;
+            if (!dateStr) return;
+
+            const timeStr = dose.time_of_day || '08:00';
+            const doseTime = new Date(`${dateStr}T${timeStr}:00`).getTime();
+            
+            if (doseTime <= ts) {
+                const hoursElapsed = (ts - doseTime) / (1000 * 60 * 60);
+                const halfLife = Number(peptide.half_life_hours) || 24;
+                
+                // Cut off after 6 half-lives
+                if (hoursElapsed < halfLife * 6) {
+                    const remaining = calculateDecay(Number(dose.dose_mg), hoursElapsed, halfLife);
+                    totalSerum += remaining;
+                }
+            }
+        });
+        return totalSerum;
+      });
+
+      const hue = (idx * 137) % 360; 
+      const color = `hsl(${hue}, 70%, 50%)`;
+
+      return {
+        label: peptide.canonical_name,
+        data: dataPoints,
+        borderColor: color,
+        backgroundColor: color.replace(')', ', 0.1)'),
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHitRadius: 10,
+        fill: true,
+      };
+    });
+
+    return { labels, datasets };
+  }, [doses, peptides]);
+
+  if (!chartData) {
+      return (
+        <div className="w-full h-[300px] flex items-center justify-center border-2 border-dashed border-border rounded-xl">
+             <p className="text-muted-foreground text-sm">No peptides available to graph.</p>
+        </div>
+      );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-8 pb-32">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Performance & Forecast</h1>
-        <p className="text-muted-foreground">Physiological metrics and inventory planning.</p>
-      </header>
-
-      <section className="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="p-2 bg-blue-500/10 text-blue-600 rounded-lg"><Activity className="size-5" /></div>
-          <div>
-            <h2 className="text-lg font-bold leading-none">Serum Levels</h2>
-            <p className="text-xs text-muted-foreground mt-1">Estimated concentration.</p>
-          </div>
-        </div>
-        <SerumChart doses={doses || []} peptides={peptides || []} />
-      </section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-6">
-                <div className="p-2 bg-purple-500/10 text-purple-600 rounded-lg"><CalendarRange className="size-5" /></div>
-                <div>
-                    <h2 className="text-lg font-bold leading-none">Run-out Forecast</h2>
-                    <p className="text-xs text-muted-foreground mt-1">Based on active usage.</p>
-                </div>
-            </div>
-            <InventoryForecast inventory={fullInventory} activeProtocols={activeProtocols || []} />
-          </section>
-
-          <section className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-6">
-                <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-lg"><Scale className="size-5" /></div>
-                <div>
-                    <h2 className="text-lg font-bold leading-none">Weight Tracker</h2>
-                    <p className="text-xs text-muted-foreground mt-1">Log progress.</p>
-                </div>
-            </div>
-            <WeightClient initialEntries={weights || []} />
-          </section>
-      </div>
+    <div className="w-full h-[400px]">
+        <Line 
+            data={chartData} 
+            options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { maxTicksLimit: 10, autoSkip: true }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom' as const,
+                        labels: { usePointStyle: true, boxWidth: 8 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.dataset.label}: ${Number(ctx.raw).toFixed(3)} mg`
+                        }
+                    }
+                }
+            }} 
+        />
     </div>
   );
-}
+};
+
+export default SerumChart;
