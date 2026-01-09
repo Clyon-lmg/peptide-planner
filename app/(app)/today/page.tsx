@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  getTodayDosesWithUnits,
-  logDose,
-  resetDose,
-  type TodayDoseRow,
-  type DoseStatus,
-} from "./actions";
-import { Check, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { format } from "date-fns";
+import { CheckCircle2, Circle, Clock, Plus, Syringe, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
+// Import Server Actions
+import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow, type DoseStatus } from "./actions";
 
 function fmt(n: number | null | undefined, digits = 2) {
   if (n == null || Number.isNaN(Number(n))) return "—";
@@ -22,146 +20,161 @@ function localISODate(): string {
 }
 
 export default function TodayPage() {
-  const [rows, setRows] = useState<TodayDoseRow[]>([]);
+  const [doses, setDoses] = useState<TodayDoseRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAdHoc, setShowAdHoc] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const today = useMemo(localISODate, []); 
+  const todayStr = useMemo(localISODate, []);
 
-  const load = useCallback(async () => {
+  const loadToday = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getTodayDosesWithUnits(today);
-      setRows(data);
-    } catch (err) {
-      console.error(err);
+        const data = await getTodayDosesWithUnits(todayStr);
+        setDoses(data);
+    } catch (e) {
+        console.error(e);
+        toast.error("Failed to load schedule");
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  }, [today]);
+  }, [todayStr]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadToday(); }, [loadToday]);
 
-  const toggleDose = async (dose: TodayDoseRow) => {
+  const toggleDoseStatus = async (dose: TodayDoseRow) => {
     if (busyId === dose.peptide_id) return;
     setBusyId(dose.peptide_id);
 
-    // Determine new status
+    // 1. Determine Toggle Logic (Taken <-> Pending)
+    // If it's currently Taken, we Reset it. Otherwise, we Log it.
     const isTaken = dose.status === 'TAKEN';
     const newStatus: DoseStatus = isTaken ? 'PENDING' : 'TAKEN';
 
-    // 🟢 OPTIMISTIC UPDATE: Update UI instantly
-    setRows(prev => prev.map(r => 
-        r.peptide_id === dose.peptide_id ? { ...r, status: newStatus } : r
+    // 2. Optimistic Update (Immediate UI Feedback)
+    setDoses(prev => prev.map(d => 
+        d.peptide_id === dose.peptide_id ? { ...d, status: newStatus } : d
     ));
 
     try {
-      if (newStatus === 'TAKEN') {
-        await logDose(dose.peptide_id, today);
-      } else {
-        await resetDose(dose.peptide_id, today);
-      }
-      
-      // Fetch fresh data from DB to confirm state
-      // (The 'noStore' in actions ensures this isn't stale)
-      const freshData = await getTodayDosesWithUnits(today);
-      setRows(freshData);
+        // 3. Perform Server Action
+        if (newStatus === 'TAKEN') {
+            await logDose(dose.peptide_id, todayStr);
+            toast.success("Dose logged");
+        } else {
+            await resetDose(dose.peptide_id, todayStr);
+            toast.success("Dose reset");
+        }
+        
+        // 4. Re-fetch to ensure consistency
+        const freshData = await getTodayDosesWithUnits(todayStr);
+        setDoses(freshData);
     } catch (e) {
-      console.error("Mutation failed", e);
-      load(); // Revert on error
+        console.error(e);
+        toast.error("Failed to update status");
+        loadToday(); // Revert on error
     } finally {
-      setBusyId(null);
+        setBusyId(null);
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-6 pb-20">
+    <div className="max-w-md mx-auto p-4 pb-24 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+         <div>
+            <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+            <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
+         </div>
+         <button 
+           onClick={() => setShowAdHoc(true)}
+           className="p-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
+           title="Add Unscheduled Dose"
+         >
+           <Plus className="size-6" />
+         </button>
       </div>
-
-      {loading && rows.length === 0 && (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="animate-spin mr-2" /> Loading schedule...
-          </div>
-      )}
-      
-      {!loading && rows.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
-              No doses scheduled for today.
-          </div>
-      )}
 
       <div className="space-y-3">
-        {rows.map((r) => {
-            const isTaken = r.status === 'TAKEN';
-            const isSkipped = r.status === 'SKIPPED';
-            const isBusy = busyId === r.peptide_id;
+        {loading ? (
+            <div className="text-center py-10 text-muted-foreground">Loading...</div>
+        ) : doses.length === 0 ? (
+            <div className="text-center py-10 border-2 border-dashed border-border rounded-xl">
+                <p className="text-muted-foreground">No doses scheduled for today.</p>
+            </div>
+        ) : (
+            doses.map(dose => {
+                const isTaken = dose.status === 'TAKEN';
+                const isBusy = busyId === dose.peptide_id;
 
-            return (
-              <div 
-                key={r.peptide_id} 
-                className={`relative overflow-hidden rounded-xl border p-4 transition-all ${
-                    isTaken ? 'bg-emerald-50 border-emerald-200' : 
-                    isSkipped ? 'bg-muted border-border opacity-75' : 
-                    'bg-card border-border shadow-sm'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                            <h3 className={`text-lg font-semibold truncate ${isSkipped ? 'line-through text-muted-foreground' : ''}`}>
-                                {r.canonical_name}
-                            </h3>
-                            {isTaken && <span className="text-[10px] uppercase font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Taken</span>}
-                            {isSkipped && <span className="text-[10px] uppercase font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Skipped</span>}
-                        </div>
-                        
-                        <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
-                            <span className="whitespace-nowrap">
-                                Dose: <span className="font-mono font-medium text-foreground">{fmt(r.dose_mg)}</span> mg
-                            </span>
-                            <span className="whitespace-nowrap">
-                                Syringe: <span className="font-mono font-medium text-foreground">{fmt(r.syringe_units, 0)}</span> units
-                            </span>
-                            {r.time_of_day && (
-                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded self-center">
-                                    {r.time_of_day}
+                return (
+                <div 
+                  key={dose.peptide_id} 
+                  className={`relative overflow-hidden group p-4 rounded-2xl border transition-all ${
+                    isTaken
+                      ? "bg-emerald-50/50 border-emerald-200" 
+                      : "bg-card border-border shadow-sm"
+                  }`}
+                >
+                    <div className="flex items-center justify-between gap-4 relative z-10">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-3 mb-1">
+                                <div className={`transition-colors ${isTaken ? "text-emerald-500" : "text-muted-foreground"}`}>
+                                    {isTaken ? <CheckCircle2 className="size-6 fill-current" /> : <Circle className="size-6" />}
+                                </div>
+                                <h3 className={`font-bold text-lg truncate ${isTaken ? "text-muted-foreground line-through" : ""}`}>
+                                    {dose.canonical_name}
+                                </h3>
+                            </div>
+                            
+                            <div className="pl-9 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                <span className="font-medium text-foreground">{fmt(dose.dose_mg)} mg</span>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                    <Syringe className="size-3" /> {fmt(dose.syringe_units, 0)} units
                                 </span>
-                            )}
+                                {dose.time_of_day && (
+                                    <>
+                                        <span>•</span>
+                                        <span className="flex items-center gap-1">
+                                            <Clock className="size-3" /> {dose.time_of_day}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="shrink-0">
-                      <button 
-                        onClick={() => toggleDose(r)} 
-                        disabled={isBusy} 
-                        className={`
-                            relative h-12 px-6 rounded-lg font-medium transition-all flex items-center justify-center min-w-[100px]
-                            ${isTaken 
-                                ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md hover:shadow-lg' 
-                                : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
-                            }
-                            disabled:opacity-70 disabled:cursor-not-allowed
-                        `}
-                      >
-                        {isBusy ? (
-                            <Loader2 className="size-5 animate-spin" />
-                        ) : isTaken ? (
-                            <>
-                                <Check className="size-5 mr-2" />
-                                Logged
-                            </>
-                        ) : (
-                            "Log Dose"
-                        )}
-                      </button>
+                        <div className="shrink-0">
+                            <button 
+                                onClick={() => toggleDoseStatus(dose)}
+                                disabled={isBusy}
+                                className={`
+                                    h-10 px-5 rounded-lg text-sm font-medium transition-all
+                                    ${isTaken 
+                                        ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md" 
+                                        : "bg-primary/10 text-primary hover:bg-primary/20"
+                                    }
+                                    disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[80px]
+                                `}
+                            >
+                                {isBusy ? <Loader2 className="size-4 animate-spin" /> : (isTaken ? "Logged" : "Log")}
+                            </button>
+                        </div>
                     </div>
                 </div>
-              </div>
-            );
-        })}
+            )})
+        )}
       </div>
+
+      {showAdHoc && (
+        <AddAdHocDoseModal 
+          date={todayStr}
+          onClose={() => setShowAdHoc(false)}
+          onSuccess={() => {
+            setShowAdHoc(false);
+            loadToday();
+          }}
+        />
+      )}
     </div>
   );
 }
