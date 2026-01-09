@@ -35,17 +35,21 @@ function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHou
 export default function SerumChart({ doses, peptides }: { doses: any[], peptides: any[] }) {
   
   const chartData = useMemo(() => {
+    // We need peptides to draw lines. Doses can be empty (start of graph).
     if (!peptides || peptides.length === 0) return null;
 
     const now = new Date();
     const startDate = new Date(); 
     startDate.setDate(now.getDate() - 21);
+    
     const endDate = new Date(); 
     endDate.setDate(now.getDate() + 14);
     
     const labels: string[] = [];
     const timestamps: number[] = [];
     let current = new Date(startDate);
+    
+    // Align to midnight
     current.setHours(0, 0, 0, 0);
 
     while (current <= endDate) {
@@ -59,7 +63,7 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
     }
 
     const datasets = peptides.map((peptide, idx) => {
-      // 🟢 FIX: Safe comparison
+      // 🟢 FIX: Safe ID comparison (String vs Number)
       const peptideDoses = doses?.filter(d => Number(d.peptide_id) === Number(peptide.id)) || [];
 
       const dataPoints = timestamps.map(ts => {
@@ -76,6 +80,8 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
             if (doseTime <= ts) {
                 const hoursElapsed = (ts - doseTime) / (1000 * 60 * 60);
                 const halfLife = Number(peptide.half_life_hours) || 24;
+                
+                // Cut off after 6 half-lives
                 if (hoursElapsed < halfLife * 6) {
                     const remaining = calculateDecay(Number(dose.dose_mg), hoursElapsed, halfLife);
                     totalSerum += remaining;
@@ -107,7 +113,7 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
   if (!chartData) {
       return (
         <div className="w-full h-[300px] flex items-center justify-center border-2 border-dashed border-border rounded-xl">
-             <p className="text-muted-foreground text-sm">No peptides found.</p>
+             <p className="text-muted-foreground text-sm">No active peptides found.</p>
         </div>
       );
   }
