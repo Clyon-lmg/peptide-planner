@@ -4,6 +4,8 @@ import { X, Check, Trash2, PlusCircle, Syringe } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "./AddAdHocDoseModal";
+// 🟢 Use Server Actions to handle Upsert & Inventory logic correctly
+import { logDose, resetDose } from "@/app/(app)/today/actions";
 
 export default function DayDetailModal({ 
   date, 
@@ -20,16 +22,35 @@ export default function DayDetailModal({
   const [showAdd, setShowAdd] = useState(false);
 
   const toggleStatus = async (dose: any) => {
-    setProcessing(String(dose.id));
-    const sb = getSupabaseBrowser();
-    const newStatus = dose.status === "LOGGED" ? "PENDING" : "LOGGED";
-    await sb.from("doses").update({ status: newStatus }).eq("id", dose.id);
-    setProcessing(null);
-    onUpdate();
+    // 🟢 FIX: Use 'TAKEN' instead of 'LOGGED'
+    const isTaken = dose.status === "TAKEN";
+    // Identify by peptide_id since dose.id might be missing for scheduled items
+    const idKey = dose.peptide_id.toString();
+    
+    setProcessing(idKey);
+    try {
+      if (isTaken) {
+        // Mark PENDING (Restores inventory if configured in action)
+        await resetDose(dose.peptide_id, date);
+        toast.success("Dose reset");
+      } else {
+        // Mark TAKEN (Consumes inventory)
+        await logDose(dose.peptide_id, date);
+        toast.success("Dose logged");
+      }
+      onUpdate();
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to update status");
+    } finally {
+      setProcessing(null);
+    }
   };
 
   const deleteDose = async (id: number) => {
-    if (!confirm("Delete this dose?")) return;
+    if (!id) return; // Cannot delete a scheduled (virtual) dose, only taken/skipped ones
+    if (!confirm("Delete this dose record?")) return;
+    
     const sb = getSupabaseBrowser();
     await sb.from("doses").delete().eq("id", id);
     onUpdate();
@@ -45,12 +66,17 @@ export default function DayDetailModal({
     );
   }
 
+  // Helper date display
+  const dateObj = new Date(date);
+  // Adjust for timezone to show correct day name if needed, or just use string
+  const dateLabel = new Date(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate()).toDateString();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-card w-full max-w-md rounded-2xl shadow-xl border border-border flex flex-col max-h-[90vh]">
         <div className="p-4 border-b border-border flex justify-between items-center bg-muted/20 rounded-t-2xl">
           <div>
-             <h3 className="font-bold text-lg">{new Date(date + 'T12:00:00').toDateString()}</h3>
+             <h3 className="font-bold text-lg">{dateLabel}</h3>
              <p className="text-xs text-muted-foreground">{doses.length} scheduled events</p>
           </div>
           <button onClick={onClose}><X className="size-5" /></button>
@@ -58,13 +84,17 @@ export default function DayDetailModal({
 
         <div className="p-4 overflow-y-auto flex-1 space-y-3">
           {doses.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No doses.</p>}
-          {doses.map((dose) => {
-               const isLogged = dose.status === "LOGGED";
+          {doses.map((dose, idx) => {
+               // 🟢 FIX: Correct Status Check
+               const isTaken = dose.status === "TAKEN";
+               // Use peptide_id as key fallback if id missing
+               const key = dose.id || `virt-${dose.peptide_id}-${idx}`;
+
                return (
-                 <div key={dose.id} className={`flex items-center justify-between p-3 rounded-xl border ${isLogged ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-card border-border'}`}>
+                 <div key={key} className={`flex items-center justify-between p-3 rounded-xl border ${isTaken ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-card border-border'}`}>
                     <div className="flex items-center gap-3">
-                       <div className={`size-10 rounded-full flex items-center justify-center ${isLogged ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
-                          {isLogged ? <Check className="size-5" /> : <Syringe className="size-5" />}
+                       <div className={`size-10 rounded-full flex items-center justify-center ${isTaken ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
+                          {isTaken ? <Check className="size-5" /> : <Syringe className="size-5" />}
                        </div>
                        <div>
                           <p className="font-bold text-sm">{dose.canonical_name || dose.peptides?.canonical_name}</p>
@@ -72,8 +102,20 @@ export default function DayDetailModal({
                        </div>
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => toggleStatus(dose)} disabled={!!processing} className="btn text-xs h-8 px-2 border">{isLogged ? "Unlog" : "Log"}</button>
-                      <button onClick={() => deleteDose(dose.id)} className="p-2 text-muted-foreground hover:text-red-500"><Trash2 className="size-4" /></button>
+                      <button 
+                        onClick={() => toggleStatus(dose)} 
+                        disabled={processing === dose.peptide_id.toString()} 
+                        className={`btn text-xs h-8 px-3 border transition-colors ${isTaken ? 'bg-background hover:bg-muted' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
+                      >
+                        {isTaken ? "Unlog" : "Log"}
+                      </button>
+                      
+                      {/* Only allow deleting if it's a real database row (has ID) */}
+                      {dose.id && (
+                        <button onClick={() => deleteDose(dose.id)} className="p-2 text-muted-foreground hover:text-red-500">
+                            <Trash2 className="size-4" />
+                        </button>
+                      )}
                     </div>
                  </div>
                );
@@ -81,7 +123,7 @@ export default function DayDetailModal({
         </div>
 
         <div className="p-4 border-t border-border bg-muted/20 rounded-b-2xl">
-           <button onClick={() => setShowAdd(true)} className="btn w-full flex items-center justify-center gap-2 border-dashed border-border h-12">
+           <button onClick={() => setShowAdd(true)} className="btn w-full flex items-center justify-center gap-2 border-dashed border-border h-12 hover:bg-muted/50 text-muted-foreground hover:text-foreground">
              <PlusCircle className="size-5" /> Add Ad-Hoc Dose
            </button>
         </div>
