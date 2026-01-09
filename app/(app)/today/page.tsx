@@ -5,11 +5,10 @@ import {
   getTodayDosesWithUnits,
   logDose,
   resetDose,
-  skipDose,
   type TodayDoseRow,
   type DoseStatus,
 } from "./actions";
-import { Check, X, RotateCcw, Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 function fmt(n: number | null | undefined, digits = 2) {
   if (n == null || Number.isNaN(Number(n))) return "—";
@@ -43,29 +42,43 @@ export default function TodayPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function mutateStatus(peptide_id: number, newStatus: DoseStatus, act: any) {
-    setBusyId(peptide_id);
-    
-    // 🟢 OPTIMISTIC UPDATE: Update UI immediately
+  const toggleDose = async (dose: TodayDoseRow) => {
+    if (busyId === dose.peptide_id) return;
+    setBusyId(dose.peptide_id);
+
+    // Determine new status
+    const isTaken = dose.status === 'TAKEN';
+    const newStatus: DoseStatus = isTaken ? 'PENDING' : 'TAKEN';
+
+    // 🟢 OPTIMISTIC UPDATE: Update UI instantly
     setRows(prev => prev.map(r => 
-        r.peptide_id === peptide_id ? { ...r, status: newStatus } : r
+        r.peptide_id === dose.peptide_id ? { ...r, status: newStatus } : r
     ));
 
     try {
-      await act(peptide_id, today);
-      const data = await getTodayDosesWithUnits(today);
-      setRows(data);
+      if (newStatus === 'TAKEN') {
+        await logDose(dose.peptide_id, today);
+      } else {
+        await resetDose(dose.peptide_id, today);
+      }
+      
+      // Fetch fresh data from DB to confirm state
+      // (The 'noStore' in actions ensures this isn't stale)
+      const freshData = await getTodayDosesWithUnits(today);
+      setRows(freshData);
     } catch (e) {
       console.error("Mutation failed", e);
       load(); // Revert on error
     } finally {
       setBusyId(null);
     }
-  }
+  };
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-6 pb-20">
-      <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+      </div>
 
       {loading && rows.length === 0 && (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
@@ -89,70 +102,61 @@ export default function TodayPage() {
               <div 
                 key={r.peptide_id} 
                 className={`relative overflow-hidden rounded-xl border p-4 transition-all ${
-                    isTaken ? 'bg-emerald-50/50 border-emerald-200' : 
-                    isSkipped ? 'bg-muted/50 border-border opacity-75' : 
+                    isTaken ? 'bg-emerald-50 border-emerald-200' : 
+                    isSkipped ? 'bg-muted border-border opacity-75' : 
                     'bg-card border-border shadow-sm'
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className={`text-lg font-semibold ${isSkipped ? 'line-through text-muted-foreground' : ''}`}>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                            <h3 className={`text-lg font-semibold truncate ${isSkipped ? 'line-through text-muted-foreground' : ''}`}>
                                 {r.canonical_name}
                             </h3>
-                            {isTaken && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">TAKEN</span>}
-                            {isSkipped && <span className="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">SKIPPED</span>}
+                            {isTaken && <span className="text-[10px] uppercase font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Taken</span>}
+                            {isSkipped && <span className="text-[10px] uppercase font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Skipped</span>}
                         </div>
                         
-                        <div className="mt-1 text-sm text-muted-foreground space-x-3">
-                            <span>
-                                <span className="font-mono font-medium text-foreground">{fmt(r.dose_mg)}</span> mg
+                        <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                            <span className="whitespace-nowrap">
+                                Dose: <span className="font-mono font-medium text-foreground">{fmt(r.dose_mg)}</span> mg
                             </span>
-                            <span>
-                                <span className="font-mono font-medium text-foreground">{fmt(r.syringe_units, 0)}</span> units
+                            <span className="whitespace-nowrap">
+                                Syringe: <span className="font-mono font-medium text-foreground">{fmt(r.syringe_units, 0)}</span> units
                             </span>
                             {r.time_of_day && (
-                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded self-center">
                                     {r.time_of_day}
                                 </span>
                             )}
                         </div>
                     </div>
-                </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {!isTaken && (
+                    <div className="shrink-0">
                       <button 
-                        onClick={() => mutateStatus(r.peptide_id, 'TAKEN', logDose)} 
+                        onClick={() => toggleDose(r)} 
                         disabled={isBusy} 
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-medium transition-colors disabled:opacity-50"
+                        className={`
+                            relative h-12 px-6 rounded-lg font-medium transition-all flex items-center justify-center min-w-[100px]
+                            ${isTaken 
+                                ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md hover:shadow-lg' 
+                                : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm'
+                            }
+                            disabled:opacity-70 disabled:cursor-not-allowed
+                        `}
                       >
-                        {isBusy ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
-                        Log Dose
+                        {isBusy ? (
+                            <Loader2 className="size-5 animate-spin" />
+                        ) : isTaken ? (
+                            <>
+                                <Check className="size-5 mr-2" />
+                                Logged
+                            </>
+                        ) : (
+                            "Log Dose"
+                        )}
                       </button>
-                  )}
-                  
-                  {!isSkipped && !isTaken && (
-                      <button 
-                        onClick={() => mutateStatus(r.peptide_id, 'SKIPPED', skipDose)} 
-                        disabled={isBusy} 
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs font-medium transition-colors disabled:opacity-50"
-                      >
-                        <X className="size-3" />
-                        Skip
-                      </button>
-                  )}
-
-                  {(isTaken || isSkipped) && (
-                      <button 
-                        onClick={() => mutateStatus(r.peptide_id, 'PENDING', resetDose)} 
-                        disabled={isBusy} 
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium transition-colors disabled:opacity-50"
-                      >
-                        <RotateCcw className="size-3" />
-                        Reset
-                      </button>
-                  )}
+                    </div>
                 </div>
               </div>
             );
