@@ -25,6 +25,7 @@ export type TodayDoseRow = {
     site_label: string | null;
 };
 
+// Data shapes for inventory lookups
 interface VialInv {
     vials: number;
     mg_per_vial: number;
@@ -37,6 +38,8 @@ interface CapsInv {
     mg_per_cap: number;
     current_used_mg: number;
 }
+
+// ---------- Queries ----------
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
     const sa = createServerActionSupabase();
@@ -76,7 +79,8 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         }
     }
 
-    // 2. Fetch Actual Doses (Find ALL doses for today, ignoring protocol link)
+    // 2. Fetch Actual Doses (Status Overrides + Ad-Hoc)
+    // 🟢 FIX: REMOVED .eq('protocol_id', ...) to find ALL doses for today
     const { data: doseRows } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
@@ -112,6 +116,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         const pid = Number(s.peptide_id);
         const dbDose = doseMap.get(pid);
         
+        // DB row takes precedence on status/dose
         const finalDose = dbDose ? Number(dbDose.dose_mg) : Number(s.dose_mg);
         const status = dbDose ? (dbDose.status as DoseStatus) : 'PENDING';
         const site = dbDose?.site_label ?? null;
@@ -181,6 +186,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const { data: { user } } = await sa.auth.getUser();
     if (!user) throw new Error('Not signed in');
 
+    // 1. Check existing record (Ignore protocol_id)
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
@@ -193,6 +199,8 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     if (currentStatus === targetStatus) return;
 
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
+    
+    // Fallback: If no dose exists, check active protocol plan
     if (!doseAmount) {
          const { data: proto } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
          if (proto) {
@@ -205,6 +213,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, -doseAmount);
 
     if (!existing?.id) {
+        // Only fetch protocol for the INSERT to keep FK integrity if possible
         const { data: proto } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
         await sa.from('doses').insert({
             user_id: user.id,
@@ -219,7 +228,6 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
         await sa.from('doses').update({ status: targetStatus }).eq('id', existing.id);
     }
 
-    // 🟢 FIX: Revalidate cache so navigation shows fresh data
     revalidatePath('/today');
 }
 
