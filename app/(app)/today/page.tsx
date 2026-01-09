@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Circle, Clock, Plus, Syringe, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Plus, Syringe, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
-// Import Server Actions
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow, type DoseStatus } from "./actions";
 
 function fmt(n: number | null | undefined, digits = 2) {
@@ -34,7 +33,6 @@ export default function TodayPage() {
         setDoses(data);
     } catch (e) {
         console.error(e);
-        toast.error("Failed to load schedule");
     } finally {
         setLoading(false);
     }
@@ -42,22 +40,20 @@ export default function TodayPage() {
 
   useEffect(() => { loadToday(); }, [loadToday]);
 
-  const toggleDoseStatus = async (dose: TodayDoseRow) => {
+  const handleToggleLog = async (dose: TodayDoseRow) => {
     if (busyId === dose.peptide_id) return;
     setBusyId(dose.peptide_id);
 
-    // 1. Determine Toggle Logic (Taken <-> Pending)
-    // If it's currently Taken, we Reset it. Otherwise, we Log it.
+    // Determine new status: If already TAKEN, go to PENDING. Otherwise, go to TAKEN.
     const isTaken = dose.status === 'TAKEN';
     const newStatus: DoseStatus = isTaken ? 'PENDING' : 'TAKEN';
 
-    // 2. Optimistic Update (Immediate UI Feedback)
+    // 🟢 OPTIMISTIC UPDATE: Update UI instantly
     setDoses(prev => prev.map(d => 
         d.peptide_id === dose.peptide_id ? { ...d, status: newStatus } : d
     ));
 
     try {
-        // 3. Perform Server Action
         if (newStatus === 'TAKEN') {
             await logDose(dose.peptide_id, todayStr);
             toast.success("Dose logged");
@@ -66,7 +62,7 @@ export default function TodayPage() {
             toast.success("Dose reset");
         }
         
-        // 4. Re-fetch to ensure consistency
+        // Re-fetch to ensure sync
         const freshData = await getTodayDosesWithUnits(todayStr);
         setDoses(freshData);
     } catch (e) {
@@ -115,7 +111,7 @@ export default function TodayPage() {
                       : "bg-card border-border shadow-sm"
                   }`}
                 >
-                    <div className="flex items-center justify-between gap-4 relative z-10">
+                    <div className="flex items-center justify-between relative z-10 gap-4">
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-3 mb-1">
                                 <div className={`transition-colors ${isTaken ? "text-emerald-500" : "text-muted-foreground"}`}>
@@ -143,20 +139,28 @@ export default function TodayPage() {
                             </div>
                         </div>
 
+                        {/* Single Toggle Button */}
                         <div className="shrink-0">
                             <button 
-                                onClick={() => toggleDoseStatus(dose)}
+                                onClick={() => handleToggleLog(dose)}
                                 disabled={isBusy}
                                 className={`
-                                    h-10 px-5 rounded-lg text-sm font-medium transition-all
+                                    h-10 px-5 rounded-lg text-sm font-medium transition-all flex items-center justify-center min-w-[90px]
                                     ${isTaken 
                                         ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md" 
                                         : "bg-primary/10 text-primary hover:bg-primary/20"
                                     }
-                                    disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[80px]
+                                    disabled:opacity-50 disabled:cursor-not-allowed
                                 `}
                             >
-                                {isBusy ? <Loader2 className="size-4 animate-spin" /> : (isTaken ? "Logged" : "Log")}
+                                {isBusy ? <Loader2 className="size-4 animate-spin" /> : (
+                                    isTaken ? (
+                                        <>
+                                            <Check className="size-4 mr-1.5" />
+                                            Logged
+                                        </>
+                                    ) : "Log"
+                                )}
                             </button>
                         </div>
                     </div>
