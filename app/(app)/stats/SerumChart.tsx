@@ -9,7 +9,8 @@ import {
   Title,
   Tooltip,
   Legend,
-  TimeScale
+  TimeScale,
+  Filler
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -20,7 +21,9 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  TimeScale,
+  Filler
 );
 
 function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHours: number) {
@@ -46,6 +49,9 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
     const timestamps: number[] = [];
     let current = new Date(startDate);
     
+    // Align to midnight
+    current.setHours(0, 0, 0, 0);
+
     while (current <= endDate) {
       if (current.getHours() === 0) {
         labels.push(current.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
@@ -57,7 +63,7 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
     }
 
     const datasets = peptides.map((peptide, idx) => {
-      // 🟢 FIX: Safe ID Comparison
+      // Safe ID Comparison
       const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
       if (peptideDoses.length === 0) return null;
 
@@ -65,11 +71,15 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
         let totalSerum = 0;
         
         peptideDoses.forEach(dose => {
-            if (!dose.date) return;
+            // 🟢 FIX: Use 'date_for' (falling back to 'date' only if missing)
+            const dateStr = dose.date_for || dose.date;
+            if (!dateStr) return;
+
             // Parse Dose Time
             const timeStr = dose.time_of_day || '08:00';
-            const doseTime = new Date(`${dose.date}T${timeStr}:00`).getTime();
+            const doseTime = new Date(`${dateStr}T${timeStr}:00`).getTime();
             
+            // Calculate if dose is in the past relative to this chart point
             if (doseTime <= ts) {
                 const hoursElapsed = (ts - doseTime) / (1000 * 60 * 60);
                 const halfLife = Number(peptide.half_life_hours) || 24;
@@ -91,11 +101,12 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
         label: `${peptide.canonical_name} (mg)`,
         data: dataPoints,
         borderColor: color,
-        backgroundColor: color,
+        backgroundColor: color.replace(')', ', 0.1)'),
         borderWidth: 2,
         tension: 0.4,
         pointRadius: 0,
         pointHitRadius: 10,
+        fill: true,
       };
     }).filter(Boolean);
 
@@ -104,7 +115,6 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
     return { labels, datasets };
   }, [doses, peptides]);
 
-  // Handle empty state gracefully
   if (!chartData) {
       return (
         <div className="w-full h-[300px] flex items-center justify-center border-2 border-dashed border-border rounded-xl">
@@ -133,7 +143,7 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
                     },
                     y: {
                         beginAtZero: true,
-                        grid: { color: '#f3f4f6' }
+                        grid: { color: 'rgba(0,0,0,0.05)' }
                     }
                 },
                 plugins: {
