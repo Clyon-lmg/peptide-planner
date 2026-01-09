@@ -17,11 +17,12 @@ export default async function StatsPage() {
   // --- DATA FETCHING ---
   
   // 1. Serum Data: Doses + Peptides
+  // 🟢 FIX: Select 'date_for' instead of 'date'
   const { data: doses } = await supabase
     .from("doses")
-    .select("date, time_of_day, dose_mg, peptide_id")
+    .select("date_for, time_of_day, dose_mg, peptide_id, status")
     .eq("user_id", user.id)
-    .order("date", { ascending: true });
+    .order("date_for", { ascending: true });
 
   const { data: peptides } = await supabase
     .from("peptides")
@@ -37,16 +38,15 @@ export default async function StatsPage() {
 
   // 3. Forecast Data: Inventory + Active Protocols
   const { data: vialInv } = await supabase
-    .from("inventory_items") // Vials
+    .from("inventory_items") 
     .select("peptide_id, vials, mg_per_vial, peptides(canonical_name)")
     .eq("user_id", user.id);
 
   const { data: capInv } = await supabase
-    .from("inventory_capsules") // Capsules
+    .from("inventory_capsules")
     .select("peptide_id, bottles, caps_per_bottle, mg_per_cap, peptides(canonical_name)")
     .eq("user_id", user.id);
     
-  // Combine inventory lists
   const fullInventory = [...(vialInv || []), ...(capInv || [])];
 
   const { data: activeProtocols } = await supabase
