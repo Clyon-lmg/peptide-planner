@@ -50,7 +50,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         throw new Error('Session missing or expired');
     }
 
-    // Active protocol
+    // 1. Get Active Protocol & Generated Schedule
     const { data: protocol } = await sa
         .from('protocols')
         .select('id,start_date')
@@ -91,8 +91,9 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         }
     }
 
-    // 2. Fetch Actual Doses from DB (Status Overrides + Ad-Hoc)
-    // 🟢 CRITICAL FIX: Do NOT filter by protocol_id. Find ANY dose for this user/date.
+    // 2. Fetch Actual Doses from DB
+    // 🟢 CRITICAL FIX: Removed .eq('protocol_id', ...) filter.
+    // We want ALL doses for this date, even if they are ad-hoc or from an old protocol.
     const { data: doseRows } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
@@ -255,7 +256,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const { data: protocol } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
 
     // 2. Check existing record
-    // 🟢 CRITICAL FIX: Do NOT filter by protocol_id. We must update the row if it exists.
+    // 🟢 CRITICAL FIX: Do NOT filter by protocol_id. Find existing dose by peptide+date only.
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
@@ -293,6 +294,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
         await sa.from('doses').update({ status: targetStatus }).eq('id', existing.id);
     }
 
+    // Force refresh
     revalidatePath('/today');
 }
 
