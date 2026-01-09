@@ -43,12 +43,15 @@ export default function AddAdHocDoseModal({
       date: date,
       date_for: date,
       time_of_day: time,
-      status: "LOGGED", // Assume if adding manually to past/today, it's done
+      // 🟢 FIX: Changed "LOGGED" to "TAKEN" to match database enum/constraints
+      status: "TAKEN", 
     });
 
     setLoading(false);
-    if (error) toast.error("Failed to add dose");
-    else {
+    if (error) {
+        console.error(error);
+        toast.error("Failed to add dose");
+    } else {
       toast.success("Dose added");
       onSuccess();
     }
@@ -66,7 +69,7 @@ export default function AddAdHocDoseModal({
           <div>
             <label className="text-xs uppercase font-bold text-muted-foreground">Peptide</label>
             <select 
-              className="input w-full mt-1"
+              className="input w-full mt-1 h-10 px-3 rounded-md border bg-background"
               value={selectedPeptideId}
               onChange={e => setSelectedPeptideId(e.target.value)}
             >
@@ -82,7 +85,7 @@ export default function AddAdHocDoseModal({
               <label className="text-xs uppercase font-bold text-muted-foreground">Amount (mg)</label>
               <input 
                 type="number" 
-                className="input w-full mt-1"
+                className="input w-full mt-1 h-10 px-3 rounded-md border bg-background"
                 placeholder="0.5"
                 value={dose}
                 onChange={e => setDose(e.target.value)}
@@ -92,7 +95,7 @@ export default function AddAdHocDoseModal({
               <label className="text-xs uppercase font-bold text-muted-foreground">Time</label>
               <input 
                 type="time" 
-                className="input w-full mt-1"
+                className="input w-full mt-1 h-10 px-3 rounded-md border bg-background"
                 value={time}
                 onChange={e => setTime(e.target.value)}
               />
@@ -102,7 +105,7 @@ export default function AddAdHocDoseModal({
           <button 
             onClick={handleSave} 
             disabled={loading}
-            className="btn w-full bg-primary text-primary-foreground mt-2"
+            className="btn w-full bg-primary text-primary-foreground h-10 rounded-md mt-2 font-medium hover:bg-primary/90 transition-colors"
           >
             {loading ? "Saving..." : "Log Dose"}
           </button>
