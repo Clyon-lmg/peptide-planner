@@ -2,7 +2,6 @@
 
 import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { unitsFromDose, forecastRemainingDoses } from '@/lib/forecast';
-// 🟢 FIX: Use the exact same engine as Calendar
 import { isDoseDayUTC, type ScheduleItem } from '@/lib/scheduleEngine'; 
 import { revalidatePath, unstable_noStore as noStore } from 'next/cache';
 
@@ -114,7 +113,10 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
                 const site = dbDose?.site_label ?? null;
                 const time = dbDose?.time_of_day ?? it.time_of_day;
                 
-                finalRows.push(buildRow(pid, it.peptides?.canonical_name || '', finalDose, status, time, site, vialMap, capMap));
+                // 🟢 FIX: Handle array structure of joined 'peptides'
+                const pName = Array.isArray(it.peptides) ? it.peptides[0]?.canonical_name : (it.peptides as any)?.canonical_name;
+
+                finalRows.push(buildRow(pid, pName || '', finalDose, status, time, site, vialMap, capMap));
                 processedIds.add(pid);
             }
         }
@@ -123,7 +125,10 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     // 🟢 Handle Ad-Hoc / Overrides (Items in DB but not processed by Schedule loop)
     for (const [pid, dbDose] of doseMap.entries()) {
         if (!processedIds.has(pid)) {
-            const name = dbDose.peptides?.canonical_name || `Peptide #${pid}`;
+            // Handle DB joined name (also likely an array or object)
+            const pName = Array.isArray(dbDose.peptides) ? dbDose.peptides[0]?.canonical_name : (dbDose.peptides as any)?.canonical_name;
+            const name = pName || `Peptide #${pid}`;
+            
             finalRows.push(buildRow(pid, name, Number(dbDose.dose_mg), dbDose.status as DoseStatus, dbDose.time_of_day, dbDose.site_label, vialMap, capMap));
         }
     }
@@ -133,7 +138,11 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
 function buildRow(pid: number, name: string, doseMg: number, status: DoseStatus, time: string | null, site: string | null, vialMap: Map<number, VialInv>, capMap: Map<number, CapsInv>): TodayDoseRow {
     const v = vialMap.get(pid);
+    const c = capMap.get(pid);
     
+    // Calculate Syringe Units
+    const units = unitsFromDose(doseMg, v?.mg_per_vial || null, v?.bac_ml || null);
+
     return {
         peptide_id: pid,
         canonical_name: name,
@@ -141,7 +150,7 @@ function buildRow(pid: number, name: string, doseMg: number, status: DoseStatus,
         status: status,
         time_of_day: time,
         site_label: site,
-        syringe_units: unitsFromDose(doseMg, v?.mg_per_vial || null, v?.bac_ml || null),
+        syringe_units: units,
         mg_per_vial: v?.mg_per_vial || null,
         bac_ml: v?.bac_ml || null,
         remainingDoses: null,
@@ -163,7 +172,6 @@ async function updateInventoryUsage(supabase: any, uid: string, peptideId: numbe
         }
         await supabase.from("inventory_items").update({ vials: newVials, current_used_mg: Math.max(0, newUsed) }).eq("id", vialItem.id);
      }
-     // Capsule logic omitted for brevity but safe to keep if needed
 }
 
 async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatus: DoseStatus) {
