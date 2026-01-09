@@ -23,36 +23,27 @@ export default async function StatsPage() {
     .eq("status", "TAKEN") 
     .order("date_for", { ascending: true });
 
-  // 2. Fetch Active Protocol IDs
+  // 2. Fetch Active Protocols
   const { data: activeProtocols } = await supabase
     .from("protocols")
-    .select("id")
+    .select(`id, is_active, protocol_items (peptide_id, dose_mg_per_administration, schedule, every_n_days, custom_days, cycle_on_weeks, cycle_off_weeks)`)
     .eq("user_id", user.id)
     .eq("is_active", true);
-    
-  const activeIds = activeProtocols?.map(p => p.id) || [];
 
-  // 3. Fetch Protocol Items (Directly)
-  const { data: activeItems } = await supabase
-    .from("protocol_items")
-    .select("peptide_id")
-    .in("protocol_id", activeIds);
-
-  // 4. Collect Relevant Peptide IDs (Doses + Active Items)
+  // 3. Collect Relevant Peptide IDs
   const activePeptideIds = new Set<number>();
-  activeItems?.forEach((pi: any) => activePeptideIds.add(Number(pi.peptide_id)));
+  activeProtocols?.forEach(p => p.protocol_items.forEach((pi: any) => activePeptideIds.add(Number(pi.peptide_id))));
   doses?.forEach(d => activePeptideIds.add(Number(d.peptide_id)));
 
-  // 5. Fetch All Peptides
+  // 4. Fetch All Peptides & Filter in memory
   const { data: allPeptides } = await supabase
     .from("peptides")
     .select("id, canonical_name, half_life_hours")
     .order("canonical_name");
 
-  // 6. Filter In-Memory
   const relevantPeptides = allPeptides?.filter(p => activePeptideIds.has(Number(p.id))) || [];
 
-  // 7. Other Data
+  // 5. Other Data
   const { data: weights } = await supabase
     .from("weight_logs")
     .select("*")
@@ -62,13 +53,6 @@ export default async function StatsPage() {
   const { data: vialInv } = await supabase.from("inventory_items").select("peptide_id, vials, mg_per_vial, peptides(canonical_name)").eq("user_id", user.id);
   const { data: capInv } = await supabase.from("inventory_capsules").select("peptide_id, bottles, caps_per_bottle, mg_per_cap, peptides(canonical_name)").eq("user_id", user.id);
   const fullInventory = [...(vialInv || []), ...(capInv || [])];
-  
-  // Re-fetch full protocol data for Forecast component
-  const { data: fullProtocols } = await supabase
-    .from("protocols")
-    .select(`id, is_active, protocol_items (peptide_id, dose_mg_per_administration, schedule, every_n_days, custom_days, cycle_on_weeks, cycle_off_weeks)`)
-    .eq("user_id", user.id)
-    .eq("is_active", true);
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-8 pb-32">
@@ -97,7 +81,7 @@ export default async function StatsPage() {
                     <p className="text-xs text-muted-foreground mt-1">Based on active usage.</p>
                 </div>
             </div>
-            <InventoryForecast inventory={fullInventory} activeProtocols={fullProtocols || []} />
+            <InventoryForecast inventory={fullInventory} activeProtocols={activeProtocols || []} />
           </section>
 
           <section className="rounded-xl border bg-card text-card-foreground shadow-sm p-6 flex flex-col h-full">
