@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { X, Check, Trash2, Syringe } from "lucide-react"; // Removed PlusCircle
+import { X, Check, Trash2, Syringe } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "./AddAdHocDoseModal";
@@ -111,8 +111,6 @@ export default function DayDetailModal({
                );
           })}
         </div>
-
-        {/* 🟢 REMOVED: Ad-Hoc Footer Button */}
       </div>
     </div>
   );
