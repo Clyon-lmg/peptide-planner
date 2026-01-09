@@ -45,6 +45,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     const { data: auth, error: authError } = await sa.auth.getUser();
     const uid = auth.user?.id;
     if (!uid) {
+        console.error('getTodayDosesWithUnits: auth.getUser() returned null', authError);
         throw new Error('Session missing or expired');
     }
 
@@ -59,7 +60,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     let dayRows: any[] = [];
     let protocolItems: ProtocolItem[] = [];
 
-    // If we have an active protocol, generate the schedule
+    // If active protocol exists, generate the theoretical schedule
     if (protocol?.id) {
         const { data: items } = await sa
             .from('protocol_items')
@@ -89,15 +90,15 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         }
     }
 
-    // 2. Fetch Actual Doses (Status Overrides + Ad-Hoc)
-    // 🟢 FIX: Removed .eq('protocol_id', protocol.id) to find ALL doses for today
+    // 2. Fetch Actual Doses from DB (Status Overrides + Ad-Hoc)
+    // 🟢 FIX: Do NOT filter by protocol_id. Find ANY dose for this user/date.
     const { data: doseRows } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
         .eq('user_id', uid)
         .eq('date_for', dateISO);
 
-    // 3. Identify all Peptide IDs we need inventory for (Schedule + Actuals)
+    // 3. Identify all Peptide IDs (Schedule + Actuals)
     const scheduledIds = dayRows.map(r => Number(r.peptide_id));
     const adHocIds = (doseRows || []).map((r: any) => Number(r.peptide_id));
     const allPeptideIds = Array.from(new Set([...scheduledIds, ...adHocIds]));
@@ -131,7 +132,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         });
     });
 
-    // Map Actual DB Doses
+    // Map Actual DB Doses for easy access
     const doseMap = new Map<number, any>();
     (doseRows ?? []).forEach((r: any) => doseMap.set(Number(r.peptide_id), r));
 
@@ -141,20 +142,21 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
     const finalRows: TodayDoseRow[] = [];
 
-    // A. Add Scheduled Doses (merged with DB status if exists)
+    // A. Add Scheduled Doses
     for (const dr of dayRows) {
         const pid = Number(dr.peptide_id);
         const dbDose = doseMap.get(pid);
         
-        // DB row takes precedence on status/dose
+        // DB row takes precedence on status/dose/time/site
         const finalDose = dbDose ? Number(dbDose.dose_mg) : Number(dr.dose_mg);
         const status = dbDose ? (dbDose.status as DoseStatus) : 'PENDING';
         const site = dbDose?.site_label ?? null;
+        const time = dbDose?.time_of_day ?? dr.time_of_day;
 
-        // Remove from map so we don't duplicate later
-        if (dbDose) doseMap.delete(pid);
+        // Remove from map so we don't duplicate in step B
+        if (dbDose) doseMap.delete(pid); 
 
-        finalRows.push(buildRow(pid, dr.canonical_name, finalDose, status, dr.time_of_day, site, vialByPeptide, capsByPeptide, itemById.get(pid)));
+        finalRows.push(buildRow(pid, dr.canonical_name, finalDose, status, time, site, vialByPeptide, capsByPeptide, itemById.get(pid)));
     }
 
     // B. Add Remaining Ad-Hoc Doses
@@ -246,16 +248,18 @@ async function updateInventoryUsage(supabase: any, uid: string, peptideId: numbe
 async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatus: DoseStatus) {
     const sa = createServerActionSupabase();
     const { data: { user } } = await sa.auth.getUser();
-    if (!user) throw new Error('Not signed in');
+    const uid = user?.id;
+    if (!uid) throw new Error('Not signed in');
 
-    // 1. Get Protocol (Optional now)
-    const { data: protocol } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
+    // 1. Get Protocol (Optional, for reference)
+    const { data: protocol } = await sa.from('protocols').select('id').eq('user_id', uid).eq('is_active', true).maybeSingle();
 
     // 2. Check existing record
+    // 🟢 FIX: Do NOT filter by protocol_id. We want to update the dose row if it exists, period.
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
         .eq('peptide_id', peptide_id)
         .eq('date_for', dateISO)
         .maybeSingle();
@@ -263,7 +267,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const currentStatus = existing?.status || 'PENDING';
     if (currentStatus === targetStatus) return;
 
-    // 3. Determine Dose Amount
+    // 3. Determine Dose Amount (Use existing row or fallback to schedule)
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
     if (!doseAmount && protocol?.id) {
          const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', protocol.id).eq('peptide_id', peptide_id).maybeSingle();
@@ -271,14 +275,14 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     }
 
     // 4. Update Inventory
-    if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, doseAmount);
-    else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, -doseAmount);
+    if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, uid, peptide_id, doseAmount);
+    else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, uid, peptide_id, -doseAmount);
 
     // 5. Commit
     if (!existing?.id) {
         await sa.from('doses').insert({
-            user_id: user.id,
-            protocol_id: protocol?.id || null, 
+            user_id: uid,
+            protocol_id: protocol?.id || null, // Link if possible, but optional
             peptide_id,
             date: dateISO,
             date_for: dateISO,
