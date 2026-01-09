@@ -25,6 +25,7 @@ export type TodayDoseRow = {
     site_label: string | null;
 };
 
+// Data shapes for inventory lookups
 interface VialInv {
     vials: number;
     mg_per_vial: number;
@@ -38,8 +39,10 @@ interface CapsInv {
     current_used_mg: number;
 }
 
+// ---------- Queries ----------
+
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
-    noStore(); // 🟢 CRITICAL FIX: Disable cache to prevent status reset on navigation
+    noStore(); // 🟢 CRITICAL: Disable cache to ensure status updates appear immediately
     
     const sa = createServerActionSupabase();
     const { data: auth } = await sa.auth.getUser();
@@ -60,7 +63,9 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     if (protocol?.id) {
         const { data: items } = await sa
             .from('protocol_items')
-            .select('peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,time_of_day,peptides(canonical_name)')
+            .select(
+                'peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg,time_of_day,peptides(canonical_name)'
+            )
             .eq('protocol_id', protocol.id);
 
         if (items?.length) {
@@ -80,7 +85,9 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         }
     }
 
-    // 2. Fetch Actual Doses (Find ALL doses for today, ignoring protocol link)
+    // 2. Fetch Actual Doses (Status Overrides + Ad-Hoc)
+    // 🟢 CRITICAL FIX: Removed .eq('protocol_id', ...) to find ALL doses for today
+    // This fixes the "resetting status" bug.
     const { data: doseRows } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
@@ -120,6 +127,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         const pid = Number(s.peptide_id);
         const dbDose = doseMap.get(pid);
         
+        // DB row takes precedence on status/dose
         const finalDose = dbDose ? Number(dbDose.dose_mg) : Number(s.dose_mg);
         const status = dbDose ? (dbDose.status as DoseStatus) : 'PENDING';
         const site = dbDose?.site_label ?? null;
@@ -210,11 +218,11 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const { data: { user } } = await sa.auth.getUser();
     if (!user) throw new Error('Not signed in');
 
-    // 1. Get Protocol (Optional)
+    // 1. Get Protocol (Optional, for reference)
     const { data: protocol } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
 
     // 2. Check existing record
-    // 🟢 Fix: Lookup by peptide+date only (ignore protocol)
+    // 🟢 CRITICAL FIX: Do NOT filter by protocol_id. Find existing dose by peptide+date only.
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
@@ -226,15 +234,18 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const currentStatus = existing?.status || 'PENDING';
     if (currentStatus === targetStatus) return;
 
+    // 3. Determine Dose Amount
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
     if (!doseAmount && protocol?.id) {
          const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', protocol.id).eq('peptide_id', peptide_id).maybeSingle();
          doseAmount = Number(pi?.dose_mg_per_administration || 0);
     }
 
+    // 4. Update Inventory
     if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, doseAmount);
     else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, -doseAmount);
 
+    // 5. Commit
     if (!existing?.id) {
         await sa.from('doses').insert({
             user_id: user.id,
