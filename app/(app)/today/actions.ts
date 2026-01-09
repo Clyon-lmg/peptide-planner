@@ -84,12 +84,13 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     }
 
     // Generate scheduled rows (if any)
+    // 🟢 FIX: Use optional chaining 'protocol?.start_date' to prevent TS error
     const scheduledRows = protocolItems.length > 0 
-        ? generateDailyDoses(dateISO, protocol.start_date ?? dateISO, protocolItems)
+        ? generateDailyDoses(dateISO, protocol?.start_date ?? dateISO, protocolItems)
         : [];
 
     // Collect all relevant peptide IDs (Scheduled + Ad-Hoc from DB)
-    // 🟢 FETCHING AD-HOC: First, find ANY doses for today to include them
+    // First, find ANY doses for today to include them (Ad-Hoc support)
     const { data: allDosesToday } = await sa
         .from('doses')
         .select('peptide_id')
@@ -106,7 +107,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     const [{ data: invVials }, { data: invCaps }, { data: doseRows }] = await Promise.all([
         sa.from('inventory_items').select('*').eq('user_id', uid).in('peptide_id', allPeptideIds),
         sa.from('inventory_capsules').select('*').eq('user_id', uid).in('peptide_id', allPeptideIds),
-        // 🟢 FIX: Removed .eq('protocol_id', ...) to find ALL doses (Ad-Hoc included)
+        // 🟢 Logic: Find ALL doses (Ad-Hoc included), ignoring protocol_id filter
         sa.from('doses').select('peptide_id,status,site_label,dose_mg,time_of_day,peptides(canonical_name)').eq('user_id', uid).eq('date_for', dateISO).in('peptide_id', allPeptideIds),
     ]);
 
@@ -126,7 +127,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         const pid = Number(s.peptide_id);
         const dbDose = doseMap.get(pid);
         
-        // DB row wins
+        // DB row wins on dose/status
         const finalDose = dbDose ? Number(dbDose.dose_mg) : Number(s.dose_mg);
         const status = dbDose ? (dbDose.status as DoseStatus) : 'PENDING';
         const site = dbDose?.site_label ?? null;
@@ -187,10 +188,10 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const { data: { user } } = await sa.auth.getUser();
     if (!user) throw new Error('Not signed in');
 
-    // Get active protocol to link if possible (not required for lookup)
+    // Get active protocol to link if possible
     const { data: protocol } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
 
-    // 🟢 FIX: Lookup dose by Peptide+Date only (Ignore protocol_id)
+    // 🟢 Logic: Lookup dose by Peptide+Date only (Ignore protocol_id so Ad-Hoc works)
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
