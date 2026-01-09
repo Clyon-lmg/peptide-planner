@@ -9,8 +9,7 @@ import {
   Title,
   Tooltip,
   Legend,
-  TimeScale,
-  Filler // 🟢 Added Filler for area effects if desired
+  TimeScale
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -21,78 +20,63 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend,
-  TimeScale,
-  Filler
+  Legend
 );
 
-// Calculation: Amount = Dose * 0.5 ^ (hours_elapsed / half_life)
 function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHours: number) {
   if (hoursElapsed < 0) return 0;
-  // If half-life is missing/zero, assume rapid clearance (e.g. 2 hours) to avoid division by zero
-  const hl = halfLifeHours || 2; 
+  const hl = halfLifeHours || 24; 
   return initialAmount * Math.pow(0.5, hoursElapsed / hl);
 }
 
 export default function SerumChart({ doses, peptides }: { doses: any[], peptides: any[] }) {
   
   const chartData = useMemo(() => {
-    if (!doses || doses.length === 0) return null;
+    if (!doses || !peptides) return null;
 
-    // 1. Setup Time Range
-    // Look back 45 days (to capture long half-life buildup) and forward 10 days
+    // Time Range: Past 21 days -> Future 14 days
     const now = new Date();
     const startDate = new Date(); 
-    startDate.setDate(now.getDate() - 45);
-    
+    startDate.setDate(now.getDate() - 21);
     const endDate = new Date(); 
-    endDate.setDate(now.getDate() + 10);
+    endDate.setDate(now.getDate() + 14);
     
-    // Generate timestamps (every 12 hours to reduce computation load but keep curve smooth)
+    // Generate timestamps (every 6 hours)
     const labels: string[] = [];
     const timestamps: number[] = [];
     let current = new Date(startDate);
-    // Align to midnight to keep graph clean
-    current.setHours(0, 0, 0, 0); 
     
     while (current <= endDate) {
       if (current.getHours() === 0) {
-        // Shorter label: "Jan 1"
         labels.push(current.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
       } else {
-        labels.push("");
+        labels.push(""); 
       }
       timestamps.push(current.getTime());
-      current.setHours(current.getHours() + 12);
+      current.setHours(current.getHours() + 6);
     }
 
-    // 2. Build Datasets
     const datasets = peptides.map((peptide, idx) => {
-      // Get all doses for this peptide
-      const peptideDoses = doses.filter(d => d.peptide_id === peptide.id);
+      // 🟢 FIX: Safe ID Comparison
+      const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
       if (peptideDoses.length === 0) return null;
 
-      // Calculate serum level at each timestamp point
       const dataPoints = timestamps.map(ts => {
         let totalSerum = 0;
         
         peptideDoses.forEach(dose => {
-            // Robust Date Parsing
-            // dose.date is usually "YYYY-MM-DD". We assume 08:00 AM if no time specified.
-            const datePart = dose.date;
-            const timePart = dose.time_of_day || '08:00';
-            // Construct ISO string for safer parsing
-            const doseDate = new Date(`${datePart}T${timePart}:00`);
-            const doseTime = doseDate.getTime();
+            if (!dose.date) return;
+            // Parse Dose Time
+            const timeStr = dose.time_of_day || '08:00';
+            const doseTime = new Date(`${dose.date}T${timeStr}:00`).getTime();
             
-            // Only add dose if it happened BEFORE this graph timestamp
             if (doseTime <= ts) {
                 const hoursElapsed = (ts - doseTime) / (1000 * 60 * 60);
+                const halfLife = Number(peptide.half_life_hours) || 24;
                 
-                // Optimization: If > 6 half-lives passed, amount is negligible (~1.5%)
-                const hl = Number(peptide.half_life_hours) || 24;
-                if (hoursElapsed < hl * 6) {
-                    const remaining = calculateDecay(Number(dose.dose_mg), hoursElapsed, hl);
+                // Cut off after 6 half-lives
+                if (hoursElapsed < halfLife * 6) {
+                    const remaining = calculateDecay(Number(dose.dose_mg), hoursElapsed, halfLife);
                     totalSerum += remaining;
                 }
             }
@@ -100,38 +84,38 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
         return totalSerum;
       });
 
-      // Styling
       const hue = (idx * 137) % 360; 
       const color = `hsl(${hue}, 70%, 50%)`;
 
       return {
-        label: peptide.canonical_name,
+        label: `${peptide.canonical_name} (mg)`,
         data: dataPoints,
         borderColor: color,
-        backgroundColor: color.replace(')', ', 0.1)'), // Transparent fill
+        backgroundColor: color,
         borderWidth: 2,
-        tension: 0.4, // Smooths the line
-        pointRadius: 0, // Hides dots for cleaner look
-        pointHitRadius: 20, // Easy to hover
-        fill: true, // Fills area under curve
+        tension: 0.4,
+        pointRadius: 0,
+        pointHitRadius: 10,
       };
-    }).filter(Boolean); // Filter out nulls
+    }).filter(Boolean);
 
     if (datasets.length === 0) return null;
 
     return { labels, datasets };
   }, [doses, peptides]);
 
+  // Handle empty state gracefully
   if (!chartData) {
       return (
-          <div className="h-64 flex items-center justify-center border-2 border-dashed border-border rounded-xl bg-muted/5">
-              <p className="text-muted-foreground text-sm">No dose history found to generate graph.</p>
-          </div>
+        <div className="w-full h-[300px] flex items-center justify-center border-2 border-dashed border-border rounded-xl">
+             <p className="text-muted-foreground text-sm">No dose history found for active peptides.</p>
+        </div>
       );
   }
 
+  // @ts-ignore
   return (
-    <div className="w-full h-[350px]">
+    <div className="w-full h-[400px]">
         {/* @ts-ignore */}
         <Line 
             data={chartData as any} 
@@ -145,22 +129,21 @@ export default function SerumChart({ doses, peptides }: { doses: any[], peptides
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { maxTicksLimit: 8, autoSkip: true }
+                        ticks: { maxTicksLimit: 10, autoSkip: true }
                     },
                     y: {
                         beginAtZero: true,
-                        grid: { color: 'rgba(0,0,0,0.05)' },
-                        title: { display: true, text: 'Active mg' }
+                        grid: { color: '#f3f4f6' }
                     }
                 },
                 plugins: {
                     legend: {
-                        position: 'bottom',
+                        position: 'bottom' as const,
                         labels: { usePointStyle: true, boxWidth: 8 }
                     },
                     tooltip: {
                         callbacks: {
-                            label: (ctx) => ` ${ctx.dataset.label}: ${Number(ctx.raw).toFixed(2)} mg`
+                            label: (ctx) => ` ${ctx.dataset.label}: ${Number(ctx.raw).toFixed(3)} mg`
                         }
                     }
                 }
