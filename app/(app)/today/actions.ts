@@ -7,6 +7,7 @@ import {
     type ProtocolItem,
     type Schedule,
 } from '@/lib/scheduleEngine';
+import { revalidatePath } from 'next/cache';
 
 export type DoseStatus = 'PENDING' | 'TAKEN' | 'SKIPPED';
 
@@ -75,9 +76,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         }
     }
 
-    // 2. Fetch Actual Doses (Status Overrides + Ad-Hoc)
-    // 🟢 FIX: REMOVED .eq('protocol_id', ...) 
-    // This ensures we find the dose even if the protocol link is missing or changed.
+    // 2. Fetch Actual Doses (Find ALL doses for today, ignoring protocol link)
     const { data: doseRows } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
@@ -113,7 +112,6 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         const pid = Number(s.peptide_id);
         const dbDose = doseMap.get(pid);
         
-        // DB row takes precedence
         const finalDose = dbDose ? Number(dbDose.dose_mg) : Number(s.dose_mg);
         const status = dbDose ? (dbDose.status as DoseStatus) : 'PENDING';
         const site = dbDose?.site_label ?? null;
@@ -183,7 +181,6 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const { data: { user } } = await sa.auth.getUser();
     if (!user) throw new Error('Not signed in');
 
-    // 1. Check existing record (Ignore protocol_id to catch ad-hoc/migrated doses)
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
@@ -195,10 +192,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const currentStatus = existing?.status || 'PENDING';
     if (currentStatus === targetStatus) return;
 
-    // 2. Determine Dose Amount
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
-    
-    // Fallback: If no dose exists, check active protocol plan
     if (!doseAmount) {
          const { data: proto } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
          if (proto) {
@@ -207,13 +201,10 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
          }
     }
 
-    // 3. Update Inventory
     if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, doseAmount);
     else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, -doseAmount);
 
-    // 4. Commit
     if (!existing?.id) {
-        // Need protocol ID for reference if available
         const { data: proto } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
         await sa.from('doses').insert({
             user_id: user.id,
@@ -227,6 +218,9 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     } else {
         await sa.from('doses').update({ status: targetStatus }).eq('id', existing.id);
     }
+
+    // 🟢 FIX: Revalidate cache so navigation shows fresh data
+    revalidatePath('/today');
 }
 
 export async function logDose(peptide_id: number, dateISO: string) { 'use server'; await upsertDoseStatus(peptide_id, dateISO, 'TAKEN'); }
