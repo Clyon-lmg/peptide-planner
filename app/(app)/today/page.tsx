@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { CheckCircle2, Circle, Clock, Plus, Syringe, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
-// 🟢 Import the action that generates the schedule
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow } from "./actions";
 
 export default function TodayPage() {
@@ -19,7 +18,6 @@ export default function TodayPage() {
   const loadToday = async () => {
     setLoading(true);
     try {
-        // 🟢 Use the Server Action
         const data = await getTodayDosesWithUnits(todayStr);
         setDoses(data);
     } catch (e) {
@@ -33,8 +31,7 @@ export default function TodayPage() {
   useEffect(() => { loadToday(); }, []);
 
   const toggleDose = async (dose: TodayDoseRow) => {
-    // Optimistic UI
-    const isTaken = dose.status === "TAKEN"; // Note: actions.ts uses "TAKEN", not "LOGGED"
+    const isTaken = dose.status === "TAKEN";
     const newStatus = isTaken ? "PENDING" : "TAKEN";
     
     setDoses(doses.map(d => d.peptide_id === dose.peptide_id ? { ...d, status: newStatus } : d));
@@ -57,7 +54,7 @@ export default function TodayPage() {
     <div className="max-w-md mx-auto p-4 pb-24 space-y-6">
       <div className="flex items-center justify-between">
          <div>
-            <h1 className="pp-h1">Today</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Today</h1>
             <p className="text-muted-foreground">{displayDate}</p>
          </div>
          <button 
@@ -79,6 +76,9 @@ export default function TodayPage() {
         ) : (
             doses.map(dose => {
                 const isTaken = dose.status === "TAKEN";
+                // 🟢 FIX: Round to max 2 decimals to avoid floating point artifacts
+                const displayDose = Number(dose.dose_mg.toFixed(2));
+
                 return (
                 <div 
                   key={dose.peptide_id} 
@@ -99,7 +99,8 @@ export default function TodayPage() {
                                     {dose.canonical_name}
                                 </h3>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <span className="font-medium text-foreground">{dose.dose_mg} mg</span>
+                                    {/* 🟢 UPDATED: Uses clean number format */}
+                                    <span className="font-medium text-foreground">{displayDose} mg</span>
                                     <span>•</span>
                                     {dose.syringe_units ? (
                                         <span className="flex items-center gap-1 text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded text-xs font-mono">
