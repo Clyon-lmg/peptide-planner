@@ -7,7 +7,7 @@ import {
     type ProtocolItem,
     type Schedule,
 } from '@/lib/scheduleEngine';
-import { revalidatePath, unstable_noStore as noStore } from 'next/cache';
+import { revalidatePath } from 'next/cache';
 
 export type DoseStatus = 'PENDING' | 'TAKEN' | 'SKIPPED';
 
@@ -42,9 +42,6 @@ interface CapsInv {
 // ---------- Queries ----------
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
-    // 🟢 CRITICAL: Disable caching to prevent status from reverting to old state
-    noStore();
-
     const sa = createServerActionSupabase();
     const { data: auth } = await sa.auth.getUser();
     const uid = auth.user?.id;
@@ -62,7 +59,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     if (protocol?.id) {
         const { data: items } = await sa
             .from('protocol_items')
-            .select('peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,time_of_day,peptides(canonical_name)')
+            .select('peptide_id,dose_mg_per_administration,schedule,custom_days,cycle_on_weeks,cycle_off_weeks,every_n_days,titration_interval_days,titration_amount_mg,time_of_day,peptides(canonical_name)')
             .eq('protocol_id', protocol.id);
 
         if (items?.length) {
@@ -83,6 +80,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     }
 
     // 2. Fetch Actual Doses (Find ALL doses for today, ignoring protocol link)
+    // 🟢 Fix: Removed .eq('protocol_id', ...) to ensures we find the row we just updated.
     const { data: doseRows } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
@@ -158,6 +156,8 @@ function buildRow(pid: number, name: string, doseMg: number, status: DoseStatus,
     };
 }
 
+// ---------- Mutations ----------
+
 async function updateInventoryUsage(supabase: any, uid: string, peptideId: number, deltaMg: number) {
      const { data: vialItem } = await supabase.from("inventory_items").select("id, vials, mg_per_vial, current_used_mg").eq("user_id", uid).eq("peptide_id", peptideId).maybeSingle();
      if (vialItem) {
@@ -189,10 +189,10 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const { data: { user } } = await sa.auth.getUser();
     if (!user) throw new Error('Not signed in');
 
-    // 1. Get Protocol (Optional, for reference)
+    // 1. Get Protocol (Optional, just for linking if we create a new one)
     const { data: protocol } = await sa.from('protocols').select('id').eq('user_id', user.id).eq('is_active', true).maybeSingle();
 
-    // 2. Check existing record (Ignore protocol_id to ensure we update what we see)
+    // 2. Check existing record (Ignore protocol_id to ensure we match whatever is in the DB)
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
@@ -205,17 +205,15 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     if (currentStatus === targetStatus) return;
 
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
-    // Fallback dose amount
-    if (!doseAmount && protocol?.id) {
-         const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', protocol.id).eq('peptide_id', peptide_id).maybeSingle();
+    if (!doseAmount) {
+         // Fallback if creating new row
+         const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', protocol?.id).eq('peptide_id', peptide_id).maybeSingle();
          doseAmount = Number(pi?.dose_mg_per_administration || 0);
     }
 
-    // 3. Update Inventory
     if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, doseAmount);
     else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, -doseAmount);
 
-    // 4. Commit
     if (!existing?.id) {
         await sa.from('doses').insert({
             user_id: user.id,
