@@ -46,20 +46,19 @@ export default function TodayPage() {
   async function mutateStatus(peptide_id: number, newStatus: DoseStatus, act: any) {
     setBusyId(peptide_id);
     
-    // 🟢 OPTIMISTIC UPDATE: Update UI immediately
+    // 🟢 OPTIMISTIC UPDATE: Change the UI immediately
     setRows(prev => prev.map(r => 
         r.peptide_id === peptide_id ? { ...r, status: newStatus } : r
     ));
 
     try {
       await act(peptide_id, today);
-      // Fetch fresh data to confirm
+      // Fetch fresh data to confirm state
       const data = await getTodayDosesWithUnits(today);
       setRows(data);
     } catch (e) {
       console.error("Mutation failed", e);
-      // Revert on error
-      load(); 
+      load(); // Revert on error
     } finally {
       setBusyId(null);
     }
