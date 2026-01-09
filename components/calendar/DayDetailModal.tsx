@@ -1,10 +1,9 @@
 "use client";
 import React, { useState } from "react";
-import { X, Check, Trash2, PlusCircle, Syringe } from "lucide-react";
+import { X, Check, Trash2, Syringe } from "lucide-react"; // Removed PlusCircle
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "./AddAdHocDoseModal";
-// 🟢 Import Server Actions
 import { logDose, resetDose } from "@/app/(app)/today/actions";
 
 export default function DayDetailModal({ 
@@ -22,7 +21,6 @@ export default function DayDetailModal({
   const [showAdd, setShowAdd] = useState(false);
 
   const toggleStatus = async (dose: any) => {
-    // 🟢 FIX: Check against 'TAKEN'
     const isTaken = dose.status === "TAKEN";
     const idKey = dose.peptide_id.toString();
     
@@ -63,8 +61,7 @@ export default function DayDetailModal({
     );
   }
 
-  // Helper date display
-  const dateObj = new Date(date + 'T12:00:00'); // Safe parsing
+  const dateObj = new Date(date + 'T12:00:00');
   const dateLabel = dateObj.toDateString();
 
   return (
@@ -81,9 +78,7 @@ export default function DayDetailModal({
         <div className="p-4 overflow-y-auto flex-1 space-y-3">
           {doses.length === 0 && <p className="text-center text-muted-foreground text-sm py-8">No doses.</p>}
           {doses.map((dose, idx) => {
-               // 🟢 FIX: Check against 'TAKEN'
                const isTaken = dose.status === "TAKEN";
-               // Fallback key if id is missing (scheduled dose)
                const key = dose.id ? `dose-${dose.id}` : `virt-${dose.peptide_id}-${idx}`;
 
                return (
@@ -117,11 +112,7 @@ export default function DayDetailModal({
           })}
         </div>
 
-        <div className="p-4 border-t border-border bg-muted/20 rounded-b-2xl">
-           <button onClick={() => setShowAdd(true)} className="btn w-full flex items-center justify-center gap-2 border-dashed border-border h-12 hover:bg-muted/50 text-muted-foreground hover:text-foreground">
-             <PlusCircle className="size-5" /> Add Ad-Hoc Dose
-           </button>
-        </div>
+        {/* 🟢 REMOVED: Ad-Hoc Footer Button */}
       </div>
     </div>
   );
