@@ -20,13 +20,13 @@ export async function getDosesForRange(startIso: string, endIso: string): Promis
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
 
-  // 1. Fetch protocols that OVERLAP with the range
+  // 1. Fetch ALL user protocols (we will filter for overlap)
   const { data: protocols } = await supabase
     .from('protocols')
     .select('id, start_date, end_date')
     .eq('user_id', user.id);
-    // Note: We'll filter range in JS to keep it simple
 
+  // Filter: Protocol must overlap with the View Range
   const relevantProtocols = (protocols || []).filter((p: any) => {
       const pStart = p.start_date;
       const pEnd = p.end_date || '9999-12-31';
@@ -38,7 +38,7 @@ export async function getDosesForRange(startIso: string, endIso: string): Promis
 
   const protocolIds = relevantProtocols.map((p: any) => p.id);
 
-  // 2. Fetch items
+  // 2. Fetch items for relevant protocols
   const { data: items } = await supabase
     .from('protocol_items')
     .select(
@@ -48,7 +48,7 @@ export async function getDosesForRange(startIso: string, endIso: string): Promis
 
   const peptideIds = Array.from(new Set((items || []).map((i: any) => Number(i.peptide_id))));
 
-  // 3. Fetch Data
+  // 3. Fetch Metadata & Existing Doses
   const [{ data: peptideRows }, { data: doseRows }] = await Promise.all([
     supabase.from('peptides').select('id, canonical_name').in('id', peptideIds),
     supabase.from('doses').select('date_for, peptide_id, dose_mg, status, site_label')
@@ -58,6 +58,7 @@ export async function getDosesForRange(startIso: string, endIso: string): Promis
   ]);
 
   const nameById = new Map<number, string>((peptideRows ?? []).map((p: any) => [Number(p.id), String(p.canonical_name)]));
+  
   const statusMap = new Map<string, any>();
   (doseRows ?? []).forEach((r: any) => statusMap.set(`${r.date_for}_${r.peptide_id}`, r));
 
@@ -68,12 +69,11 @@ export async function getDosesForRange(startIso: string, endIso: string): Promis
   // 4. Generate Schedule
   for (const p of relevantProtocols) {
       const protoItems = items?.filter((i: any) => i.protocol_id === p.id) || [];
-      const pStart = new Date(p.start_date + 'T00:00:00Z');
-
+      
       for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
           const iso = d.toISOString().slice(0, 10);
           
-          // Check if date is within protocol valid range
+          // Check if specific day is valid for this specific protocol
           if (iso < p.start_date) continue;
           if (p.end_date && iso > p.end_date) continue;
 
@@ -97,7 +97,7 @@ export async function getDosesForRange(startIso: string, endIso: string): Promis
       }
   }
 
-  // 5. Ad-Hoc injection
+  // 5. Inject Ad-Hoc Doses
   const generatedKeys = new Set(rows.map(r => `${r.date_for}_${r.peptide_id}`));
   (doseRows ?? []).forEach((r: any) => {
       const key = `${r.date_for}_${r.peptide_id}`;
