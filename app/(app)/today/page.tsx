@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Circle, Clock, Plus, Syringe, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Syringe, Loader2 } from "lucide-react"; // Removed Plus
 import { toast } from "sonner";
-import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
-// 🟢 Import Server Actions
+// import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal"; // Keeping code but unused
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow, type DoseStatus } from "./actions";
 
 function fmt(n: number | null | undefined, digits = 2) {
@@ -22,7 +21,7 @@ function localISODate(): string {
 export default function TodayPage() {
   const [doses, setDoses] = useState<TodayDoseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdHoc, setShowAdHoc] = useState(false);
+  // const [showAdHoc, setShowAdHoc] = useState(false); // Unused
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const todayStr = useMemo(localISODate, []);
@@ -46,11 +45,9 @@ export default function TodayPage() {
     if (busyId === dose.peptide_id) return;
     setBusyId(dose.peptide_id);
 
-    // Toggle Logic
     const isTaken = dose.status === 'TAKEN';
     const newStatus: DoseStatus = isTaken ? 'PENDING' : 'TAKEN';
 
-    // Optimistic Update
     setDoses(prev => prev.map(d => 
         d.peptide_id === dose.peptide_id ? { ...d, status: newStatus } : d
     ));
@@ -63,13 +60,12 @@ export default function TodayPage() {
             await resetDose(dose.peptide_id, todayStr);
             toast.success("Dose reset");
         }
-        // Sync
         const freshData = await getTodayDosesWithUnits(todayStr);
         setDoses(freshData);
     } catch (e) {
         console.error(e);
         toast.error("Failed to update status");
-        loadToday(); // Revert
+        loadToday();
     } finally {
         setBusyId(null);
     }
@@ -82,13 +78,7 @@ export default function TodayPage() {
             <h1 className="text-2xl font-bold tracking-tight">Today</h1>
             <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
          </div>
-         <button 
-           onClick={() => setShowAdHoc(true)}
-           className="p-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
-           title="Add Unscheduled Dose"
-         >
-           <Plus className="size-6" />
-         </button>
+         {/* Ad-Hoc Button Removed */}
       </div>
 
       <div className="space-y-3">
@@ -106,7 +96,7 @@ export default function TodayPage() {
                 return (
                 <div 
                   key={dose.peptide_id} 
-                  className={`relative overflow-hidden group p-4 rounded-2xl border transition-all ${
+                  className={`relative overflow-hidden group p-4 rounded-2xl border transition-all select-none ${
                     isTaken
                       ? "bg-emerald-50/50 border-emerald-200" 
                       : "bg-card border-border shadow-sm hover:border-primary/50"
@@ -115,7 +105,6 @@ export default function TodayPage() {
                     <div className="flex items-center justify-between gap-4 relative z-10">
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-3 mb-1">
-                                {/* 🟢 Clickable Icon */}
                                 <button 
                                     onClick={() => handleToggleLog(dose)}
                                     disabled={isBusy}
@@ -161,17 +150,7 @@ export default function TodayPage() {
             )})
         )}
       </div>
-
-      {showAdHoc && (
-        <AddAdHocDoseModal 
-          date={todayStr}
-          onClose={() => setShowAdHoc(false)}
-          onSuccess={() => {
-            setShowAdHoc(false);
-            loadToday();
-          }}
-        />
-      )}
+      {/* Modal Removed */}
     </div>
   );
 }
