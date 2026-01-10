@@ -1,8 +1,10 @@
+// app/(app)/today/page.tsx
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
-import { Clock, Syringe, Loader2, Check } from "lucide-react";
+import { Clock, Syringe, Loader2, Check, Target } from "lucide-react";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow, type DoseStatus } from "./actions";
@@ -80,7 +82,6 @@ export default function TodayPage() {
             <h1 className="text-2xl font-bold tracking-tight">Today</h1>
             <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
          </div>
-         {/* Ad-Hoc Button Removed */}
       </div>
 
       <div className="space-y-3">
@@ -106,7 +107,6 @@ export default function TodayPage() {
                 >
                     <div className="flex items-center justify-between gap-4 relative z-10">
                         <div className="min-w-0 flex-1">
-                            {/* Status Icon Removed from Left */}
                             <div className="flex items-center gap-3 mb-1">
                                 <h3 className={`font-bold text-lg truncate ${isTaken ? "text-muted-foreground line-through" : ""}`}>
                                     {dose.canonical_name}
@@ -119,6 +119,14 @@ export default function TodayPage() {
                                 <span className="flex items-center gap-1">
                                     <Syringe className="size-3" /> {fmt(dose.syringe_units, 0)} units
                                 </span>
+                                {dose.site_label && (
+                                    <>
+                                        <span>•</span>
+                                        <span className="flex items-center gap-1">
+                                            <Target className="size-3" /> {dose.site_label}
+                                        </span>
+                                    </>
+                                )}
                                 {dose.time_of_day && (
                                     <>
                                         <span>•</span>
@@ -157,7 +165,6 @@ export default function TodayPage() {
         )}
       </div>
 
-      {/* Modal remains available in code but hidden since trigger button is removed */}
       {showAdHoc && (
         <AddAdHocDoseModal 
           date={todayStr}
