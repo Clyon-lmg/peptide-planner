@@ -30,14 +30,11 @@ function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHou
 
 const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) => {
 
-  // DEBUGGING: Monitor props
   useEffect(() => {
-    if (peptides.length === 0) {
-       console.log("SerumChart: No peptides received yet.");
-    } else {
-       console.log(`SerumChart: Received ${peptides.length} peptides. Sample:`, peptides[0]);
+    if (peptides.length > 0) {
+       console.log("SerumChart Client: Loaded " + peptides.length + " peptides.");
     }
-  }, [doses, peptides]);
+  }, [peptides]);
 
   const chartData = useMemo(() => {
     if (!peptides || peptides.length === 0) return null;
@@ -63,7 +60,7 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
 
     const datasets = peptides.map((peptide, idx) => {
       const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
-      
+
       const dataPoints = timestamps.map(ts => {
         let totalSerum = 0;
         peptideDoses.forEach(dose => {
@@ -77,7 +74,7 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
             
             if (doseTime <= ts) {
                 const elapsed = (ts - doseTime) / (3600000);
-                // Use the attached half_life_hours or default to 24
+                // Access the manually merged half_life_hours
                 const hl = Number(peptide.half_life_hours) || 24;
                 if (elapsed < hl * 6) {
                     totalSerum += calculateDecay(Number(dose.dose_mg), elapsed, hl);
