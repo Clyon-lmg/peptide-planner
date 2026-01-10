@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Circle, Clock, Syringe, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Plus, Syringe, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
+import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow, type DoseStatus } from "./actions";
 
 function fmt(n: number | null | undefined, digits = 2) {
@@ -20,6 +21,7 @@ function localISODate(): string {
 export default function TodayPage() {
   const [doses, setDoses] = useState<TodayDoseRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAdHoc, setShowAdHoc] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const todayStr = useMemo(localISODate, []);
@@ -59,6 +61,7 @@ export default function TodayPage() {
             await resetDose(dose.peptide_id, todayStr);
             toast.success("Dose reset");
         }
+        
         const freshData = await getTodayDosesWithUnits(todayStr);
         setDoses(freshData);
     } catch (e) {
@@ -72,12 +75,22 @@ export default function TodayPage() {
 
   return (
     <div className="max-w-md mx-auto p-4 pb-24 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
          <div>
             <h1 className="text-2xl font-bold tracking-tight">Today</h1>
+            {/* 🟢 ADDED DISCLAIMER */}
+            <p className="text-xs text-red-500 font-bold my-1 leading-snug">
+                Logging works, but does not display properly on this page, this is a known bug I am working on
+            </p>
             <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
          </div>
-         {/* 🟢 REMOVED: Ad-Hoc Add Button */}
+         <button 
+           onClick={() => setShowAdHoc(true)}
+           className="shrink-0 p-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors mt-1"
+           title="Add Unscheduled Dose"
+         >
+           <Plus className="size-6" />
+         </button>
       </div>
 
       <div className="space-y-3">
@@ -104,31 +117,15 @@ export default function TodayPage() {
                     <div className="flex items-center justify-between gap-4 relative z-10">
                         <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-3 mb-1">
-                                <button 
-                                    onClick={() => handleToggleLog(dose)}
-                                    disabled={isBusy}
-                                    className={`
-                                        shrink-0 transition-all transform hover:scale-110 active:scale-95 rounded-full outline-none
-                                        ${isTaken ? "text-emerald-500" : "text-muted-foreground hover:text-primary"}
-                                        ${isBusy ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-                                    `}
-                                    title={isTaken ? "Reset to Pending" : "Log as Taken"}
-                                >
-                                    {isBusy ? (
-                                        <Loader2 className="size-7 animate-spin text-primary" />
-                                    ) : isTaken ? (
-                                        <CheckCircle2 className="size-7 fill-current" />
-                                    ) : (
-                                        <Circle className="size-7" />
-                                    )}
-                                </button>
-
+                                <div className={`transition-colors ${isTaken ? "text-emerald-500" : "text-muted-foreground"}`}>
+                                    {isTaken ? <CheckCircle2 className="size-6 fill-current" /> : <Circle className="size-6" />}
+                                </div>
                                 <h3 className={`font-bold text-lg truncate ${isTaken ? "text-muted-foreground line-through" : ""}`}>
                                     {dose.canonical_name}
                                 </h3>
                             </div>
                             
-                            <div className="pl-10 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                            <div className="pl-9 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                                 <span className="font-medium text-foreground">{fmt(dose.dose_mg)} mg</span>
                                 <span>•</span>
                                 <span className="flex items-center gap-1">
@@ -144,12 +141,46 @@ export default function TodayPage() {
                                 )}
                             </div>
                         </div>
+
+                        <div className="shrink-0">
+                            <button 
+                                onClick={() => handleToggleLog(dose)}
+                                disabled={isBusy}
+                                className={`
+                                    h-10 px-5 rounded-lg text-sm font-medium transition-all flex items-center justify-center min-w-[90px]
+                                    ${isTaken 
+                                        ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md" 
+                                        : "bg-primary/10 text-primary hover:bg-primary/20"
+                                    }
+                                    disabled:opacity-50 disabled:cursor-not-allowed
+                                `}
+                            >
+                                {isBusy ? <Loader2 className="size-4 animate-spin" /> : (
+                                    isTaken ? (
+                                        <>
+                                            <Check className="size-4 mr-1.5" />
+                                            Logged
+                                        </>
+                                    ) : "Log"
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )})
         )}
       </div>
-      {/* 🟢 REMOVED: Modal Component */}
+
+      {showAdHoc && (
+        <AddAdHocDoseModal 
+          date={todayStr}
+          onClose={() => setShowAdHoc(false)}
+          onSuccess={() => {
+            setShowAdHoc(false);
+            loadToday();
+          }}
+        />
+      )}
     </div>
   );
 }
