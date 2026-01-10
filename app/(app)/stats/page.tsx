@@ -3,7 +3,7 @@ import { Activity, Scale, CalendarRange } from "lucide-react";
 import SerumChart from "./SerumChart";
 import WeightClient from "./WeightClient";
 import InventoryForecast from "./InventoryForecast";
-import { getDosesForRange } from "../calendar/actions"; 
+import { getDosesForRange } from "../calendar/actions";
 
 export const metadata = { title: "Stats & Forecast" };
 
@@ -12,9 +12,9 @@ export default async function StatsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return <div>Please sign in.</div>;
 
+  console.log("--- STATS PAGE DEBUG START ---");
+  
   // 1. Fetch Doses (History + Future Schedule)
-  // We fetch a wide range (-60 to +30 days) so the chart has enough history 
-  // to calculate decay curves properly, and enough future for the forecast.
   const now = new Date();
   const start = new Date(now); start.setDate(start.getDate() - 60);
   const end = new Date(now); end.setDate(end.getDate() + 30);
@@ -22,31 +22,47 @@ export default async function StatsPage() {
   const startIso = start.toISOString().split('T')[0];
   const endIso = end.toISOString().split('T')[0];
 
-  // This action unifies DB doses with the protocol schedule and handles 'time_of_day' lookup
+  console.log(`Fetching doses from ${startIso} to ${endIso}...`);
   const doses = await getDosesForRange(startIso, endIso);
+  console.log(`Doses fetched: ${doses.length}`);
+  if (doses.length > 0) {
+    console.log("Sample Dose:", JSON.stringify(doses[0], null, 2));
+  } else {
+    console.warn("WARNING: No doses returned from getDosesForRange.");
+  }
 
   // 2. Fetch Peptide Info (Active + Historical)
-  // We extract all peptide IDs referenced in the dose history/schedule to get their half-lives
   const activeIds = new Set<number>();
-  doses.forEach(d => activeIds.add(Number(d.peptide_id)));
+  doses.forEach(d => {
+    if (d.peptide_id) activeIds.add(Number(d.peptide_id));
+  });
+
+  console.log("Active Peptide IDs found in doses:", Array.from(activeIds));
 
   let relevantPeptides: any[] = [];
   if (activeIds.size > 0) {
-      const { data: pData } = await supabase
+      const { data: pData, error } = await supabase
         .from("peptides")
         .select("id, canonical_name, half_life_hours")
         .in("id", Array.from(activeIds));
+      
+      if (error) console.error("Error fetching peptides:", error);
       relevantPeptides = pData || [];
+  } else {
+      console.warn("WARNING: No active IDs found, skipping peptide fetch.");
   }
 
-  // 3. Other Stats (Inventory, Weights)
+  console.log(`Relevant Peptides Loaded: ${relevantPeptides.length}`);
+  relevantPeptides.forEach(p => console.log(` - ${p.canonical_name} (ID: ${p.id})`));
+
+  // 3. Other Stats
   const { data: weights } = await supabase.from("weight_logs").select("*").eq("user_id", user.id).order("date", { ascending: true });
-  
   const { data: vialInv } = await supabase.from("inventory_items").select("*, peptides(canonical_name)").eq("user_id", user.id);
   const { data: capInv } = await supabase.from("inventory_capsules").select("*, peptides(canonical_name)").eq("user_id", user.id);
   const fullInventory = [...(vialInv || []), ...(capInv || [])];
-
   const { data: fullProtocols } = await supabase.from("protocols").select("*, protocol_items(*)").eq("user_id", user.id).eq("is_active", true);
+
+  console.log("--- STATS PAGE DEBUG END ---");
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-8 pb-32">
@@ -59,7 +75,6 @@ export default async function StatsPage() {
           <Activity className="size-5 text-blue-600" />
           <h2 className="text-lg font-bold">Serum Levels</h2>
         </div>
-        {/* Pass the unified dose list to the chart */}
         <SerumChart doses={doses} peptides={relevantPeptides} />
       </section>
 
