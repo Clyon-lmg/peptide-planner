@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,11 +29,29 @@ function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHou
 }
 
 const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) => {
+
+  // DEBUGGING: Check props on mount
+  useEffect(() => {
+    console.log("--- CLIENT CHART DEBUG ---");
+    console.log(`Received ${peptides.length} peptides`);
+    console.log(`Received ${doses.length} doses`);
+    
+    if (peptides.length > 0 && doses.length > 0) {
+        // Test match first elements
+        const pId = peptides[0].id;
+        const matchingDoses = doses.filter(d => Number(d.peptide_id) === Number(pId));
+        console.log(`Test Match for Peptide ID ${pId}: Found ${matchingDoses.length} doses`);
+        if (matchingDoses.length === 0) {
+            console.log("First dose ID type:", typeof doses[0].peptide_id, "Value:", doses[0].peptide_id);
+            console.log("First peptide ID type:", typeof pId, "Value:", pId);
+        }
+    }
+  }, [doses, peptides]);
+
   const chartData = useMemo(() => {
     if (!peptides || peptides.length === 0) return null;
 
     const now = new Date();
-    // Chart view range: -21 days to +14 days
     const startDate = new Date(); 
     startDate.setDate(now.getDate() - 21);
     const endDate = new Date(); 
@@ -44,7 +62,6 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
     let current = new Date(startDate);
     current.setHours(0, 0, 0, 0);
 
-    // Generate x-axis steps (every 12 hours)
     while (current <= endDate) {
       if (current.getHours() === 0) {
         labels.push(current.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
@@ -54,29 +71,30 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
     }
 
     const datasets = peptides.map((peptide, idx) => {
-      // Filter for specific peptide
+      // Filter doses
       const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
+      
+      // DEBUG: Log if we are missing doses for a known peptide
+      if (peptideDoses.length === 0) {
+          console.warn(`Chart Warning: Peptide ${peptide.canonical_name} (ID: ${peptide.id}) has 0 matching doses.`);
+      }
 
       const dataPoints = timestamps.map(ts => {
         let totalSerum = 0;
         peptideDoses.forEach(dose => {
-            // Ignore skipped doses
             if (dose.status === 'SKIPPED') return;
 
             const dateStr = dose.date_for || dose.date;
             if (!dateStr) return;
             
-            // Safe time construction with default
             const timeStr = dose.time_of_day ? dose.time_of_day : '08:00';
             const doseTime = new Date(`${dateStr}T${timeStr}:00`).getTime();
             
             if (doseTime <= ts) {
-                const elapsedHours = (ts - doseTime) / (3600000);
+                const elapsed = (ts - doseTime) / (3600000);
                 const hl = Number(peptide.half_life_hours) || 24;
-                
-                // Performance optimization: stop calculating after 6 half-lives
-                if (elapsedHours < hl * 6) {
-                    totalSerum += calculateDecay(Number(dose.dose_mg), elapsedHours, hl);
+                if (elapsed < hl * 6) {
+                    totalSerum += calculateDecay(Number(dose.dose_mg), elapsed, hl);
                 }
             }
         });
