@@ -84,7 +84,6 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
                     existing.time_of_day = dose.time_of_day;
                 }
             } else {
-                // Safely match original item by ID
                 const original = pItems.find((i: any) => Number(i.peptide_id) === pid);
                 consolidated.set(pid, { 
                     canonical_name: dose.canonical_name,
@@ -124,10 +123,8 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     for (const [pid, item] of scheduledMap.entries()) {
         allPeptideIds.add(pid);
         
-        // Track needed lists
-        if (item._originalItem?.site_list_id) {
-            neededSiteListIds.add(item._originalItem.site_list_id);
-        }
+        const rawSiteListId = item._originalItem?.site_list_id;
+        if (rawSiteListId) neededSiteListIds.add(rawSiteListId);
         
         finalMap.set(pid, {
             peptide_id: pid,
@@ -176,12 +173,11 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     }
 
     // --- Resolve Suggested Injection Sites ---
-    // UPDATED: Now resolves for ANY item missing a label, even if status is TAKEN/SKIPPED.
     const itemsNeedingSites = Array.from(finalMap.values())
         .filter(d => {
             const schedItem = scheduledMap.get(d.peptide_id);
             const hasList = !!schedItem?._originalItem?.site_list_id;
-            const noLabel = !d.site_label; // If it has a label (manually set), keep it.
+            const noLabel = !d.site_label; 
             return noLabel && hasList;
         });
     
@@ -217,16 +213,36 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
             counts.set(h.peptide_id, (counts.get(h.peptide_id) || 0) + 1);
         });
 
-        // 3. Assign Suggested Site
+        // 3. Assign Suggested Site (SYNCHRONIZED)
+        
+        // Group items by their site_list_id first
+        const itemsByListId = new Map<number, TodayDoseRow[]>();
         for (const row of itemsNeedingSites) {
             const item = scheduledMap.get(row.peptide_id)?._originalItem;
-            if (item && item.site_list_id) {
-                const list = sitesByList.get(item.site_list_id) || [];
-                if (list.length > 0) {
-                    const count = counts.get(row.peptide_id) || 0;
-                    const index = count % list.length;
-                    row.site_label = list[index].name;
-                }
+            const listId = item?.site_list_id;
+            if (listId) {
+                if (!itemsByListId.has(listId)) itemsByListId.set(listId, []);
+                itemsByListId.get(listId)?.push(row);
+            }
+        }
+
+        // For each list group, calculate ONE index based on the MAX history count
+        for (const [listId, rows] of itemsByListId.entries()) {
+            const list = sitesByList.get(listId) || [];
+            if (list.length === 0) continue;
+
+            let maxCount = 0;
+            for (const row of rows) {
+                const c = counts.get(row.peptide_id) || 0;
+                if (c > maxCount) maxCount = c;
+            }
+
+            const index = maxCount % list.length;
+            const siteName = list[index].name;
+
+            // Apply same site to all peptides in this group
+            for (const row of rows) {
+                row.site_label = siteName;
             }
         }
     }
