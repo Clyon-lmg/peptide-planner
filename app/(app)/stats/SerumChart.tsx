@@ -30,21 +30,12 @@ function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHou
 
 const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) => {
 
-  // DEBUGGING: Check props on mount
+  // DEBUGGING: Monitor props
   useEffect(() => {
-    console.log("--- CLIENT CHART DEBUG ---");
-    console.log(`Received ${peptides.length} peptides`);
-    console.log(`Received ${doses.length} doses`);
-    
-    if (peptides.length > 0 && doses.length > 0) {
-        // Test match first elements
-        const pId = peptides[0].id;
-        const matchingDoses = doses.filter(d => Number(d.peptide_id) === Number(pId));
-        console.log(`Test Match for Peptide ID ${pId}: Found ${matchingDoses.length} doses`);
-        if (matchingDoses.length === 0) {
-            console.log("First dose ID type:", typeof doses[0].peptide_id, "Value:", doses[0].peptide_id);
-            console.log("First peptide ID type:", typeof pId, "Value:", pId);
-        }
+    if (peptides.length === 0) {
+       console.log("SerumChart: No peptides received yet.");
+    } else {
+       console.log(`SerumChart: Received ${peptides.length} peptides. Sample:`, peptides[0]);
     }
   }, [doses, peptides]);
 
@@ -71,14 +62,8 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
     }
 
     const datasets = peptides.map((peptide, idx) => {
-      // Filter doses
       const peptideDoses = doses.filter(d => Number(d.peptide_id) === Number(peptide.id));
       
-      // DEBUG: Log if we are missing doses for a known peptide
-      if (peptideDoses.length === 0) {
-          console.warn(`Chart Warning: Peptide ${peptide.canonical_name} (ID: ${peptide.id}) has 0 matching doses.`);
-      }
-
       const dataPoints = timestamps.map(ts => {
         let totalSerum = 0;
         peptideDoses.forEach(dose => {
@@ -92,6 +77,7 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
             
             if (doseTime <= ts) {
                 const elapsed = (ts - doseTime) / (3600000);
+                // Use the attached half_life_hours or default to 24
                 const hl = Number(peptide.half_life_hours) || 24;
                 if (elapsed < hl * 6) {
                     totalSerum += calculateDecay(Number(dose.dose_mg), elapsed, hl);
