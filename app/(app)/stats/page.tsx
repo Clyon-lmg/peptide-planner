@@ -12,10 +12,7 @@ export default async function StatsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return <div>Please sign in.</div>;
 
-  console.log("--- STATS PAGE DEBUG START ---");
-
   // 1. Fetch Inventory First (Source of Truth for Half-Life)
-  // We fetch this first so we can map peptide_id -> half_life_hours
   const { data: vialInv } = await supabase.from("inventory_items").select("peptide_id, half_life_hours").eq("user_id", user.id);
   const { data: capInv } = await supabase.from("inventory_capsules").select("peptide_id, half_life_hours").eq("user_id", user.id);
   
@@ -37,9 +34,7 @@ export default async function StatsPage() {
   const startIso = start.toISOString().split('T')[0];
   const endIso = end.toISOString().split('T')[0];
 
-  console.log(`Fetching doses from ${startIso} to ${endIso}...`);
   const doses = await getDosesForRange(startIso, endIso);
-  console.log(`Doses fetched: ${doses.length}`);
 
   // 3. Identify Active Peptides from Doses
   const activeIds = new Set<number>();
@@ -47,36 +42,25 @@ export default async function StatsPage() {
     if (d.peptide_id) activeIds.add(Number(d.peptide_id));
   });
 
-  console.log("Active Peptide IDs:", Array.from(activeIds));
-
-  // 4. Fetch Peptide Names (CRITICAL: Do NOT select half_life_hours here)
+  // 4. Fetch Peptide Names & Attach Half-Life
   let relevantPeptides: any[] = [];
   if (activeIds.size > 0) {
-      const { data: pData, error } = await supabase
+      const { data: pData } = await supabase
         .from("peptides")
-        .select("id, canonical_name") // <--- Fixed: Removed half_life_hours
+        .select("id, canonical_name")
         .in("id", Array.from(activeIds));
       
-      if (error) {
-        console.error("Error fetching peptides:", error);
-      } else {
-        // Merge: Attach the half-life from inventory map to the peptide object
-        relevantPeptides = (pData || []).map(p => {
-          const pid = Number(p.id);
-          return {
-            ...p,
-            half_life_hours: halfLifeMap.get(pid) || 24 // Default if not in inventory
-          };
-        });
-      }
+      // Merge: Attach the half-life from inventory map to the peptide object
+      relevantPeptides = (pData || []).map(p => {
+        const pid = Number(p.id);
+        return {
+          ...p,
+          half_life_hours: halfLifeMap.get(pid) || 24 // Default if not in inventory
+        };
+      });
   }
 
-  console.log(`Relevant Peptides Loaded: ${relevantPeptides.length}`);
-  if (relevantPeptides.length > 0) {
-    console.log("Sample Peptide constructed:", relevantPeptides[0]);
-  }
-
-  // 5. Other Stats (For the other cards)
+  // 5. Other Stats
   const { data: weights } = await supabase.from("weight_logs").select("*").eq("user_id", user.id).order("date", { ascending: true });
   
   // Re-fetch full inventory for the forecast card (needs more fields than just half-life)
@@ -85,8 +69,6 @@ export default async function StatsPage() {
   const fullInventory = [...(fullVial || []), ...(fullCap || [])];
 
   const { data: fullProtocols } = await supabase.from("protocols").select("*, protocol_items(*)").eq("user_id", user.id).eq("is_active", true);
-
-  console.log("--- STATS PAGE DEBUG END ---");
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-8 pb-32">
