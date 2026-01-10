@@ -4,7 +4,7 @@ import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { unitsFromDose, forecastRemainingDoses } from '@/lib/forecast';
 import {
     generateDailyDoses,
-    isDoseDayUTC, // 🟢 Ensure this is imported
+    isDoseDayUTC,
     type ProtocolItem,
     type Schedule,
 } from '@/lib/scheduleEngine';
@@ -26,6 +26,7 @@ export type TodayDoseRow = {
     site_label: string | null;
 };
 
+// Data shapes
 interface VialInv {
     vials: number;
     mg_per_vial: number;
@@ -47,7 +48,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     const uid = auth.user?.id;
     if (!uid) throw new Error('Session missing');
 
-    // 1. Fetch ALL user protocols (to check dates)
+    // 1. Fetch ALL user protocols
     const { data: allProtocols } = await sa
         .from('protocols')
         .select('id, start_date, end_date')
@@ -72,9 +73,8 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         protocolItems = items || [];
     }
 
-    // 4. Fetch DB Doses (The "Truth")
-    // 🟢 We fetch ALL doses for this user/date, ignoring protocol_id.
-    // This guarantees we see "TAKEN" even if the UI thinks it belongs to a different protocol.
+    // 4. Fetch DB Doses (The Truth)
+    // 🟢 CRITICAL FIX from status.ts: Ignore protocol_id. Find ANY dose for this user+date.
     const { data: dbDoses } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, time_of_day, peptides(canonical_name)')
@@ -106,7 +106,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
                 const pid = Number(it.peptide_id);
                 const pName = Array.isArray(it.peptides) ? it.peptides[0]?.canonical_name : (it.peptides as any)?.canonical_name;
                 
-                // Add to map (or merge if duplicate from overlap - unlikely based on your comment, but safe)
+                // Add to map (or merge if duplicate from overlap)
                 if (!combinedMap.has(pid)) {
                     combinedMap.set(pid, {
                         peptide_id: pid,
@@ -133,7 +133,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
             const status = (db.status as DoseStatus) || 'PENDING';
             
             if (combinedMap.has(pid)) {
-                // Update existing scheduled row
+                // Update existing scheduled row with DB truth
                 const row = combinedMap.get(pid)!;
                 row.status = status;
                 row.dose_mg = Number(db.dose_mg); // DB dose is the truth
@@ -217,15 +217,11 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
 
     // 1. Find the best protocol to link (containing this peptide, valid date)
     const { data: protocols } = await sa.from('protocols').select('id,start_date,end_date, protocol_items(peptide_id)').eq('user_id', user.id);
-    
-    // Filter active (Start <= Date <= End)
     const validProtos = (protocols || []).filter((p: any) => {
         const start = p.start_date;
         const end = p.end_date || '9999-12-31';
         return start <= dateISO && end >= dateISO;
     });
-
-    // Find the one that actually contains this peptide
     const match = validProtos.find((p: any) => p.protocol_items?.some((pi: any) => pi.peptide_id === peptide_id));
     const protocolId = match?.id || validProtos[0]?.id || null;
 
@@ -243,7 +239,6 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
 
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
     if (!doseAmount && protocolId) {
-         // Fallback dose lookup
          const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', protocolId).eq('peptide_id', peptide_id).maybeSingle();
          doseAmount = Number(pi?.dose_mg_per_administration || 0);
     }
@@ -268,6 +263,7 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     }
 
     revalidatePath('/today');
+    revalidatePath('/calendar');
 }
 
 export async function logDose(peptide_id: number, dateISO: string) { 'use server'; await upsertDoseStatus(peptide_id, dateISO, 'TAKEN'); }
