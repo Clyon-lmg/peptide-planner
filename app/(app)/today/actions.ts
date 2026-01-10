@@ -4,6 +4,7 @@ import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { unitsFromDose, forecastRemainingDoses } from '@/lib/forecast';
 import {
     generateDailyDoses,
+    isDoseDayUTC, // 🟢 Added missing import
     type ProtocolItem,
     type Schedule,
 } from '@/lib/scheduleEngine';
@@ -101,6 +102,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         for (const it of protoItems) {
             const itemForSchedule = { ...it, protocol_start_date: p.start_date };
             
+            // 🟢 Used correctly now
             if (isDoseDayUTC(dateObj, itemForSchedule)) {
                 const pid = Number(it.peptide_id);
                 const pName = Array.isArray(it.peptides) ? it.peptides[0]?.canonical_name : (it.peptides as any)?.canonical_name;
@@ -205,13 +207,24 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const uid = user?.id;
     if (!uid) throw new Error('Not signed in');
 
-    // Link to ANY valid protocol for today (priority)
-    const { data: protocols } = await sa.from('protocols').select('id,start_date,end_date').eq('user_id', uid);
-    const validProto = protocols?.find((p: any) => {
-        const start = p.start_date;
-        const end = p.end_date || '9999-12-31';
-        return start <= dateISO && end >= dateISO;
-    });
+    // Link to an active protocol if possible
+    // We prioritize linking to a protocol that actually CONTAINS this peptide
+    const { data: protocols } = await sa
+        .from('protocols')
+        .select('id, start_date, end_date, protocol_items(peptide_id)')
+        .eq('user_id', uid);
+    
+    // Find valid date protocols
+    const validProtos = protocols?.filter((p: any) => {
+        if (p.start_date > dateISO) return false;
+        if (p.end_date && p.end_date < dateISO) return false;
+        return true;
+    }) || [];
+
+    // Find specific protocol that has this peptide
+    const matchingProto = validProtos.find((p: any) => p.protocol_items?.some((pi: any) => pi.peptide_id === peptide_id));
+    // Fallback to first valid protocol or null
+    const protocolId = matchingProto?.id || validProtos[0]?.id || null;
 
     const { data: existing } = await sa
         .from('doses')
@@ -225,20 +238,18 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     if (currentStatus === targetStatus) return;
 
     let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
-    if (!doseAmount && validProto?.id) {
-         // Try to find default dose from the linked protocol
-         const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', validProto.id).eq('peptide_id', peptide_id).maybeSingle();
-         doseAmount = Number(pi?.dose_mg_per_administration || 0);
+    if (!doseAmount && protocolId) {
+        const { data: pi } = await sa.from('protocol_items').select('dose_mg_per_administration').eq('protocol_id', protocolId).eq('peptide_id', peptide_id).maybeSingle();
+        doseAmount = Number(pi?.dose_mg_per_administration || 0);
     }
 
-    // Update inventory
     if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, uid, peptide_id, doseAmount);
     else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, uid, peptide_id, -doseAmount);
 
     if (!existing?.id) {
         await sa.from('doses').insert({
             user_id: uid,
-            protocol_id: validProto?.id || null, 
+            protocol_id: protocolId, 
             peptide_id,
             date: dateISO,
             date_for: dateISO,
