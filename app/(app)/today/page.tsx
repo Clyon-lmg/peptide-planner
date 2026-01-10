@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Circle, Clock, Plus, Syringe, Loader2, Check } from "lucide-react";
+import { Clock, Syringe, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import AddAdHocDoseModal from "@/components/calendar/AddAdHocDoseModal";
 import { getTodayDosesWithUnits, logDose, resetDose, type TodayDoseRow, type DoseStatus } from "./actions";
@@ -80,13 +80,7 @@ export default function TodayPage() {
             <h1 className="text-2xl font-bold tracking-tight">Today</h1>
             <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
          </div>
-         <button 
-           onClick={() => setShowAdHoc(true)}
-           className="shrink-0 p-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors mt-1"
-           title="Add Unscheduled Dose"
-         >
-           <Plus className="size-6" />
-         </button>
+         {/* Ad-Hoc Button Removed */}
       </div>
 
       <div className="space-y-3">
@@ -112,16 +106,14 @@ export default function TodayPage() {
                 >
                     <div className="flex items-center justify-between gap-4 relative z-10">
                         <div className="min-w-0 flex-1">
+                            {/* Status Icon Removed from Left */}
                             <div className="flex items-center gap-3 mb-1">
-                                <div className={`transition-colors ${isTaken ? "text-emerald-500" : "text-muted-foreground"}`}>
-                                    {isTaken ? <CheckCircle2 className="size-6 fill-current" /> : <Circle className="size-6" />}
-                                </div>
                                 <h3 className={`font-bold text-lg truncate ${isTaken ? "text-muted-foreground line-through" : ""}`}>
                                     {dose.canonical_name}
                                 </h3>
                             </div>
                             
-                            <div className="pl-9 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                                 <span className="font-medium text-foreground">{fmt(dose.dose_mg)} mg</span>
                                 <span>•</span>
                                 <span className="flex items-center gap-1">
@@ -152,7 +144,10 @@ export default function TodayPage() {
                                 `}
                             >
                                 {isBusy ? <Loader2 className="size-5 animate-spin" /> : (
-                                    <Check className="size-6" />
+                                    <Check className={`size-6 transition-transform ${isTaken ? "scale-100" : "scale-0 opacity-0"}`} />
+                                )}
+                                {!isBusy && !isTaken && (
+                                    <div className="size-3 bg-current rounded-full absolute" />
                                 )}
                             </button>
                         </div>
@@ -162,6 +157,7 @@ export default function TodayPage() {
         )}
       </div>
 
+      {/* Modal remains available in code but hidden since trigger button is removed */}
       {showAdHoc && (
         <AddAdHocDoseModal 
           date={todayStr}
