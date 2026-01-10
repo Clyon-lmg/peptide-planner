@@ -21,34 +21,43 @@ export type TodayDoseRow = {
     site_label: string | null;
 };
 
-// --- 1. THE ABSTRACTION LAYER ---
-// This function hides the complexity of multiple protocols. 
-// It returns a single, consolidated list of what *should* be taken today.
+// --- 1. ABSTRACTION LAYER (Unified Schedule) ---
+// This merges all active protocols into one unified daily plan.
+
+interface ProtocolRow {
+    id: number;
+    start_date: string;
+    end_date: string | null;
+}
+
 async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: string) {
-    // A. Fetch ALL protocols that are active today (Start <= Today <= End)
+    // A. Fetch ALL active protocols (supports multiple/non-overlapping)
     const { data: allProtocols } = await supabase
         .from('protocols')
         .select('id, start_date, end_date')
         .eq('user_id', uid);
 
-    const activeProtocols = (allProtocols || []).filter((p: any) => {
+    // Explicitly type 'p' to fix build error
+    const activeProtocols = (allProtocols || []).filter((p: ProtocolRow) => {
         if (!p.start_date) return false;
         if (p.start_date > dateISO) return false; 
         if (p.end_date && p.end_date < dateISO) return false; 
         return true;
     });
 
-    const activeIds = activeProtocols.map(p => p.id);
-    if (activeIds.length === 0) return new Map(); // Empty schedule
+    // 🟢 FIXED: 'p' is now typed, so this map works
+    const activeIds = activeProtocols.map((p: ProtocolRow) => p.id);
+    
+    if (activeIds.length === 0) return new Map();
 
-    // B. Fetch all items for these protocols
+    // B. Fetch Items
     const { data: items } = await supabase.from('protocol_items')
         .select('protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, titration_interval_days, titration_amount_mg, time_of_day, peptides(canonical_name)')
         .in('protocol_id', activeIds);
 
     if (!items || items.length === 0) return new Map();
 
-    // C. Generate & Consolidate Schedule
+    // C. Generate Consolidated Schedule
     const consolidated = new Map<number, { 
         canonical_name: string, 
         dose_mg: number, 
@@ -56,19 +65,17 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
         _originalItem: any 
     }>();
 
-    // Group items by protocol to respect their individual start dates
+    // Group items by protocol to pass the correct start_date to the engine
     const itemsByProto = new Map<number, any[]>();
-    items.forEach(it => {
+    items.forEach((it: any) => {
         if (!itemsByProto.has(it.protocol_id)) itemsByProto.set(it.protocol_id, []);
         itemsByProto.get(it.protocol_id)?.push(it);
     });
 
-    // Run the schedule engine for each protocol
-    activeProtocols.forEach(p => {
+    activeProtocols.forEach((p: ProtocolRow) => {
         const pItems = itemsByProto.get(p.id);
         if (!pItems) return;
 
-        // Map DB shape to Engine shape
         const engineItems: ProtocolItem[] = pItems.map((it: any) => ({
             peptide_id: Number(it.peptide_id),
             canonical_name: it.peptides?.canonical_name || `Peptide #${it.peptide_id}`,
@@ -83,14 +90,12 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
 
         const dailyDoses = generateDailyDoses(dateISO, p.start_date, engineItems);
 
-        // Merge into the unified map
         dailyDoses.forEach(dose => {
             const pid = Number(dose.peptide_id);
             if (consolidated.has(pid)) {
-                // Conflict resolution: Sum the dose if multiple protocols schedule it
+                // Merge rule: Sum dose, keep earliest time
                 const existing = consolidated.get(pid)!;
                 existing.dose_mg += dose.dose_mg;
-                // Keep the earliest time
                 if (dose.time_of_day && (!existing.time_of_day || dose.time_of_day < existing.time_of_day)) {
                     existing.time_of_day = dose.time_of_day;
                 }
@@ -99,7 +104,7 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
                     canonical_name: dose.canonical_name,
                     dose_mg: dose.dose_mg,
                     time_of_day: dose.time_of_day,
-                    _originalItem: pItems.find((i: any) => i.peptide_id === pid) // Save for forecasting
+                    _originalItem: pItems.find((i: any) => i.peptide_id === pid)
                 });
             }
         });
@@ -108,7 +113,7 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
     return consolidated;
 }
 
-// --- 2. MAIN PAGE LOAD ---
+// --- 2. MAIN QUERIES ---
 
 export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDoseRow[]> {
     const sa = createServerActionSupabase();
@@ -116,10 +121,10 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     const uid = auth.user?.id;
     if (!uid) throw new Error('Session missing');
 
-    // 1. Get the "Ideal" Schedule (Abstracted)
+    // 1. Get Unified Schedule (Abstracted)
     const scheduledMap = await getUnifiedDailySchedule(sa, uid, dateISO);
 
-    // 2. Get the "Actual" Reality (DB Doses)
+    // 2. Fetch DB Doses (Status)
     // 🟢 LOOSE LOOKUP: Ignore protocol_id
     const { data: dbDoses } = await sa
         .from('doses')
@@ -127,18 +132,18 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         .eq('user_id', uid)
         .eq('date_for', dateISO);
 
-    // 3. Merge Schedule + Reality
+    // 3. Merge
     const finalMap = new Map<number, TodayDoseRow>();
     const allPeptideIds = new Set<number>();
 
-    // A. Add Scheduled items
+    // A. Add Schedule
     for (const [pid, item] of scheduledMap.entries()) {
         allPeptideIds.add(pid);
         finalMap.set(pid, {
             peptide_id: pid,
             canonical_name: item.canonical_name,
             dose_mg: item.dose_mg,
-            status: 'PENDING', // Default
+            status: 'PENDING',
             time_of_day: item.time_of_day,
             site_label: null,
             syringe_units: null,
@@ -149,7 +154,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         });
     }
 
-    // B. Overlay DB Status (Overrides Schedule & Adds Ad-Hoc)
+    // B. Apply DB Status
     if (dbDoses) {
         for (const db of dbDoses) {
             const pid = Number(db.peptide_id);
@@ -157,14 +162,13 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
             const status = (db.status as DoseStatus) || 'PENDING';
             
             if (finalMap.has(pid)) {
-                // Update existing
                 const row = finalMap.get(pid)!;
                 row.status = status;
-                row.dose_mg = Number(db.dose_mg); // DB is truth
+                row.dose_mg = Number(db.dose_mg);
                 row.site_label = db.site_label;
                 if (db.time_of_day) row.time_of_day = db.time_of_day;
             } else {
-                // Add Ad-Hoc
+                // Ad-Hoc
                 const pName = Array.isArray(db.peptides) ? db.peptides[0]?.canonical_name : (db.peptides as any)?.canonical_name;
                 finalMap.set(pid, {
                     peptide_id: pid,
@@ -206,7 +210,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
             row.bac_ml = v?.bac_ml || null;
             row.syringe_units = unitsFromDose(row.dose_mg, row.mg_per_vial, row.bac_ml);
 
-            // Forecast
+            // Forecast logic from server.ts
             const schedItem = scheduledMap.get(pid)?._originalItem;
             if (schedItem && row.dose_mg > 0) {
                 let totalMg = 0;
@@ -214,10 +218,11 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
                 if (c) totalMg += (c.bottles * c.caps_per_bottle * c.mg_per_cap) - (c.current_used_mg || 0);
                 totalMg = Math.max(0, totalMg);
 
+                // 🟢 TS FIX: Default values for nulls
                 const f = forecastRemainingDoses(
                     totalMg,
                     row.dose_mg,
-                    schedItem.schedule,
+                    schedItem.schedule as Schedule,
                     schedItem.custom_days ?? null,
                     Number(schedItem.cycle_on_weeks || 0),
                     Number(schedItem.cycle_off_weeks || 0),
@@ -265,18 +270,21 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
     const { data: { user } } = await sa.auth.getUser();
     if (!user) throw new Error('Not signed in');
 
-    // 1. Link to ANY valid protocol (Best effort linkage)
+    // 1. Link to ANY valid protocol (Loose Linking)
     const { data: protocols } = await sa.from('protocols').select('id,start_date,end_date, protocol_items(peptide_id)').eq('user_id', user.id);
+    
+    // Valid for this date
     const validProtos = (protocols || []).filter((p: any) => {
         const start = p.start_date;
         const end = p.end_date || '9999-12-31';
         return start <= dateISO && end >= dateISO;
     });
-    // Prefer protocol containing this peptide
+
+    // Valid + Contains Peptide
     const match = validProtos.find((p: any) => p.protocol_items?.some((pi: any) => pi.peptide_id === peptide_id));
     const protocolId = match?.id || validProtos[0]?.id || null;
 
-    // 2. Check Existing (Loose Lookup: user + peptide + date)
+    // 2. Check Existing (Loose Lookup: User + Peptide + Date)
     const { data: existing } = await sa
         .from('doses')
         .select('id, status, dose_mg')
