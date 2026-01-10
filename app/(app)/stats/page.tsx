@@ -13,8 +13,23 @@ export default async function StatsPage() {
   if (!user) return <div>Please sign in.</div>;
 
   console.log("--- STATS PAGE DEBUG START ---");
+
+  // 1. Fetch Inventory First (To get Half-Life settings)
+  // We need to fetch this first so we can attach the user's custom half-life to the peptide
+  const { data: vialInv } = await supabase.from("inventory_items").select("*, peptides(canonical_name)").eq("user_id", user.id);
+  const { data: capInv } = await supabase.from("inventory_capsules").select("*, peptides(canonical_name)").eq("user_id", user.id);
   
-  // 1. Fetch Doses (History + Future Schedule)
+  const fullInventory = [...(vialInv || []), ...(capInv || [])];
+  
+  // Create a Map for fast lookup: PeptideID -> HalfLife
+  const halfLifeMap = new Map<number, number>();
+  fullInventory.forEach((item: any) => {
+    if (item.peptide_id && item.half_life_hours) {
+      halfLifeMap.set(Number(item.peptide_id), Number(item.half_life_hours));
+    }
+  });
+
+  // 2. Fetch Doses (History + Future Schedule)
   const now = new Date();
   const start = new Date(now); start.setDate(start.getDate() - 60);
   const end = new Date(now); end.setDate(end.getDate() + 30);
@@ -25,41 +40,40 @@ export default async function StatsPage() {
   console.log(`Fetching doses from ${startIso} to ${endIso}...`);
   const doses = await getDosesForRange(startIso, endIso);
   console.log(`Doses fetched: ${doses.length}`);
-  if (doses.length > 0) {
-    console.log("Sample Dose:", JSON.stringify(doses[0], null, 2));
-  } else {
-    console.warn("WARNING: No doses returned from getDosesForRange.");
-  }
 
-  // 2. Fetch Peptide Info (Active + Historical)
+  // 3. Identify Active Peptides
   const activeIds = new Set<number>();
   doses.forEach(d => {
     if (d.peptide_id) activeIds.add(Number(d.peptide_id));
   });
 
-  console.log("Active Peptide IDs found in doses:", Array.from(activeIds));
-
+  // 4. Fetch Peptide Names (WITHOUT half_life_hours column)
   let relevantPeptides: any[] = [];
   if (activeIds.size > 0) {
       const { data: pData, error } = await supabase
         .from("peptides")
-        .select("id, canonical_name, half_life_hours")
+        .select("id, canonical_name") // REMOVED half_life_hours
         .in("id", Array.from(activeIds));
       
-      if (error) console.error("Error fetching peptides:", error);
-      relevantPeptides = pData || [];
-  } else {
-      console.warn("WARNING: No active IDs found, skipping peptide fetch.");
+      if (error) {
+        console.error("Error fetching peptides:", error);
+      } else {
+        // Merge DB data with Inventory Half-Life data
+        relevantPeptides = (pData || []).map(p => ({
+          ...p,
+          half_life_hours: halfLifeMap.get(Number(p.id)) || 24 // Default to 24h if not set in inventory
+        }));
+      }
   }
 
   console.log(`Relevant Peptides Loaded: ${relevantPeptides.length}`);
-  relevantPeptides.forEach(p => console.log(` - ${p.canonical_name} (ID: ${p.id})`));
+  // Log one to verify it has half_life_hours now
+  if (relevantPeptides.length > 0) {
+    console.log("Sample Peptide w/ HalfLife:", relevantPeptides[0]);
+  }
 
-  // 3. Other Stats
+  // 5. Other Stats
   const { data: weights } = await supabase.from("weight_logs").select("*").eq("user_id", user.id).order("date", { ascending: true });
-  const { data: vialInv } = await supabase.from("inventory_items").select("*, peptides(canonical_name)").eq("user_id", user.id);
-  const { data: capInv } = await supabase.from("inventory_capsules").select("*, peptides(canonical_name)").eq("user_id", user.id);
-  const fullInventory = [...(vialInv || []), ...(capInv || [])];
   const { data: fullProtocols } = await supabase.from("protocols").select("*, protocol_items(*)").eq("user_id", user.id).eq("is_active", true);
 
   console.log("--- STATS PAGE DEBUG END ---");
