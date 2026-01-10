@@ -78,10 +78,6 @@ export default function TodayPage() {
       <div className="flex items-start justify-between gap-4">
          <div>
             <h1 className="text-2xl font-bold tracking-tight">Today</h1>
-            {/* 🟢 ADDED DISCLAIMER */}
-            <p className="text-xs text-red-500 font-bold my-1 leading-snug">
-                Logging works, but does not display properly on this page, this is a known bug I am working on
-            </p>
             <p className="text-muted-foreground">{format(new Date(), "EEEE, MMMM do")}</p>
          </div>
          <button 
@@ -147,7 +143,7 @@ export default function TodayPage() {
                                 onClick={() => handleToggleLog(dose)}
                                 disabled={isBusy}
                                 className={`
-                                    h-10 px-5 rounded-lg text-sm font-medium transition-all flex items-center justify-center min-w-[90px]
+                                    size-12 rounded-full flex items-center justify-center transition-all shadow-sm
                                     ${isTaken 
                                         ? "bg-emerald-600 text-white hover:bg-emerald-700 shadow-md" 
                                         : "bg-primary/10 text-primary hover:bg-primary/20"
@@ -155,13 +151,8 @@ export default function TodayPage() {
                                     disabled:opacity-50 disabled:cursor-not-allowed
                                 `}
                             >
-                                {isBusy ? <Loader2 className="size-4 animate-spin" /> : (
-                                    isTaken ? (
-                                        <>
-                                            <Check className="size-4 mr-1.5" />
-                                            Logged
-                                        </>
-                                    ) : "Log"
+                                {isBusy ? <Loader2 className="size-5 animate-spin" /> : (
+                                    <Check className="size-6" />
                                 )}
                             </button>
                         </div>
