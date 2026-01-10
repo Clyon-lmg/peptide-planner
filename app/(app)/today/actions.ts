@@ -61,7 +61,6 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
         const pItems = itemsByProto.get(p.id);
         if (!pItems) return;
 
-        // SAFE ID COMPARISON FIX
         const engineItems: ProtocolItem[] = pItems.map((it: any) => ({
             peptide_id: Number(it.peptide_id),
             canonical_name: it.peptides?.canonical_name || `Peptide #${it.peptide_id}`,
@@ -85,7 +84,7 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
                     existing.time_of_day = dose.time_of_day;
                 }
             } else {
-                // Find original item with Safe ID check
+                // Safely match original item by ID
                 const original = pItems.find((i: any) => Number(i.peptide_id) === pid);
                 consolidated.set(pid, { 
                     canonical_name: dose.canonical_name,
@@ -108,10 +107,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     const uid = auth.user?.id;
     if (!uid) throw new Error('Session missing');
 
-    console.log(`[TodayActions] 1. Starting Fetch for ${dateISO}`);
-
     const scheduledMap = await getUnifiedDailySchedule(sa, uid, dateISO);
-    console.log(`[TodayActions] 2. Scheduled items count: ${scheduledMap.size}`);
 
     // Fetch DB Doses
     const { data: dbDoses } = await sa
@@ -119,13 +115,6 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         .select('peptide_id, status, site_label, dose_mg, peptides(canonical_name)')
         .eq('user_id', uid)
         .eq('date_for', dateISO);
-    
-    // DEBUG: Log DB Doses
-    if (dbDoses && dbDoses.length > 0) {
-        console.log(`[TodayActions] Found ${dbDoses.length} existing DB rows for today.`);
-    } else {
-        console.log(`[TodayActions] No DB rows for today (All fresh).`);
-    }
 
     const finalMap = new Map<number, TodayDoseRow>();
     const allPeptideIds = new Set<number>();
@@ -135,8 +124,10 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     for (const [pid, item] of scheduledMap.entries()) {
         allPeptideIds.add(pid);
         
-        const rawSiteListId = item._originalItem?.site_list_id;
-        if (rawSiteListId) neededSiteListIds.add(rawSiteListId);
+        // Track needed lists
+        if (item._originalItem?.site_list_id) {
+            neededSiteListIds.add(item._originalItem.site_list_id);
+        }
         
         finalMap.set(pid, {
             peptide_id: pid,
@@ -184,23 +175,17 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         }
     }
 
-    // --- Resolve Suggested Injection Sites for PENDING doses ---
-    const pendingWithLists = Array.from(finalMap.values())
+    // --- Resolve Suggested Injection Sites ---
+    // UPDATED: Now resolves for ANY item missing a label, even if status is TAKEN/SKIPPED.
+    const itemsNeedingSites = Array.from(finalMap.values())
         .filter(d => {
             const schedItem = scheduledMap.get(d.peptide_id);
             const hasList = !!schedItem?._originalItem?.site_list_id;
-            const isPending = d.status === 'PENDING';
-            const noLabel = !d.site_label;
-            
-            // DEBUG: Explicit check log
-            console.log(`[TodayActions] Filter ${d.canonical_name}: Pending(${isPending}) NoLabel(${noLabel}) HasList(${hasList}) -> ListID: ${schedItem?._originalItem?.site_list_id}`);
-            
-            return isPending && noLabel && hasList;
+            const noLabel = !d.site_label; // If it has a label (manually set), keep it.
+            return noLabel && hasList;
         });
     
-    console.log(`[TodayActions] 3. Pending items needing sites: ${pendingWithLists.length}`);
-    
-    if (pendingWithLists.length > 0 && neededSiteListIds.size > 0) {
+    if (itemsNeedingSites.length > 0 && neededSiteListIds.size > 0) {
         const listIds = Array.from(neededSiteListIds);
         
         // 1. Fetch Sites
@@ -209,8 +194,6 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
             .select('list_id, name, position')
             .in('list_id', listIds)
             .order('position', { ascending: true });
-        
-        console.log(`[TodayActions] 4. Fetched ${sitesData?.length || 0} sites from DB.`);
 
         // Group sites by list
         const sitesByList = new Map<number, any[]>();
@@ -220,7 +203,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         });
 
         // 2. Fetch Histories (Count of TAKEN doses per peptide)
-        const pendingPids = pendingWithLists.map(d => d.peptide_id);
+        const pendingPids = itemsNeedingSites.map(d => d.peptide_id);
         const { data: history } = await sa
             .from('doses')
             .select('peptide_id')
@@ -235,7 +218,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         });
 
         // 3. Assign Suggested Site
-        for (const row of pendingWithLists) {
+        for (const row of itemsNeedingSites) {
             const item = scheduledMap.get(row.peptide_id)?._originalItem;
             if (item && item.site_list_id) {
                 const list = sitesByList.get(item.site_list_id) || [];
@@ -243,9 +226,6 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
                     const count = counts.get(row.peptide_id) || 0;
                     const index = count % list.length;
                     row.site_label = list[index].name;
-                    console.log(`[TodayActions] Assigned Site: ${row.site_label} for ${row.canonical_name} (Index ${index} of ${list.length})`);
-                } else {
-                    console.warn(`[TodayActions] Warning: List ${item.site_list_id} is empty.`);
                 }
             }
         }
