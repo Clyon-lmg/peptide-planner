@@ -1,3 +1,5 @@
+// app/(app)/stats/page.tsx
+
 import { createServerActionSupabase } from "@/lib/supabaseServer";
 import { Activity, Scale, CalendarRange } from "lucide-react";
 import SerumChart from "./SerumChart";
@@ -11,37 +13,63 @@ export default async function StatsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return <div>Please sign in.</div>;
 
-  // 1. Fetch Doses (Taken only)
-  const { data: doses } = await supabase
+  console.log("--- STATS PAGE DEBUG START ---");
+  console.log("User ID:", user.id);
+
+  // 1. Fetch Doses
+  // DEBUG NOTE: Removed .eq("status", "TAKEN") to see if future doses exist
+  const { data: doses, error: dosesError } = await supabase
     .from("doses")
     .select("date_for, date, time_of_day, dose_mg, peptide_id, status")
     .eq("user_id", user.id)
-    .eq("status", "TAKEN")
     .order("date_for", { ascending: true });
+    
+  if (dosesError) console.error("Error fetching doses:", dosesError);
+  console.log(`Fetched ${doses?.length || 0} total doses.`);
+  console.log("Sample dose:", doses?.[0]);
 
   // 2. Fetch Active Protocols
-  const { data: protocols } = await supabase
+  const { data: protocols, error: protoError } = await supabase
     .from("protocols")
     .select("id, protocol_items(peptide_id)")
     .eq("user_id", user.id)
     .eq("is_active", true);
 
+  if (protoError) console.error("Error fetching protocols:", protoError);
+  console.log(`Fetched ${protocols?.length || 0} active protocols.`);
+
   // 3. Get Relevant Peptide IDs (Active + History)
   const activeIds = new Set<number>();
-  protocols?.forEach(p => p.protocol_items.forEach((pi: any) => activeIds.add(Number(pi.peptide_id))));
-  doses?.forEach(d => activeIds.add(Number(d.peptide_id)));
+  
+  protocols?.forEach(p => {
+    p.protocol_items.forEach((pi: any) => {
+      console.log(`Found active protocol item for peptide_id: ${pi.peptide_id}`);
+      activeIds.add(Number(pi.peptide_id));
+    });
+  });
+
+  doses?.forEach(d => {
+    // Optional: Only add IDs from taken doses if you want strict history
+    activeIds.add(Number(d.peptide_id));
+  });
+
+  console.log("Active Peptide IDs Set:", Array.from(activeIds));
 
   // 4. Fetch All Peptides
   const { data: allPeptides } = await supabase.from("peptides").select("id, canonical_name, half_life_hours");
+  
   const relevantPeptides = allPeptides?.filter(p => activeIds.has(Number(p.id))) || [];
+  
+  console.log(`Relevant Peptides Found (${relevantPeptides.length}):`, relevantPeptides.map(p => p.canonical_name));
 
-  // 5. Other Stats
+  // 5. Other Stats (Inventory etc)
   const { data: weights } = await supabase.from("weight_logs").select("*").eq("user_id", user.id).order("date", { ascending: true });
   const { data: vialInv } = await supabase.from("inventory_items").select("*, peptides(canonical_name)").eq("user_id", user.id);
   const { data: capInv } = await supabase.from("inventory_capsules").select("*, peptides(canonical_name)").eq("user_id", user.id);
   const fullInventory = [...(vialInv || []), ...(capInv || [])];
-
   const { data: fullProtocols } = await supabase.from("protocols").select("*, protocol_items(*)").eq("user_id", user.id).eq("is_active", true);
+
+  console.log("--- STATS PAGE DEBUG END ---");
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-8 pb-32">
@@ -54,6 +82,7 @@ export default async function StatsPage() {
           <Activity className="size-5 text-blue-600" />
           <h2 className="text-lg font-bold">Serum Levels</h2>
         </div>
+        {/* Pass all doses so the chart can filter valid ones */}
         <SerumChart doses={doses || []} peptides={relevantPeptides} />
       </section>
 
