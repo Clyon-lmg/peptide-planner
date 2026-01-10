@@ -1,3 +1,5 @@
+// app/(app)/today/actions.ts
+
 'use server';
 
 import { createServerActionSupabase } from '@/lib/supabaseServer';
@@ -39,7 +41,7 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
     if (activeIds.length === 0) return new Map();
 
     const { data: items } = await supabase.from('protocol_items')
-        .select('protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, titration_interval_days, titration_amount_mg, time_of_day, peptides(canonical_name)')
+        .select('protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, titration_interval_days, titration_amount_mg, time_of_day, site_list_id, peptides(canonical_name)')
         .in('protocol_id', activeIds);
 
     if (!items || items.length === 0) return new Map();
@@ -107,7 +109,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
     const scheduledMap = await getUnifiedDailySchedule(sa, uid, dateISO);
 
-    // Fetch DB Doses (Ignoring protocol_id and time_of_day column)
+    // Fetch DB Doses
     const { data: dbDoses } = await sa
         .from('doses')
         .select('peptide_id, status, site_label, dose_mg, peptides(canonical_name)')
@@ -116,10 +118,15 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
     const finalMap = new Map<number, TodayDoseRow>();
     const allPeptideIds = new Set<number>();
+    const neededSiteListIds = new Set<number>();
 
     // Add Schedule
     for (const [pid, item] of scheduledMap.entries()) {
         allPeptideIds.add(pid);
+        if (item._originalItem?.site_list_id) {
+            neededSiteListIds.add(item._originalItem.site_list_id);
+        }
+        
         finalMap.set(pid, {
             peptide_id: pid,
             canonical_name: item.canonical_name,
@@ -135,7 +142,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         });
     }
 
-    // Apply Status
+    // Apply Status from DB
     if (dbDoses) {
         for (const db of dbDoses) {
             const pid = Number(db.peptide_id);
@@ -146,7 +153,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
                 const row = finalMap.get(pid)!;
                 row.status = status;
                 row.dose_mg = Number(db.dose_mg);
-                row.site_label = db.site_label;
+                row.site_label = db.site_label; // Use actual taken site if available
             } else {
                 const pName = Array.isArray(db.peptides) ? db.peptides[0]?.canonical_name : (db.peptides as any)?.canonical_name;
                 finalMap.set(pid, {
@@ -162,6 +169,56 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
                     remainingDoses: null,
                     reorderDateISO: null
                 });
+            }
+        }
+    }
+
+    // --- Resolve Suggested Injection Sites for PENDING doses ---
+    const pendingWithLists = Array.from(finalMap.values())
+        .filter(d => d.status === 'PENDING' && !d.site_label && scheduledMap.get(d.peptide_id)?._originalItem?.site_list_id);
+    
+    if (pendingWithLists.length > 0 && neededSiteListIds.size > 0) {
+        const listIds = Array.from(neededSiteListIds);
+        
+        // 1. Fetch Sites
+        const { data: sitesData } = await sa
+            .from('injection_sites')
+            .select('list_id, name, position')
+            .in('list_id', listIds)
+            .order('position', { ascending: true });
+        
+        // Group sites by list
+        const sitesByList = new Map<number, any[]>();
+        sitesData?.forEach((s: any) => {
+            if (!sitesByList.has(s.list_id)) sitesByList.set(s.list_id, []);
+            sitesByList.get(s.list_id)?.push(s);
+        });
+
+        // 2. Fetch Histories (Count of TAKEN doses per peptide)
+        const pendingPids = pendingWithLists.map(d => d.peptide_id);
+        const { data: history } = await sa
+            .from('doses')
+            .select('peptide_id')
+            .eq('user_id', uid)
+            .eq('status', 'TAKEN')
+            .in('peptide_id', pendingPids);
+        
+        // Count per peptide
+        const counts = new Map<number, number>();
+        history?.forEach((h: any) => {
+            counts.set(h.peptide_id, (counts.get(h.peptide_id) || 0) + 1);
+        });
+
+        // 3. Assign Suggested Site
+        for (const row of pendingWithLists) {
+            const item = scheduledMap.get(row.peptide_id)?._originalItem;
+            if (item && item.site_list_id) {
+                const list = sitesByList.get(item.site_list_id) || [];
+                if (list.length > 0) {
+                    const count = counts.get(row.peptide_id) || 0;
+                    const index = count % list.length;
+                    row.site_label = list[index].name;
+                }
             }
         }
     }
