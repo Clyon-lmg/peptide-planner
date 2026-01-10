@@ -14,19 +14,19 @@ export default async function StatsPage() {
 
   console.log("--- STATS PAGE DEBUG START ---");
 
-  // 1. Fetch Inventory First (To get Half-Life settings)
-  // We need to fetch this first so we can attach the user's custom half-life to the peptide
-  const { data: vialInv } = await supabase.from("inventory_items").select("*, peptides(canonical_name)").eq("user_id", user.id);
-  const { data: capInv } = await supabase.from("inventory_capsules").select("*, peptides(canonical_name)").eq("user_id", user.id);
+  // 1. Fetch Inventory First (Source of Truth for Half-Life)
+  // We fetch this first so we can map peptide_id -> half_life_hours
+  const { data: vialInv } = await supabase.from("inventory_items").select("peptide_id, half_life_hours").eq("user_id", user.id);
+  const { data: capInv } = await supabase.from("inventory_capsules").select("peptide_id, half_life_hours").eq("user_id", user.id);
   
-  const fullInventory = [...(vialInv || []), ...(capInv || [])];
-  
-  // Create a Map for fast lookup: PeptideID -> HalfLife
   const halfLifeMap = new Map<number, number>();
-  fullInventory.forEach((item: any) => {
-    if (item.peptide_id && item.half_life_hours) {
-      halfLifeMap.set(Number(item.peptide_id), Number(item.half_life_hours));
-    }
+  
+  // Priority: if it exists in inventory, use that half-life. 
+  vialInv?.forEach((item: any) => {
+    if (item.peptide_id) halfLifeMap.set(Number(item.peptide_id), Number(item.half_life_hours) || 24);
+  });
+  capInv?.forEach((item: any) => {
+    if (item.peptide_id) halfLifeMap.set(Number(item.peptide_id), Number(item.half_life_hours) || 24);
   });
 
   // 2. Fetch Doses (History + Future Schedule)
@@ -41,39 +41,49 @@ export default async function StatsPage() {
   const doses = await getDosesForRange(startIso, endIso);
   console.log(`Doses fetched: ${doses.length}`);
 
-  // 3. Identify Active Peptides
+  // 3. Identify Active Peptides from Doses
   const activeIds = new Set<number>();
   doses.forEach(d => {
     if (d.peptide_id) activeIds.add(Number(d.peptide_id));
   });
 
-  // 4. Fetch Peptide Names (WITHOUT half_life_hours column)
+  console.log("Active Peptide IDs:", Array.from(activeIds));
+
+  // 4. Fetch Peptide Names (CRITICAL: Do NOT select half_life_hours here)
   let relevantPeptides: any[] = [];
   if (activeIds.size > 0) {
       const { data: pData, error } = await supabase
         .from("peptides")
-        .select("id, canonical_name") // REMOVED half_life_hours
+        .select("id, canonical_name") // <--- Fixed: Removed half_life_hours
         .in("id", Array.from(activeIds));
       
       if (error) {
         console.error("Error fetching peptides:", error);
       } else {
-        // Merge DB data with Inventory Half-Life data
-        relevantPeptides = (pData || []).map(p => ({
-          ...p,
-          half_life_hours: halfLifeMap.get(Number(p.id)) || 24 // Default to 24h if not set in inventory
-        }));
+        // Merge: Attach the half-life from inventory map to the peptide object
+        relevantPeptides = (pData || []).map(p => {
+          const pid = Number(p.id);
+          return {
+            ...p,
+            half_life_hours: halfLifeMap.get(pid) || 24 // Default if not in inventory
+          };
+        });
       }
   }
 
   console.log(`Relevant Peptides Loaded: ${relevantPeptides.length}`);
-  // Log one to verify it has half_life_hours now
   if (relevantPeptides.length > 0) {
-    console.log("Sample Peptide w/ HalfLife:", relevantPeptides[0]);
+    console.log("Sample Peptide constructed:", relevantPeptides[0]);
   }
 
-  // 5. Other Stats
+  // 5. Other Stats (For the other cards)
   const { data: weights } = await supabase.from("weight_logs").select("*").eq("user_id", user.id).order("date", { ascending: true });
+  
+  // Re-fetch full inventory for the forecast card (needs more fields than just half-life)
+  const { data: fullVial } = await supabase.from("inventory_items").select("*, peptides(canonical_name)").eq("user_id", user.id);
+  const { data: fullCap } = await supabase.from("inventory_capsules").select("*, peptides(canonical_name)").eq("user_id", user.id);
+  const fullInventory = [...(fullVial || []), ...(fullCap || [])];
+
   const { data: fullProtocols } = await supabase.from("protocols").select("*, protocol_items(*)").eq("user_id", user.id).eq("is_active", true);
 
   console.log("--- STATS PAGE DEBUG END ---");
