@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,13 +29,6 @@ function calculateDecay(initialAmount: number, hoursElapsed: number, halfLifeHou
 }
 
 const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) => {
-
-  useEffect(() => {
-    if (peptides.length > 0) {
-       console.log("SerumChart Client: Loaded " + peptides.length + " peptides.");
-    }
-  }, [peptides]);
-
   const chartData = useMemo(() => {
     if (!peptides || peptides.length === 0) return null;
 
@@ -74,7 +67,6 @@ const SerumChart: React.FC<SerumChartProps> = ({ doses = [], peptides = [] }) =>
             
             if (doseTime <= ts) {
                 const elapsed = (ts - doseTime) / (3600000);
-                // Access the manually merged half_life_hours
                 const hl = Number(peptide.half_life_hours) || 24;
                 if (elapsed < hl * 6) {
                     totalSerum += calculateDecay(Number(dose.dose_mg), elapsed, hl);
