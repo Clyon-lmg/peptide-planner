@@ -1,3 +1,5 @@
+// app/(app)/today/actions.ts
+
 'use server';
 
 import { createServerActionSupabase } from '@/lib/supabaseServer';
@@ -105,10 +107,10 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     const uid = auth.user?.id;
     if (!uid) throw new Error('Session missing');
 
-    console.log(`[TodayActions] Fetching doses for ${dateISO}`);
+    console.log(`[TodayActions] 1. Starting Fetch for ${dateISO}`);
 
     const scheduledMap = await getUnifiedDailySchedule(sa, uid, dateISO);
-    console.log(`[TodayActions] Scheduled items count: ${scheduledMap.size}`);
+    console.log(`[TodayActions] 2. Scheduled items count: ${scheduledMap.size}`);
 
     // Fetch DB Doses
     const { data: dbDoses } = await sa
@@ -124,13 +126,13 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
     // Add Schedule
     for (const [pid, item] of scheduledMap.entries()) {
         allPeptideIds.add(pid);
-        if (item._originalItem?.site_list_id) {
-            neededSiteListIds.add(item._originalItem.site_list_id);
-            // DEBUG
-            // console.log(`[TodayActions] Peptide ${item.canonical_name} needs site list ${item._originalItem.site_list_id}`);
-        } else {
-            // DEBUG
-            // console.log(`[TodayActions] Peptide ${item.canonical_name} has NO site_list_id`);
+        
+        // DEBUG: Check specific items
+        const rawSiteListId = item._originalItem?.site_list_id;
+        console.log(`[TodayActions] Item: ${item.canonical_name} (ID: ${pid}) | SiteListID: ${rawSiteListId}`);
+
+        if (rawSiteListId) {
+            neededSiteListIds.add(rawSiteListId);
         }
         
         finalMap.set(pid, {
@@ -160,6 +162,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
                 row.status = status;
                 row.dose_mg = Number(db.dose_mg);
                 row.site_label = db.site_label; 
+                // console.log(`[TodayActions] Merged DB status for ${row.canonical_name}: ${status}`);
             } else {
                 const pName = Array.isArray(db.peptides) ? db.peptides[0]?.canonical_name : (db.peptides as any)?.canonical_name;
                 finalMap.set(pid, {
@@ -181,11 +184,19 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
 
     // --- Resolve Suggested Injection Sites for PENDING doses ---
     const pendingWithLists = Array.from(finalMap.values())
-        .filter(d => d.status === 'PENDING' && !d.site_label && scheduledMap.get(d.peptide_id)?._originalItem?.site_list_id);
+        .filter(d => {
+            const hasList = !!scheduledMap.get(d.peptide_id)?._originalItem?.site_list_id;
+            const isPending = d.status === 'PENDING';
+            const noLabel = !d.site_label;
+            // console.log(`[TodayActions] Filter Check ${d.canonical_name}: Pending=${isPending}, NoLabel=${noLabel}, HasList=${hasList}`);
+            return isPending && noLabel && hasList;
+        });
+    
+    console.log(`[TodayActions] 3. Pending items needing sites: ${pendingWithLists.length}`);
+    console.log(`[TodayActions] 3. Site Lists needed: ${neededSiteListIds.size} (${Array.from(neededSiteListIds)})`);
     
     if (pendingWithLists.length > 0 && neededSiteListIds.size > 0) {
         const listIds = Array.from(neededSiteListIds);
-        console.log(`[TodayActions] Resolving sites for Lists: ${listIds.join(', ')}`);
         
         // 1. Fetch Sites
         const { data: sitesData } = await sa
@@ -194,7 +205,7 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
             .in('list_id', listIds)
             .order('position', { ascending: true });
         
-        console.log(`[TodayActions] Fetched ${sitesData?.length || 0} sites.`);
+        console.log(`[TodayActions] 4. Fetched ${sitesData?.length || 0} sites from DB.`);
 
         // Group sites by list
         const sitesByList = new Map<number, any[]>();
@@ -227,14 +238,12 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
                     const count = counts.get(row.peptide_id) || 0;
                     const index = count % list.length;
                     row.site_label = list[index].name;
-                    // console.log(`[TodayActions] Assigned ${row.site_label} to ${row.canonical_name} (Count: ${count}, ListLen: ${list.length})`);
+                    console.log(`[TodayActions] Assigned Site: ${row.site_label} for ${row.canonical_name} (Index ${index} of ${list.length})`);
                 } else {
-                    console.warn(`[TodayActions] List ${item.site_list_id} has no sites.`);
+                    console.warn(`[TodayActions] Warning: List ${item.site_list_id} is empty.`);
                 }
             }
         }
-    } else {
-        // console.log("[TodayActions] No pending doses require site resolution.");
     }
 
     // Inventory & Forecast
@@ -346,7 +355,6 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
          doseAmount = Number(pi?.dose_mg_per_administration || 0);
     }
 
-    // Inventory Updates
     if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, doseAmount);
     else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') await updateInventoryUsage(sa, user.id, peptide_id, -doseAmount);
 
@@ -359,12 +367,10 @@ async function upsertDoseStatus(peptide_id: number, dateISO: string, targetStatu
             date_for: dateISO,
             dose_mg: doseAmount,
             status: targetStatus,
-            site_label: siteLabel || null, // SAVE THE SITE
+            site_label: siteLabel || null, 
         });
     } else {
         const updateData: any = { status: targetStatus };
-        // If we are taking it, save the site. If reverting to pending, maybe keep it or clear it? 
-        // Let's allow updating it if provided.
         if (siteLabel !== undefined) updateData.site_label = siteLabel;
         
         await sa.from('doses').update(updateData).eq('id', existing.id);
@@ -378,13 +384,5 @@ export async function logDose(peptide_id: number, dateISO: string, siteLabel?: s
     'use server'; 
     await upsertDoseStatus(peptide_id, dateISO, 'TAKEN', siteLabel); 
 }
-
-export async function skipDose(peptide_id: number, dateISO: string) { 
-    'use server'; 
-    await upsertDoseStatus(peptide_id, dateISO, 'SKIPPED'); 
-}
-
-export async function resetDose(peptide_id: number, dateISO: string) { 
-    'use server'; 
-    await upsertDoseStatus(peptide_id, dateISO, 'PENDING'); 
-}
+export async function skipDose(peptide_id: number, dateISO: string) { 'use server'; await upsertDoseStatus(peptide_id, dateISO, 'SKIPPED'); }
+export async function resetDose(peptide_id: number, dateISO: string) { 'use server'; await upsertDoseStatus(peptide_id, dateISO, 'PENDING'); }
