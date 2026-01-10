@@ -1,5 +1,3 @@
-// app/(app)/today/page.tsx
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -57,7 +55,8 @@ export default function TodayPage() {
 
     try {
         if (newStatus === 'TAKEN') {
-            await logDose(dose.peptide_id, todayStr);
+            // Pass the suggested site label to ensure it is saved
+            await logDose(dose.peptide_id, todayStr, dose.site_label);
             toast.success("Dose logged");
         } else {
             await resetDose(dose.peptide_id, todayStr);
