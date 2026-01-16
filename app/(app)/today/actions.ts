@@ -172,77 +172,80 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         }
     }
 
-    // --- Resolve Suggested Injection Sites ---
+    // --- Resolve Suggested Injection Sites (Robust Distinct-Day Logic) ---
     const itemsNeedingSites = Array.from(finalMap.values())
         .filter(d => {
             const schedItem = scheduledMap.get(d.peptide_id);
             const hasList = !!schedItem?._originalItem?.site_list_id;
-            const noLabel = !d.site_label; 
+            const noLabel = !d.site_label;
             return noLabel && hasList;
         });
     
     if (itemsNeedingSites.length > 0 && neededSiteListIds.size > 0) {
         const listIds = Array.from(neededSiteListIds);
         
-        // 1. Fetch Sites
+        // 1. Fetch Sites for these lists
         const { data: sitesData } = await sa
             .from('injection_sites')
             .select('list_id, name, position')
             .in('list_id', listIds)
             .order('position', { ascending: true });
 
-        // Group sites by list
         const sitesByList = new Map<number, any[]>();
         sitesData?.forEach((s: any) => {
             if (!sitesByList.has(s.list_id)) sitesByList.set(s.list_id, []);
             sitesByList.get(s.list_id)?.push(s);
         });
 
-        // 2. Fetch Histories (Count of TAKEN doses per peptide)
-        const pendingPids = itemsNeedingSites.map(d => d.peptide_id);
-        const { data: history } = await sa
-            .from('doses')
-            .select('peptide_id')
-            .eq('user_id', uid)
-            .eq('status', 'TAKEN')
-            .in('peptide_id', pendingPids);
-        
-        // Count per peptide
-        const counts = new Map<number, number>();
-        history?.forEach((h: any) => {
-            counts.set(h.peptide_id, (counts.get(h.peptide_id) || 0) + 1);
+        // 2. Resolve ALL peptides associated with these lists (to build the full history)
+        // We query protocol_items to find every peptide that uses these lists
+        const { data: allLinkedItems } = await sa
+            .from('protocol_items')
+            .select('peptide_id, site_list_id')
+            .in('site_list_id', listIds);
+            
+        // Map ListID -> Set of PeptideIDs
+        const pidsByListId = new Map<number, Set<number>>();
+        allLinkedItems?.forEach((item: any) => {
+            if (!pidsByListId.has(item.site_list_id)) pidsByListId.set(item.site_list_id, new Set());
+            pidsByListId.get(item.site_list_id)?.add(item.peptide_id);
         });
 
-        // 3. Assign Suggested Site (SYNCHRONIZED)
-        
-        // Group items by their site_list_id first
-        const itemsByListId = new Map<number, TodayDoseRow[]>();
+        // 3. Calculate "Days Injected" for each list
+        // We need: Count of DISTINCT dates where any peptide in the list was taken
+        const injectionCountsByList = new Map<number, number>();
+
+        for (const listId of listIds) {
+            const relevantPids = Array.from(pidsByListId.get(listId) || []);
+            if (relevantPids.length === 0) continue;
+
+            // RPC call or raw query would be ideal for "COUNT(DISTINCT date)", 
+            // but for now we fetch the distinct dates (lightweight enough for single user)
+            // We optimize by selecting only the 'date' column
+            const { data: dates } = await sa
+                .from('doses')
+                .select('date')
+                .eq('user_id', uid)
+                .eq('status', 'TAKEN')
+                .in('peptide_id', relevantPids);
+            
+            // Count unique dates
+            const uniqueDates = new Set(dates?.map((d: any) => d.date));
+            injectionCountsByList.set(listId, uniqueDates.size);
+        }
+
+        // 4. Assign Sites
         for (const row of itemsNeedingSites) {
             const item = scheduledMap.get(row.peptide_id)?._originalItem;
             const listId = item?.site_list_id;
-            if (listId) {
-                if (!itemsByListId.has(listId)) itemsByListId.set(listId, []);
-                itemsByListId.get(listId)?.push(row);
-            }
-        }
-
-        // For each list group, calculate ONE index based on the MAX history count
-        for (const [listId, rows] of itemsByListId.entries()) {
-            const list = sitesByList.get(listId) || [];
-            if (list.length === 0) continue;
-
-            let maxCount = 0;
-            for (const row of rows) {
-                const c = counts.get(row.peptide_id) || 0;
-                if (c > maxCount) maxCount = c;
-            }
-
-            const index = maxCount % list.length;
-            const siteName = list[index].name;
-
-            // Apply same site to all peptides in this group
-            for (const row of rows) {
-                row.site_label = siteName;
+            
+            if (listId && sitesByList.has(listId)) {
+                const list = sitesByList.get(listId) || [];
+                if (list.length > 0) {
+                    const count = injectionCountsByList.get(listId) || 0;
+                    const index = count % list.length;
+                    row.site_label = list[index].name;
+                }
             }
         }
     }
