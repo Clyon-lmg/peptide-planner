@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createServerActionSupabase } from "@/lib/supabaseServer";
 import { createClient } from "@supabase/supabase-js";
 
@@ -26,7 +26,7 @@ export async function POST() {
     return NextResponse.json({ error: "No billing account found" }, { status: 400 });
   }
 
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer: sub.stripe_customer_id,
     return_url: `${process.env.NEXT_PUBLIC_SITE_URL}/today`,
   });
