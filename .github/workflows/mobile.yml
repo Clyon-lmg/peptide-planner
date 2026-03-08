@@ -15,6 +15,26 @@ jobs:
           node-version: 20
       - run: npm install
         working-directory: mobile
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > mobile/release.keystore
+
+      - name: Create credentials.json
+        run: |
+          cat > mobile/credentials.json << EOF
+          {
+            "android": {
+              "keystore": {
+                "keystorePath": "release.keystore",
+                "keystorePassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
+                "keyAlias": "${{ secrets.ANDROID_KEY_ALIAS }}",
+                "keyPassword": "${{ secrets.ANDROID_KEY_PASSWORD }}"
+              }
+            }
+          }
+          EOF
+
       - run: npx eas-cli@latest build --platform android --auto-submit --non-interactive
         working-directory: mobile
         env:
