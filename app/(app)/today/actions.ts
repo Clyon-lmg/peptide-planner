@@ -2,7 +2,7 @@
 
 import { createServerActionSupabase } from '@/lib/supabaseServer';
 import { unitsFromDose, forecastRemainingDoses, type Schedule } from '@/lib/forecast';
-import { generateDailyDoses, type ProtocolItem } from '@/lib/scheduleEngine';
+import { generateDailyDoses, isDoseDayUTC, type ProtocolItem } from '@/lib/scheduleEngine';
 import { revalidatePath } from 'next/cache';
 
 export type DoseStatus = 'PENDING' | 'TAKEN' | 'SKIPPED';
@@ -85,11 +85,11 @@ async function getUnifiedDailySchedule(supabase: any, uid: string, dateISO: stri
                 }
             } else {
                 const original = pItems.find((i: any) => Number(i.peptide_id) === pid);
-                consolidated.set(pid, { 
+                consolidated.set(pid, {
                     canonical_name: dose.canonical_name,
                     dose_mg: dose.dose_mg,
                     time_of_day: dose.time_of_day,
-                    _originalItem: original
+                    _originalItem: { ...original, _protocolStartDate: p.start_date }
                 });
             }
         });
@@ -172,7 +172,10 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
         }
     }
 
-    // --- Resolve Suggested Injection Sites (Robust Distinct-Day Logic) ---
+    // --- Resolve Suggested Injection Sites (Date-Deterministic) ---
+    // The site index is derived by counting how many scheduled dose days have occurred
+    // from the protocol start date up to and including today. This is deterministic per
+    // date regardless of whether prior doses were taken or skipped.
     const itemsNeedingSites = Array.from(finalMap.values())
         .filter(d => {
             const schedItem = scheduledMap.get(d.peptide_id);
@@ -180,11 +183,11 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
             const noLabel = !d.site_label;
             return noLabel && hasList;
         });
-    
+
     if (itemsNeedingSites.length > 0 && neededSiteListIds.size > 0) {
         const listIds = Array.from(neededSiteListIds);
-        
-        // 1. Fetch Sites for these lists
+
+        // Fetch sites for all needed lists
         const { data: sitesData } = await sa
             .from('injection_sites')
             .select('list_id, name, position')
@@ -197,56 +200,38 @@ export async function getTodayDosesWithUnits(dateISO: string): Promise<TodayDose
             sitesByList.get(s.list_id)?.push(s);
         });
 
-        // 2. Resolve ALL peptides associated with these lists (to build the full history)
-        // We query protocol_items to find every peptide that uses these lists
-        const { data: allLinkedItems } = await sa
-            .from('protocol_items')
-            .select('peptide_id, site_list_id')
-            .in('site_list_id', listIds);
-            
-        // Map ListID -> Set of PeptideIDs
-        const pidsByListId = new Map<number, Set<number>>();
-        allLinkedItems?.forEach((item: any) => {
-            if (!pidsByListId.has(item.site_list_id)) pidsByListId.set(item.site_list_id, new Set());
-            pidsByListId.get(item.site_list_id)?.add(item.peptide_id);
-        });
+        // For each item, count scheduled dose days from protocol start to today (inclusive)
+        // using isDoseDayUTC — same logic the calendar and today view use for display
+        const targetDate = new Date(`${dateISO}T00:00:00Z`);
 
-        // 3. Calculate "Days Injected" for each list
-        // We need: Count of DISTINCT dates where any peptide in the list was taken
-        const injectionCountsByList = new Map<number, number>();
-
-        for (const listId of listIds) {
-            const relevantPids = Array.from(pidsByListId.get(listId) || []);
-            if (relevantPids.length === 0) continue;
-
-            // RPC call or raw query would be ideal for "COUNT(DISTINCT date)", 
-            // but for now we fetch the distinct dates (lightweight enough for single user)
-            // We optimize by selecting only the 'date' column
-            const { data: dates } = await sa
-                .from('doses')
-                .select('date')
-                .eq('user_id', uid)
-                .eq('status', 'TAKEN')
-                .in('peptide_id', relevantPids);
-            
-            // Count unique dates
-            const uniqueDates = new Set(dates?.map((d: any) => d.date));
-            injectionCountsByList.set(listId, uniqueDates.size);
-        }
-
-        // 4. Assign Sites
         for (const row of itemsNeedingSites) {
             const item = scheduledMap.get(row.peptide_id)?._originalItem;
             const listId = item?.site_list_id;
-            
-            if (listId && sitesByList.has(listId)) {
-                const list = sitesByList.get(listId) || [];
-                if (list.length > 0) {
-                    const count = injectionCountsByList.get(listId) || 0;
-                    const index = count % list.length;
-                    row.site_label = list[index].name;
-                }
+            if (!listId || !sitesByList.has(listId)) continue;
+
+            const list = sitesByList.get(listId) || [];
+            if (list.length === 0) continue;
+
+            const protocolStartISO: string = item._protocolStartDate || dateISO;
+            const schedItem = {
+                schedule: item.schedule,
+                custom_days: item.custom_days ?? null,
+                every_n_days: item.every_n_days ?? null,
+                cycle_on_weeks: item.cycle_on_weeks ?? null,
+                cycle_off_weeks: item.cycle_off_weeks ?? null,
+                protocol_start_date: protocolStartISO,
+            };
+
+            // Count dose days from start up to and including today
+            let doseCount = 0;
+            const startDate = new Date(`${protocolStartISO}T00:00:00Z`);
+            for (let d = new Date(startDate); d <= targetDate; d.setUTCDate(d.getUTCDate() + 1)) {
+                if (isDoseDayUTC(d, schedItem)) doseCount++;
             }
+
+            // First dose day → index 0; second → index 1; etc.
+            const index = Math.max(0, doseCount - 1) % list.length;
+            row.site_label = list[index].name;
         }
     }
 

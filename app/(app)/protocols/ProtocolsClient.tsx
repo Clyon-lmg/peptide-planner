@@ -16,6 +16,7 @@ export type Protocol = {
     is_active: boolean;
     name: string;
     start_date: string;
+    end_date?: string | null;
 };
 
 type InjectionSiteList = {
@@ -198,8 +199,10 @@ export default function ProtocolsClient({
                                         {p.is_active && <span className="shrink-0 size-2 rounded-full bg-emerald-500 mt-1.5" title="Active" />}
                                     </div>
                                     <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                                        <FileText className="size-3" />
+                                        <Calendar className="size-3" />
                                         <span>{p.start_date}</span>
+                                        <span className="text-muted-foreground/50">→</span>
+                                        <span>{p.end_date ?? 'Ongoing'}</span>
                                     </div>
                                     <button
                                         onClick={(e) => handleDeleteProtocol(e, p.id)}
