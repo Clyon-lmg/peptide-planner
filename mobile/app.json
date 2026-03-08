@@ -2,6 +2,7 @@
   "expo": {
     "name": "Peptide Planner",
     "slug": "peptide-planner",
+    "owner": "peptideplanner",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
