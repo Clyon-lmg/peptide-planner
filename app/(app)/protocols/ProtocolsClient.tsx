@@ -235,11 +235,22 @@ export default function ProtocolsClient({
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                        <h2 className="font-bold text-lg">
-                            {activeTab === 'protocols' ? 'My Protocols' : 'Rotations'}
-                        </h2>
-                        {activeTab === 'protocols' ? (
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-bold text-lg">
+                                {activeTab === 'protocols' ? 'My Protocols' : 'Rotations'}
+                            </h2>
+                            {activeTab === 'protocols' ? (
+                                <button onClick={() => setShowCreate(true)} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
+                                    <Plus className="size-3.5 mr-1" /> New
+                                </button>
+                            ) : (
+                                <button onClick={handleCreateSiteList} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
+                                    <Plus className="size-3.5 mr-1" /> New List
+                                </button>
+                            )}
+                        </div>
+                        {activeTab === 'protocols' && (
                             <div className="flex gap-2">
                                 <button
                                     onClick={handleExportAll}
@@ -248,19 +259,12 @@ export default function ProtocolsClient({
                                     className="btn h-8 px-3 text-xs border border-border bg-background hover:bg-muted/50 disabled:opacity-40"
                                 >
                                     <Copy className="size-3.5 mr-1" />
-                                    <span className="hidden sm:inline">{exportingAll ? 'Copying…' : 'Export All'}</span>
+                                    {exportingAll ? 'Copying…' : 'Export All'}
                                 </button>
                                 <button onClick={() => setShowImport(true)} className="btn h-8 px-3 text-xs border border-border bg-background hover:bg-muted/50">
                                     <Upload className="size-3.5 mr-1" /> Import
                                 </button>
-                                <button onClick={() => setShowCreate(true)} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
-                                    <Plus className="size-3.5 mr-1" /> New
-                                </button>
                             </div>
-                        ) : (
-                            <button onClick={handleCreateSiteList} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
-                                <Plus className="size-3.5 mr-1" /> New List
-                            </button>
                         )}
                     </div>
                 </div>
