@@ -48,21 +48,19 @@ export async function setActiveProtocolAndRegenerate(
   // Default start to today if missing, End can be null (forever)
   const todayStr = localDateStr(new Date());
   const startDateStr = proto.start_date || todayStr;
-  
-  // 2. Clear FUTURE Pending Doses Only
-  // We do NOT touch 'LOGGED' doses. History is sacred.
-  // We also don't touch today's doses if they are already there, to prevent flickering.
-  // We strictly regenerate from "Tomorrow" onwards, OR "Start Date" if it's in the future.
-  const today = new Date();
-  const tomorrow = addDays(today, 1);
-  const tomorrowStr = localDateStr(tomorrow);
 
+  // Compute tomorrowStr using local date (same as how the UI displays dates)
+  const tDate = new Date();
+  tDate.setDate(tDate.getDate() + 1);
+  const tomorrowStr = localDateStr(tDate);
+
+  // 2. Clear FUTURE Pending Doses Only
   const { error: delErr } = await supabase
     .from("doses")
     .delete()
     .eq("protocol_id", protocolId)
-    .eq("status", "PENDING") // Only delete pending
-    .gte("date_for", tomorrowStr); // Only future
+    .eq("status", "PENDING")
+    .gte("date_for", tomorrowStr);
   if (delErr) throw delErr;
 
   // 3. Fetch Items
@@ -75,54 +73,46 @@ export async function setActiveProtocolAndRegenerate(
 
   // 4. Generate Doses
   const inserts: any[] = [];
-  
-  // Determine generation window
-  // Start from the LATER of: Protocol Start Date OR Tomorrow
-  // (Because we don't want to rewrite history or mess with today's logged status)
-  let genStart = new Date(startDateStr);
-  if (genStart < tomorrow) genStart = tomorrow;
 
-  // If Protocol has passed (End Date < Now), don't generate anything
-  if (proto.end_date && new Date(proto.end_date) < today) {
+  // genStartStr: later of protocol start or tomorrow (string comparison works for ISO dates)
+  const genStartStr = startDateStr >= tomorrowStr ? startDateStr : tomorrowStr;
+
+  // If protocol has already ended, don't generate anything
+  if (proto.end_date && proto.end_date < todayStr) {
     return { ok: true };
   }
+
+  // All date arithmetic uses UTC midnight to match scheduleEngine.ts
+  const genStart = new Date(genStartStr + "T00:00:00Z");
+  const trueStart = new Date(startDateStr + "T00:00:00Z");
 
   // Generate for 1 year out, or until End Date
   let daysToGen = 365;
   if (proto.end_date) {
-    const end = new Date(proto.end_date);
-    const diff = Math.ceil((end.getTime() - genStart.getTime()) / (1000 * 60 * 60 * 24));
-    daysToGen = Math.min(daysToGen, diff + 1); // +1 to include end date
+    const end = new Date(proto.end_date + "T00:00:00Z");
+    const diff = Math.floor((end.getTime() - genStart.getTime()) / (24 * 60 * 60 * 1000));
+    daysToGen = Math.min(365, diff + 1); // +1 to include end date
   }
 
   if (daysToGen <= 0) return { ok: true };
 
-  // Calculate "Elapsed Days" relative to the TRUE Start Date (for cycles/titration)
-  const trueStart = new Date(startDateStr);
-  
   items.forEach((it: any) => {
-    // ... (Cycle/Schedule logic matches your existing code) ...
     const onWeeks = Number(it.cycle_on_weeks || 0);
     const offWeeks = Number(it.cycle_off_weeks || 0);
     const cycleLenDays = (onWeeks + offWeeks) * 7;
-    
-    // Iterate our generation window
+
     for (const d of dateRangeDays(genStart, daysToGen)) {
-      // Calculate elapsed days from the Protocol START (not generation start)
-      // This ensures cycles align with the start date, even if we are generating mid-protocol
-      const diffTime = Math.abs(d.getTime() - trueStart.getTime());
-      const elapsed = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+      // Elapsed days from protocol start — uses Math.floor to match scheduleEngine.ts exactly
+      const elapsed = Math.floor((d.getTime() - trueStart.getTime()) / (24 * 60 * 60 * 1000));
 
       // 1. Cycle Logic
-      if (cycleLenDays > 0) {
-        const inOn = elapsed % cycleLenDays < onWeeks * 7;
-        if (!inOn) continue;
-      }
-      
-      // 2. Schedule Logic
-      if (it.schedule === "WEEKDAYS" && isWeekend(d)) continue;
+      if (cycleLenDays > 0 && elapsed % cycleLenDays >= onWeeks * 7) continue;
+
+      // 2. Schedule Logic — use UTC day-of-week to match isDoseDayUTC
+      const dow = d.getUTCDay();
+      if (it.schedule === "WEEKDAYS" && (dow === 0 || dow === 6)) continue;
       if (it.schedule === "CUSTOM") {
-        if (!isCustomDay(d, it.custom_days || [])) continue;
+        if (!(it.custom_days || []).includes(dow)) continue;
       }
       if (it.schedule === "EVERY_N_DAYS") {
         const n = Number(it.every_n_days || 0);
@@ -141,8 +131,9 @@ export async function setActiveProtocolAndRegenerate(
         if (target > 0 && dose > target) dose = target;
       }
 
-      const ds = localDateStr(d);
-      
+      // UTC ISO date string — consistent with scheduleEngine and calendar
+      const ds = d.toISOString().slice(0, 10);
+
       inserts.push({
         user_id: userId,
         protocol_id: protocolId,
@@ -151,7 +142,7 @@ export async function setActiveProtocolAndRegenerate(
         date: ds,
         date_for: ds,
         status: "PENDING",
-        site_label: null // simplified for brevity
+        site_label: null,
       });
     }
   });

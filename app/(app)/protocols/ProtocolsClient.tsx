@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Upload, FileText, ChevronRight, Trash2, MapPin, X, Calendar } from 'lucide-react';
+import { Plus, Upload, FileText, ChevronRight, Trash2, MapPin, X, Calendar, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import ProtocolEditor from './ProtocolEditor';
 import ImportModal from '@/components/protocols/ImportModal';
@@ -16,6 +16,7 @@ export type Protocol = {
     is_active: boolean;
     name: string;
     start_date: string;
+    end_date?: string | null;
 };
 
 type InjectionSiteList = {
@@ -46,6 +47,8 @@ export default function ProtocolsClient({
     const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
     const [creating, setCreating] = useState(false);
 
+    const [exportingAll, setExportingAll] = useState(false);
+
     // Site List State
     const [siteLists, setSiteLists] = useState<InjectionSiteList[]>([]);
     const [selectedSiteListId, setSelectedSiteListId] = useState<number | null>(null);
@@ -61,6 +64,85 @@ export default function ProtocolsClient({
     }, [activeTab, supabase]);
 
     // --- HANDLERS ---
+
+    const handleExportAll = async () => {
+        if (protocols.length === 0) { toast.info("No protocols to export."); return; }
+        setExportingAll(true);
+        try {
+            const protocolIds = protocols.map(p => p.id);
+
+            // Fetch all items and peptide info in parallel
+            const [{ data: allItems }, { data: vialInv }, { data: capInv }] = await Promise.all([
+                supabase.from('protocol_items').select('*').in('protocol_id', protocolIds).order('id', { ascending: true }),
+                supabase.from('inventory_items').select('peptide_id, peptides:peptide_id(id, canonical_name)'),
+                supabase.from('inventory_capsules').select('peptide_id, peptides:peptide_id(id, canonical_name)'),
+            ]);
+
+            // Build peptide map
+            const pepMap = new Map<number, { canonical_name: string; kind: string }>();
+            vialInv?.forEach((r: any) => {
+                if (r.peptides) pepMap.set(r.peptides.id, { canonical_name: r.peptides.canonical_name, kind: 'vial' });
+            });
+            capInv?.forEach((r: any) => {
+                if (r.peptides) {
+                    const existing = pepMap.get(r.peptides.id);
+                    pepMap.set(r.peptides.id, { canonical_name: r.peptides.canonical_name, kind: existing ? 'both' : 'capsule' });
+                }
+            });
+
+            const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const headers = ["Peptide", "Type", "Dose", "Schedule", "Notes"];
+            const blocks: string[] = [];
+
+            for (const proto of protocols) {
+                const protoItems = (allItems || []).filter((i: any) => i.protocol_id === proto.id);
+                const rows: string[][] = [];
+
+                for (const item of protoItems) {
+                    if (!item.peptide_id) continue;
+                    const p = pepMap.get(item.peptide_id);
+                    const typeLabel = p?.kind === 'capsule' ? 'Capsule' : (p?.kind === 'both' ? 'Mixed' : 'Vial');
+                    const dose = `${item.dose_mg_per_administration} mg`;
+
+                    let sched = '';
+                    if (item.schedule === 'EVERYDAY') sched = 'Daily';
+                    else if (item.schedule === 'WEEKDAYS') sched = 'Mon-Fri';
+                    else if (item.schedule === 'EVERY_N_DAYS') sched = `E${item.every_n_days}D`;
+                    else if (item.schedule === 'CUSTOM') sched = (item.custom_days || []).map((d: number) => DAYS[d]).join(', ');
+
+                    const notesParts: string[] = [];
+                    if (item.time_of_day) notesParts.push(`@ ${item.time_of_day}`);
+                    if (item.cycle_on_weeks > 0) notesParts.push(`${item.cycle_on_weeks} wks ON / ${item.cycle_off_weeks} OFF`);
+                    if ((item.titration_interval_days || 0) > 0) {
+                        let tMsg = `Titrate +${item.titration_amount_mg}mg / ${item.titration_interval_days} days`;
+                        if ((item.titration_target_mg || 0) > 0) tMsg += ` (max ${item.titration_target_mg}mg)`;
+                        notesParts.push(tMsg);
+                    }
+
+                    rows.push([p?.canonical_name || 'Unknown', typeLabel, dose, sched, notesParts.join(', ') || '-']);
+                }
+
+                if (rows.length === 0) continue;
+
+                let block = `**Protocol: ${proto.name}**\n`;
+                block += `*Dates: ${proto.start_date} ${proto.end_date ? 'to ' + proto.end_date : '(Ongoing)'}*\n\n`;
+                block += `| ${headers.join(' | ')} |\n`;
+                block += `| ${headers.map(() => '---').join(' | ')} |\n`;
+                rows.forEach(r => { block += `| ${r.join(' | ')} |\n`; });
+                blocks.push(block);
+            }
+
+            if (blocks.length === 0) { toast.info("No items to export."); return; }
+
+            const md = blocks.join('\n\n---\n\n') + '\n\n*Generated via Peptide Planner*';
+            await navigator.clipboard.writeText(md);
+            toast.success(`${blocks.length} protocol${blocks.length !== 1 ? 's' : ''} copied to clipboard.`);
+        } catch (err: any) {
+            toast.error(err.message || "Export failed.");
+        } finally {
+            setExportingAll(false);
+        }
+    };
 
     const handleCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -153,23 +235,36 @@ export default function ProtocolsClient({
                         </button>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                        <h2 className="font-bold text-lg">
-                            {activeTab === 'protocols' ? 'My Protocols' : 'Rotations'}
-                        </h2>
-                        {activeTab === 'protocols' ? (
-                            <div className="flex gap-2">
-                                <button onClick={() => setShowImport(true)} className="btn h-8 px-3 text-xs border border-border bg-background hover:bg-muted/50">
-                                    <Upload className="size-3.5 mr-1" /> Import
-                                </button>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-bold text-lg">
+                                {activeTab === 'protocols' ? 'My Protocols' : 'Rotations'}
+                            </h2>
+                            {activeTab === 'protocols' ? (
                                 <button onClick={() => setShowCreate(true)} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
                                     <Plus className="size-3.5 mr-1" /> New
                                 </button>
+                            ) : (
+                                <button onClick={handleCreateSiteList} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
+                                    <Plus className="size-3.5 mr-1" /> New List
+                                </button>
+                            )}
+                        </div>
+                        {activeTab === 'protocols' && (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleExportAll}
+                                    disabled={exportingAll || protocols.length === 0}
+                                    title="Copy all protocols to clipboard (Reddit markdown)"
+                                    className="btn h-8 px-3 text-xs border border-border bg-background hover:bg-muted/50 disabled:opacity-40"
+                                >
+                                    <Copy className="size-3.5 mr-1" />
+                                    {exportingAll ? 'Copying…' : 'Export All'}
+                                </button>
+                                <button onClick={() => setShowImport(true)} className="btn h-8 px-3 text-xs border border-border bg-background hover:bg-muted/50">
+                                    <Upload className="size-3.5 mr-1" /> Import
+                                </button>
                             </div>
-                        ) : (
-                            <button onClick={handleCreateSiteList} className="btn h-8 px-3 text-xs bg-primary text-primary-foreground">
-                                <Plus className="size-3.5 mr-1" /> New List
-                            </button>
                         )}
                     </div>
                 </div>
@@ -198,8 +293,10 @@ export default function ProtocolsClient({
                                         {p.is_active && <span className="shrink-0 size-2 rounded-full bg-emerald-500 mt-1.5" title="Active" />}
                                     </div>
                                     <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                                        <FileText className="size-3" />
+                                        <Calendar className="size-3" />
                                         <span>{p.start_date}</span>
+                                        <span className="text-muted-foreground/50">→</span>
+                                        <span>{p.end_date ?? 'Ongoing'}</span>
                                     </div>
                                     <button
                                         onClick={(e) => handleDeleteProtocol(e, p.id)}
