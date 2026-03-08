@@ -1,0 +1,452 @@
+// Client-side equivalent of the web app's today/actions.ts
+// Runs against Supabase directly (no Server Actions needed in RN).
+
+import { SupabaseClient } from '@supabase/supabase-js';
+import { generateDailyDoses, isDoseDayUTC, type ProtocolItem, type Schedule } from './scheduleEngine';
+import { unitsFromDose, forecastRemainingDoses } from './forecast';
+import type { TodayDoseRow, DoseStatus } from './types';
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+export function localISODate(): string {
+  const d = new Date();
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().split('T')[0];
+}
+
+function toISODate(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+// ─── Active Protocols ───────────────────────────────────────────────────────
+
+async function getActiveProtocols(supabase: SupabaseClient, uid: string, dateISO: string) {
+  const { data } = await supabase
+    .from('protocols')
+    .select('id, start_date, end_date')
+    .eq('user_id', uid);
+
+  return (data || []).filter((p: any) => {
+    if (!p.start_date) return false;
+    if (p.start_date > dateISO) return false;
+    if (p.end_date && p.end_date < dateISO) return false;
+    return true;
+  });
+}
+
+// ─── Unified Daily Schedule ─────────────────────────────────────────────────
+
+async function getUnifiedDailySchedule(
+  supabase: SupabaseClient,
+  uid: string,
+  dateISO: string
+) {
+  const activeProtocols = await getActiveProtocols(supabase, uid, dateISO);
+  if (activeProtocols.length === 0) return new Map<number, any>();
+
+  const activeIds = activeProtocols.map((p: any) => p.id);
+
+  const { data: items } = await supabase
+    .from('protocol_items')
+    .select(
+      'protocol_id, peptide_id, dose_mg_per_administration, schedule, custom_days, cycle_on_weeks, cycle_off_weeks, every_n_days, time_of_day, site_list_id, peptides(canonical_name)'
+    )
+    .in('protocol_id', activeIds);
+
+  if (!items || items.length === 0) return new Map<number, any>();
+
+  const consolidated = new Map<number, any>();
+  const itemsByProto = new Map<number, any[]>();
+
+  items.forEach((it: any) => {
+    if (!itemsByProto.has(it.protocol_id)) itemsByProto.set(it.protocol_id, []);
+    itemsByProto.get(it.protocol_id)!.push(it);
+  });
+
+  activeProtocols.forEach((p: any) => {
+    const pItems = itemsByProto.get(p.id);
+    if (!pItems) return;
+
+    const engineItems: ProtocolItem[] = pItems.map((it: any) => ({
+      peptide_id: Number(it.peptide_id),
+      canonical_name: it.peptides?.canonical_name || `Peptide #${it.peptide_id}`,
+      dose_mg_per_administration: Number(it.dose_mg_per_administration || 0),
+      schedule: it.schedule as Schedule,
+      custom_days: (it.custom_days as number[] | null) ?? null,
+      cycle_on_weeks: Number(it.cycle_on_weeks || 0),
+      cycle_off_weeks: Number(it.cycle_off_weeks || 0),
+      every_n_days: (it.every_n_days as number | null) ?? null,
+      time_of_day: (it.time_of_day as string | null) ?? null,
+    }));
+
+    const dailyDoses = generateDailyDoses(dateISO, p.start_date, engineItems);
+
+    dailyDoses.forEach((dose) => {
+      const pid = Number(dose.peptide_id);
+      if (consolidated.has(pid)) {
+        const existing = consolidated.get(pid)!;
+        existing.dose_mg += dose.dose_mg;
+        if (dose.time_of_day && (!existing.time_of_day || dose.time_of_day < existing.time_of_day)) {
+          existing.time_of_day = dose.time_of_day;
+        }
+      } else {
+        const original = pItems.find((i: any) => Number(i.peptide_id) === pid);
+        consolidated.set(pid, {
+          canonical_name: dose.canonical_name,
+          dose_mg: dose.dose_mg,
+          time_of_day: dose.time_of_day,
+          _originalItem: { ...original, _protocolStartDate: p.start_date },
+        });
+      }
+    });
+  });
+
+  return consolidated;
+}
+
+// ─── Main: Get Today Doses ──────────────────────────────────────────────────
+
+export async function getScheduledDoses(
+  supabase: SupabaseClient,
+  dateISO: string
+): Promise<TodayDoseRow[]> {
+  const { data: authData } = await supabase.auth.getUser();
+  const uid = authData.user?.id;
+  if (!uid) return [];
+
+  const scheduledMap = await getUnifiedDailySchedule(supabase, uid, dateISO);
+
+  const { data: dbDoses } = await supabase
+    .from('doses')
+    .select('peptide_id, status, site_label, dose_mg, peptides(canonical_name)')
+    .eq('user_id', uid)
+    .eq('date_for', dateISO);
+
+  const finalMap = new Map<number, TodayDoseRow>();
+  const neededSiteListIds = new Set<number>();
+
+  for (const [pid, item] of scheduledMap.entries()) {
+    const rawSiteListId = item._originalItem?.site_list_id;
+    if (rawSiteListId) neededSiteListIds.add(rawSiteListId);
+
+    finalMap.set(pid, {
+      peptide_id: pid,
+      canonical_name: item.canonical_name,
+      dose_mg: item.dose_mg,
+      status: 'PENDING',
+      time_of_day: item.time_of_day,
+      site_label: null,
+      syringe_units: null,
+      mg_per_vial: null,
+      bac_ml: null,
+      remainingDoses: null,
+      reorderDateISO: null,
+    });
+  }
+
+  if (dbDoses) {
+    for (const db of dbDoses) {
+      const pid = Number(db.peptide_id);
+      const status = (db.status as DoseStatus) || 'PENDING';
+
+      if (finalMap.has(pid)) {
+        const row = finalMap.get(pid)!;
+        row.status = status;
+        row.dose_mg = Number(db.dose_mg);
+        row.site_label = db.site_label;
+      } else {
+        const pName =
+          Array.isArray(db.peptides)
+            ? db.peptides[0]?.canonical_name
+            : (db.peptides as any)?.canonical_name;
+        finalMap.set(pid, {
+          peptide_id: pid,
+          canonical_name: pName || `Peptide #${pid}`,
+          dose_mg: Number(db.dose_mg),
+          status,
+          time_of_day: null,
+          site_label: db.site_label,
+          syringe_units: null,
+          mg_per_vial: null,
+          bac_ml: null,
+          remainingDoses: null,
+          reorderDateISO: null,
+        });
+      }
+    }
+  }
+
+  // Injection site rotation
+  const itemsNeedingSites = Array.from(finalMap.values()).filter((d) => {
+    const schedItem = scheduledMap.get(d.peptide_id);
+    return !d.site_label && !!schedItem?._originalItem?.site_list_id;
+  });
+
+  if (itemsNeedingSites.length > 0 && neededSiteListIds.size > 0) {
+    const { data: sitesData } = await supabase
+      .from('injection_sites')
+      .select('list_id, name, position')
+      .in('list_id', Array.from(neededSiteListIds))
+      .order('position', { ascending: true });
+
+    const sitesByList = new Map<number, any[]>();
+    sitesData?.forEach((s: any) => {
+      if (!sitesByList.has(s.list_id)) sitesByList.set(s.list_id, []);
+      sitesByList.get(s.list_id)!.push(s);
+    });
+
+    const targetDate = new Date(`${dateISO}T00:00:00Z`);
+
+    for (const row of itemsNeedingSites) {
+      const item = scheduledMap.get(row.peptide_id)?._originalItem;
+      const listId = item?.site_list_id;
+      if (!listId || !sitesByList.has(listId)) continue;
+
+      const list = sitesByList.get(listId) || [];
+      if (list.length === 0) continue;
+
+      const protocolStartISO: string = item._protocolStartDate || dateISO;
+      const schedItem = {
+        schedule: item.schedule,
+        custom_days: item.custom_days ?? null,
+        every_n_days: item.every_n_days ?? null,
+        cycle_on_weeks: item.cycle_on_weeks ?? null,
+        cycle_off_weeks: item.cycle_off_weeks ?? null,
+        protocol_start_date: protocolStartISO,
+      };
+
+      let doseCount = 0;
+      const startDate = new Date(`${protocolStartISO}T00:00:00Z`);
+      for (let d = new Date(startDate); d <= targetDate; d.setUTCDate(d.getUTCDate() + 1)) {
+        if (isDoseDayUTC(d, schedItem)) doseCount++;
+      }
+
+      const index = Math.max(0, doseCount - 1) % list.length;
+      row.site_label = list[index].name;
+    }
+  }
+
+  // Inventory & forecast
+  const finalRows = Array.from(finalMap.values());
+  if (finalRows.length > 0) {
+    const pids = finalRows.map((r) => r.peptide_id);
+    const [{ data: invVials }, { data: invCaps }] = await Promise.all([
+      supabase.from('inventory_items').select('*').eq('user_id', uid).in('peptide_id', pids),
+      supabase.from('inventory_capsules').select('*').eq('user_id', uid).in('peptide_id', pids),
+    ]);
+
+    const vialMap = new Map<number, any>();
+    invVials?.forEach((r: any) => vialMap.set(Number(r.peptide_id), r));
+    const capMap = new Map<number, any>();
+    invCaps?.forEach((r: any) => capMap.set(Number(r.peptide_id), r));
+
+    for (const row of finalRows) {
+      const pid = row.peptide_id;
+      const v = vialMap.get(pid);
+      const c = capMap.get(pid);
+
+      row.mg_per_vial = v?.mg_per_vial || null;
+      row.bac_ml = v?.bac_ml || null;
+      row.syringe_units = unitsFromDose(row.dose_mg, row.mg_per_vial, row.bac_ml);
+
+      const schedItem = scheduledMap.get(pid)?._originalItem;
+      if (schedItem && row.dose_mg > 0) {
+        let totalMg = 0;
+        if (v)
+          totalMg +=
+            Number(v.vials || 0) * Number(v.mg_per_vial || 0) - Number(v.current_used_mg || 0);
+        if (c)
+          totalMg +=
+            Number(c.bottles || 0) * Number(c.caps_per_bottle || 0) * Number(c.mg_per_cap || 0) -
+            Number(c.current_used_mg || 0);
+        totalMg = Math.max(0, totalMg);
+
+        const f = forecastRemainingDoses(
+          totalMg,
+          row.dose_mg,
+          schedItem.schedule as Schedule,
+          schedItem.custom_days ?? null,
+          Number(schedItem.cycle_on_weeks || 0),
+          Number(schedItem.cycle_off_weeks || 0),
+          schedItem.every_n_days ?? null
+        );
+        row.remainingDoses = f.remainingDoses;
+        row.reorderDateISO = f.reorderDateISO;
+      }
+    }
+  }
+
+  return finalRows.sort((a, b) =>
+    (a.time_of_day || '99:99').localeCompare(b.time_of_day || '99:99')
+  );
+}
+
+// ─── Get Doses for a Date Range (for notification scheduling) ───────────────
+
+export async function getScheduledDosesForRange(
+  supabase: SupabaseClient,
+  dates: string[]
+): Promise<Array<TodayDoseRow & { date_for: string }>> {
+  const { data: authData } = await supabase.auth.getUser();
+  const uid = authData.user?.id;
+  if (!uid) return [];
+
+  const result: Array<TodayDoseRow & { date_for: string }> = [];
+
+  for (const dateISO of dates) {
+    const doses = await getScheduledDoses(supabase, dateISO);
+    doses.forEach((d) => result.push({ ...d, date_for: dateISO }));
+  }
+
+  return result;
+}
+
+// ─── Mutations ──────────────────────────────────────────────────────────────
+
+async function updateInventoryUsage(
+  supabase: SupabaseClient,
+  uid: string,
+  peptideId: number,
+  deltaMg: number
+) {
+  const { data: vialItem } = await supabase
+    .from('inventory_items')
+    .select('id, vials, mg_per_vial, current_used_mg')
+    .eq('user_id', uid)
+    .eq('peptide_id', peptideId)
+    .maybeSingle();
+
+  if (vialItem) {
+    let newUsed = Number(vialItem.current_used_mg || 0) + deltaMg;
+    let newVials = Number(vialItem.vials || 0);
+    const size = Number(vialItem.mg_per_vial || 0);
+    if (size > 0) {
+      while (newUsed >= size && newVials > 0) { newUsed -= size; newVials--; }
+      while (newUsed < 0) { newUsed += size; newVials++; }
+    }
+    await supabase
+      .from('inventory_items')
+      .update({ vials: newVials, current_used_mg: Math.max(0, newUsed) })
+      .eq('id', vialItem.id);
+    return;
+  }
+
+  const { data: capItem } = await supabase
+    .from('inventory_capsules')
+    .select('id, bottles, mg_per_cap, caps_per_bottle, current_used_mg')
+    .eq('user_id', uid)
+    .eq('peptide_id', peptideId)
+    .maybeSingle();
+
+  if (capItem) {
+    let newUsed = Number(capItem.current_used_mg || 0) + deltaMg;
+    let newBottles = Number(capItem.bottles || 0);
+    const bottleTotalMg =
+      Number(capItem.caps_per_bottle || 0) * Number(capItem.mg_per_cap || 0);
+    if (bottleTotalMg > 0) {
+      while (newUsed >= bottleTotalMg && newBottles > 0) { newUsed -= bottleTotalMg; newBottles--; }
+      while (newUsed < 0) { newUsed += bottleTotalMg; newBottles++; }
+    }
+    await supabase
+      .from('inventory_capsules')
+      .update({ bottles: newBottles, current_used_mg: Math.max(0, newUsed) })
+      .eq('id', capItem.id);
+  }
+}
+
+export async function logDose(
+  supabase: SupabaseClient,
+  peptide_id: number,
+  dateISO: string,
+  siteLabel?: string | null
+) {
+  await upsertDoseStatus(supabase, peptide_id, dateISO, 'TAKEN', siteLabel);
+}
+
+export async function resetDose(
+  supabase: SupabaseClient,
+  peptide_id: number,
+  dateISO: string
+) {
+  await upsertDoseStatus(supabase, peptide_id, dateISO, 'PENDING');
+}
+
+export async function skipDose(
+  supabase: SupabaseClient,
+  peptide_id: number,
+  dateISO: string
+) {
+  await upsertDoseStatus(supabase, peptide_id, dateISO, 'SKIPPED');
+}
+
+async function upsertDoseStatus(
+  supabase: SupabaseClient,
+  peptide_id: number,
+  dateISO: string,
+  targetStatus: DoseStatus,
+  siteLabel?: string | null
+) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { data: protocols } = await supabase
+    .from('protocols')
+    .select('id, start_date, end_date, protocol_items(peptide_id)')
+    .eq('user_id', user.id);
+
+  const validProtos = (protocols || []).filter((p: any) => {
+    const start = p.start_date;
+    const end = p.end_date || '9999-12-31';
+    return start <= dateISO && end >= dateISO;
+  });
+
+  const match = validProtos.find((p: any) =>
+    p.protocol_items?.some((pi: any) => pi.peptide_id === peptide_id)
+  );
+  const protocolId = match?.id || validProtos[0]?.id || null;
+
+  const { data: existing } = await supabase
+    .from('doses')
+    .select('id, status, dose_mg, site_label')
+    .eq('user_id', user.id)
+    .eq('peptide_id', peptide_id)
+    .eq('date_for', dateISO)
+    .maybeSingle();
+
+  const currentStatus = existing?.status || 'PENDING';
+  if (currentStatus === targetStatus && existing?.site_label === siteLabel) return;
+
+  let doseAmount = existing?.dose_mg ? Number(existing.dose_mg) : 0;
+  if (!doseAmount && protocolId) {
+    const { data: pi } = await supabase
+      .from('protocol_items')
+      .select('dose_mg_per_administration')
+      .eq('protocol_id', protocolId)
+      .eq('peptide_id', peptide_id)
+      .maybeSingle();
+    doseAmount = Number(pi?.dose_mg_per_administration || 0);
+  }
+
+  if (targetStatus === 'TAKEN' && currentStatus !== 'TAKEN') {
+    await updateInventoryUsage(supabase, user.id, peptide_id, doseAmount);
+  } else if (currentStatus === 'TAKEN' && targetStatus !== 'TAKEN') {
+    await updateInventoryUsage(supabase, user.id, peptide_id, -doseAmount);
+  }
+
+  if (!existing?.id) {
+    await supabase.from('doses').insert({
+      user_id: user.id,
+      protocol_id: protocolId,
+      peptide_id,
+      date: dateISO,
+      date_for: dateISO,
+      dose_mg: doseAmount,
+      status: targetStatus,
+      site_label: siteLabel || null,
+    });
+  } else {
+    const updateData: any = { status: targetStatus };
+    if (siteLabel !== undefined) updateData.site_label = siteLabel;
+    await supabase.from('doses').update(updateData).eq('id', existing.id);
+  }
+}
