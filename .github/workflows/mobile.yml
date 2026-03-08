@@ -15,7 +15,7 @@ jobs:
           node-version: 20
       - run: npm install
         working-directory: mobile
-      - run: npx eas-cli@latest build --platform all --auto-submit --non-interactive
+      - run: npx eas-cli@latest build --platform android --auto-submit --non-interactive
         working-directory: mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

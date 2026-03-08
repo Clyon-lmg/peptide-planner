@@ -2,6 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createServerActionSupabase } from "@/lib/supabaseServer";
+import { createClient } from "@supabase/supabase-js";
+
+const serviceSupabase = () =>
+  createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -46,11 +53,18 @@ export default function SignUpPage({ searchParams }: PageProps) {
       redirect(`/sign-up?error=${encodeURIComponent(error.message)}`);
     }
 
+    // Create 30-day trial record
+    if (data?.user) {
+      await serviceSupabase()
+        .from("subscriptions")
+        .upsert({ user_id: data.user.id }, { onConflict: "user_id" });
+    }
+
     if (data?.session) {
       redirect("/today");
     }
 
-    // Redirect to the success/verify page or dashboard
+    // Email confirmation required — redirect to dashboard (protected by middleware)
     redirect("/today");
   };
 
