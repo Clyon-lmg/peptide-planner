@@ -34,14 +34,12 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withAndroidWorkletsFix",
       [
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "1.9.25",
-            "packagingOptions": {
-              "pickFirsts": ["lib/**/libworklets.so"]
-            }
+            "kotlinVersion": "1.9.25"
           }
         }
       ],
