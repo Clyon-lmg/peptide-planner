@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 
 export default function DeleteAccountPage() {
   const router = useRouter();
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
+  const confirmed = confirmText === "delete me";
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
 
@@ -65,17 +66,18 @@ export default function DeleteAccountPage() {
           </ul>
         </div>
 
-        <label className="flex items-start gap-3 cursor-pointer">
+        <div className="space-y-2">
+          <label className="text-sm text-slate-300">
+            Type <span className="font-mono text-red-400">delete me</span> to confirm:
+          </label>
           <input
-            type="checkbox"
-            checked={confirmed}
-            onChange={(e) => setConfirmed(e.target.checked)}
-            className="mt-0.5 accent-indigo-500"
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder="delete me"
+            className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-red-500"
           />
-          <span className="text-sm text-slate-300">
-            I understand this is permanent and cannot be undone.
-          </span>
-        </label>
+        </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}
 
