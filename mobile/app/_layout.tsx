@@ -20,11 +20,12 @@ function useAuthGuard(session: Session | null, isReady: boolean) {
   useEffect(() => {
     if (!isReady) return;
 
-    const inAuthGroup = segments[0] === '(tabs)';
+    const inTabs  = segments[0] === '(tabs)';
+    const inLogin = segments[0] === 'login';
 
-    if (!session && inAuthGroup) {
+    if (!session && !inLogin) {
       router.replace('/login');
-    } else if (session && !inAuthGroup) {
+    } else if (session && !inTabs) {
       router.replace('/(tabs)/');
     }
   }, [session, segments, isReady]);
