@@ -39,12 +39,18 @@ export default function RootLayout() {
   useAuthGuard(session, isReady);
 
   useEffect(() => {
-    // Load initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsReady(true);
-      SplashScreen.hideAsync();
-    });
+    // Load initial session — always mark ready and hide splash regardless of outcome
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      })
+      .catch(() => {
+        // Failed to read cached session; treat as signed-out
+      })
+      .finally(() => {
+        setIsReady(true);
+        SplashScreen.hideAsync();
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -74,6 +80,8 @@ export default function RootLayout() {
     });
     return () => sub.remove();
   }, []);
+
+  if (!isReady) return null;
 
   return (
     <>
