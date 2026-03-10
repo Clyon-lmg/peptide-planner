@@ -36,13 +36,13 @@
     "plugins": [
       "expo-router",
       "./plugins/withAndroidWorkletsFix",
+      "./plugins/withGradleWrapperFix",
       [
         "expo-build-properties",
         {
           "android": {
             "kotlinVersion": "1.9.25",
-            "targetSdkVersion": 35,
-            "gradleVersion": "8.13"
+            "targetSdkVersion": 35
           }
         }
       ],
