@@ -3,9 +3,19 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Expo config plugin to upgrade the Gradle wrapper to 8.13,
- * which is required when building with Java 25 (class file major version 69).
- * Gradle 8.10.2 (the RN 0.76 default) only supports up to Java 23.
+ * Expo config plugin to pin the Gradle wrapper to 8.13.
+ *
+ * React Native 0.76 ships with Gradle 8.10.2 by default. This plugin upgrades
+ * to 8.13 for improved compatibility and bug fixes.
+ *
+ * Note: Java 21 (LTS) is the recommended JDK for Android builds.
+ * Java 25 is NOT currently supported by any Gradle/AGP version in this stack —
+ * downgrade to Java 21 if you see "Unsupported class file major version 69".
+ *
+ * On Windows, ensure Windows Long Path support is enabled if you hit CMake/ninja
+ * "No such file or directory" errors caused by deep node_modules paths:
+ *   reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
+ * Then restart and rebuild.
  */
 const withGradleWrapperFix = (config) => {
   return withDangerousMod(config, [
