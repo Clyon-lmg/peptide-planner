@@ -20,11 +20,12 @@ function useAuthGuard(session: Session | null, isReady: boolean) {
   useEffect(() => {
     if (!isReady) return;
 
-    const inAuthGroup = segments[0] === '(tabs)';
+    const inTabs  = segments[0] === '(tabs)';
+    const inLogin = segments[0] === 'login';
 
-    if (!session && inAuthGroup) {
+    if (!session && !inLogin) {
       router.replace('/login');
-    } else if (session && !inAuthGroup) {
+    } else if (session && !inTabs) {
       router.replace('/(tabs)/');
     }
   }, [session, segments, isReady]);
@@ -39,12 +40,18 @@ export default function RootLayout() {
   useAuthGuard(session, isReady);
 
   useEffect(() => {
-    // Load initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setIsReady(true);
-      SplashScreen.hideAsync();
-    });
+    // Load initial session — always mark ready and hide splash regardless of outcome
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      })
+      .catch(() => {
+        // Failed to read cached session; treat as signed-out
+      })
+      .finally(() => {
+        setIsReady(true);
+        SplashScreen.hideAsync();
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -74,6 +81,8 @@ export default function RootLayout() {
     });
     return () => sub.remove();
   }, []);
+
+  if (!isReady) return null;
 
   return (
     <>
