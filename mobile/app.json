@@ -41,7 +41,8 @@
         {
           "android": {
             "kotlinVersion": "1.9.25",
-            "targetSdkVersion": 35
+            "targetSdkVersion": 35,
+            "gradleVersion": "8.13"
           }
         }
       ],
