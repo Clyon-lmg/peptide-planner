@@ -36,6 +36,7 @@
     "plugins": [
       "expo-router",
       "./plugins/withGradleWrapperFix",
+      "./plugins/withAndroidWorkletsFix",
       [
         "expo-build-properties",
         {
