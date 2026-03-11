@@ -50,6 +50,33 @@ config.server = {
 // Apply nativewind before wrapping the resolver so our resolver runs outermost.
 const finalConfig = withNativeWind(config, { input: "./global.css" });
 
+// ─── 3. Windows multipart/chunked encoding fix ────────────────────────────────
+// React Native's BundleDownloader sends "Accept: multipart/mixed", causing Metro
+// to stream the bundle with Transfer-Encoding: chunked in a multipart envelope.
+// On Windows, Metro's CRLF line endings in multipart boundaries corrupt the chunk
+// size headers, producing:
+//   ProtocolException: Expected leading [0-9a-fA-F] character but was 0xd
+// Strip the multipart Accept header so Metro sends a plain application/javascript
+// response instead, which OkHttp parses without issues.
+const existingEnhance = finalConfig.server?.enhanceMiddleware;
+finalConfig.server = {
+  ...finalConfig.server,
+  enhanceMiddleware: (metroMiddleware, server) => {
+    const wrapped = existingEnhance
+      ? existingEnhance(metroMiddleware, server)
+      : metroMiddleware;
+    return (req, res, next) => {
+      if (req.headers?.accept?.includes("multipart/mixed")) {
+        req.headers.accept = req.headers.accept.replace(
+          "multipart/mixed",
+          "application/javascript"
+        );
+      }
+      return wrapped(req, res, next);
+    };
+  },
+};
+
 // Combined resolver: React dedup + Windows HMR path fix
 const nextResolver = finalConfig.resolver && finalConfig.resolver.resolveRequest;
 finalConfig.resolver = {
