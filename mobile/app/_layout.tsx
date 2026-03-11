@@ -47,7 +47,8 @@ export default function RootLayout() {
       finished = true;
       setSession(session);
       setIsReady(true);
-      SplashScreen.hideAsync();
+      // hideAsync is called in the isReady effect below so it runs after React
+      // has committed the new state and mounted the navigator views.
     };
 
     // Safety net: if getSession() never resolves (e.g. expired token waiting on
@@ -87,6 +88,14 @@ export default function RootLayout() {
     });
     return () => sub.remove();
   }, []);
+
+  // Hide the splash screen after React has committed the ready state so the
+  // navigator views are mounted before the splash animates away.
+  useEffect(() => {
+    if (isReady) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isReady]);
 
   if (!isReady) return null;
 
