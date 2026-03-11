@@ -40,18 +40,24 @@ export default function RootLayout() {
   useAuthGuard(session, isReady);
 
   useEffect(() => {
-    // Load initial session — always mark ready and hide splash regardless of outcome
+    let finished = false;
+
+    const finish = (session: import('@supabase/supabase-js').Session | null) => {
+      if (finished) return;
+      finished = true;
+      setSession(session);
+      setIsReady(true);
+      SplashScreen.hideAsync();
+    };
+
+    // Safety net: if getSession() never resolves (e.g. expired token waiting on
+    // an unreachable Supabase URL), unblock the app after 5 s and treat as signed-out.
+    const safety = setTimeout(() => finish(null), 5000);
+
     supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        setSession(session);
-      })
-      .catch(() => {
-        // Failed to read cached session; treat as signed-out
-      })
-      .finally(() => {
-        setIsReady(true);
-        SplashScreen.hideAsync();
-      });
+      .then(({ data: { session } }) => finish(session))
+      .catch(() => finish(null))
+      .finally(() => clearTimeout(safety));
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
