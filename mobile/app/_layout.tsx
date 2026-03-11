@@ -1,6 +1,6 @@
 import '../global.css';
 import { useEffect, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -9,7 +9,9 @@ import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { scheduleUpcomingNotifications } from '@/lib/notifications';
 
-const log = (...args: unknown[]) => console.log('[PP]', ...args);
+// Use console.error so logs appear in Android logcat (ReactNativeJS:E) regardless
+// of whether Expo Go routes console.log to Metro terminal only.
+const log = (...args: unknown[]) => console.error('[PP]', ...args);
 
 log('module loaded');
 SplashScreen.preventAutoHideAsync();
@@ -123,7 +125,9 @@ export default function RootLayout() {
   }, [isReady]);
 
   log('RootLayout — isReady:', isReady);
-  if (!isReady) return null;
+  // Dark background during loading — if you see navy (#0f172a) the component IS
+  // rendering; if it stays white the component never mounts (module crash).
+  if (!isReady) return <View style={{ flex: 1, backgroundColor: '#0f172a' }} />;
 
   return (
     <>
