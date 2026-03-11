@@ -52,8 +52,9 @@ export default function RootLayout() {
     };
 
     // Safety net: if getSession() never resolves (e.g. expired token waiting on
-    // an unreachable Supabase URL), unblock the app after 5 s and treat as signed-out.
-    const safety = setTimeout(() => finish(null), 5000);
+    // an unreachable Supabase URL), unblock the app after 3 s and treat as signed-out.
+    // Keep this below Android's 5 s ANR threshold.
+    const safety = setTimeout(() => finish(null), 3000);
 
     supabase.auth.getSession()
       .then(({ data: { session } }) => finish(session))
