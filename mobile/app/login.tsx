@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 type Mode = 'signin' | 'signup';
 
 export default function LoginScreen() {
+  useEffect(() => { console.log('[PP] LoginScreen mounted'); }, []);
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
