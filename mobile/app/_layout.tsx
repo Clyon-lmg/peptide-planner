@@ -1,7 +1,7 @@
 import '../global.css';
 import { useEffect, useState } from 'react';
 import { AppState, AppStateStatus, View } from 'react-native';
-import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -28,11 +28,13 @@ SplashScreen.preventAutoHideAsync();
 function useAuthGuard(session: Session | null, isReady: boolean) {
   const router = useRouter();
   const segments = useSegments();
-  const navState = useRootNavigationState();
 
   useEffect(() => {
-    log('useAuthGuard effect — isReady:', isReady, 'session:', !!session, 'navReady:', navState?.isReady, 'segments:', segments);
-    if (!isReady || !navState?.isReady) return;
+    log('useAuthGuard effect — isReady:', isReady, 'session:', !!session, 'segments:', segments);
+    // Wait until auth check completes. By the time isReady is true (Supabase
+    // resolved or 3 s safety timeout fired), the navigation container is
+    // guaranteed to be mounted and ready.
+    if (!isReady) return;
 
     const inTabs  = segments[0] === '(tabs)';
     const inLogin = segments[0] === 'login';
@@ -46,7 +48,7 @@ function useAuthGuard(session: Session | null, isReady: boolean) {
     } else {
       log('→ no navigation needed');
     }
-  }, [session, segments, isReady, navState?.isReady]);
+  }, [session, segments, isReady]);
 }
 
 // ─── Root Layout ─────────────────────────────────────────────────────────────
