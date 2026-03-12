@@ -5,16 +5,12 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
-import { cssInterop } from 'nativewind';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { scheduleUpcomingNotifications } from '@/lib/notifications';
-
-// Register SafeAreaView (react-native-safe-area-context) for NativeWind className support.
-// In NativeWind v4, third-party native-backed components need explicit cssInterop
-// registration; without it className props (e.g. bg-background) are silently ignored.
-cssInterop(SafeAreaView, { className: 'style' });
+// Note: react-native-safe-area-context's SafeAreaView is already registered for
+// NativeWind className support by react-native-css-interop/dist/runtime/components.js.
+// No manual cssInterop call needed here.
 
 // Use console.error so logs appear in Android logcat (ReactNativeJS:E) regardless
 // of whether Expo Go routes console.log to Metro terminal only.
