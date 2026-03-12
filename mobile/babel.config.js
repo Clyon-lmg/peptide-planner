@@ -1,5 +1,8 @@
 module.exports = function (api) {
-  api.cache(true);
+  // NOTE: api.cache(true) is intentionally absent. api.caller() below implicitly
+  // configures cache invalidation based on Metro's caller metadata (isNodeModule).
+  // Combining api.cache(true)/.forever() with api.caller() throws:
+  // "Caching has already been configured with .never or .forever()".
 
   // NativeWind's babel preset includes @babel/plugin-transform-react-jsx which
   // rewrites every file's JSX — including node_modules such as expo-router — to
