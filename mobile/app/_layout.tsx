@@ -1,6 +1,6 @@
 import '../global.css';
 import { useEffect, useState } from 'react';
-import { AppState, AppStateStatus, View } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -136,18 +136,18 @@ export default function RootLayout() {
   }, [isReady]);
 
   log('RootLayout — isReady:', isReady);
-  // Dark background during loading — if you see navy (#0f172a) the component IS
-  // rendering; if it stays white the component never mounts (module crash).
-  if (!isReady) return <View style={{ flex: 1, backgroundColor: '#0f172a' }} />;
-
+  // Always render the Stack so expo-router can fully initialise its route
+  // tree from the first render. Conditionally swapping a <View> placeholder
+  // for a <Stack> causes expo-router to lose the route-node context and throw
+  // "No filename found". The splash screen (preventAutoHideAsync above)
+  // covers the UI while auth is loading, so users never see an intermediate
+  // state.
   return (
     <>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="login"
-        />
+        <Stack.Screen name="login" />
       </Stack>
     </>
   );
