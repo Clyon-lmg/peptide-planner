@@ -1,7 +1,7 @@
 import '../global.css';
 import { useEffect, useState } from 'react';
 import { AppState, AppStateStatus, View } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
@@ -27,28 +27,29 @@ SplashScreen.preventAutoHideAsync();
 
 function useAuthGuard(session: Session | null, isReady: boolean) {
   const router = useRouter();
-  const segments = useSegments();
 
   useEffect(() => {
-    log('useAuthGuard effect — isReady:', isReady, 'session:', !!session, 'segments:', segments);
+    log('useAuthGuard effect — isReady:', isReady, 'session:', !!session);
     // Wait until auth check completes. By the time isReady is true (Supabase
     // resolved or 3 s safety timeout fired), the navigation container is
     // guaranteed to be mounted and ready.
+    //
+    // NOTE: useSegments() / usePathname() are intentionally avoided here.
+    // In expo-router 4.0.x both hooks call syncStoreRootState() during render,
+    // which dereferences store.navigationRef before it has been assigned by
+    // store.initialize(), crashing with "Cannot read property 'isReady' of
+    // undefined". useRouter() is safe because it only captures method
+    // references without touching navigationRef.
     if (!isReady) return;
 
-    const inTabs  = segments[0] === '(tabs)';
-    const inLogin = segments[0] === 'login';
-
-    if (!session && !inLogin) {
-      log('→ navigating to /login');
-      router.replace('/login');
-    } else if (session && !inTabs) {
+    if (session) {
       log('→ navigating to /(tabs)/');
       router.replace('/(tabs)/');
     } else {
-      log('→ no navigation needed');
+      log('→ navigating to /login');
+      router.replace('/login');
     }
-  }, [session, segments, isReady]);
+  }, [session, isReady]);
 }
 
 // ─── Root Layout ─────────────────────────────────────────────────────────────
